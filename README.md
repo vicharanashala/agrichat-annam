@@ -1,5 +1,5 @@
 # agrichat-annam
-🌱 Agricultural RAG Chatbot
+Agricultural RAG Chatbot
 A Retrieval-Augmented Generation (RAG) chatbot for answering agricultural queries using local LLMs (Ollama), ChromaDB for vector search, and a FastAPI web interface.
 
 Table of Contents
@@ -36,11 +36,9 @@ Usage
 Troubleshooting
 
 Features
-Local LLMs: Uses Ollama to run models like Gemma, Llama, or Mistral locally.
+Local LLMs: Uses Ollama to run models like Gemma, Llama locally.
 
 Vector Search: Stores and retrieves agricultural Q&A using ChromaDB and embeddings.
-
-Multilingual & Markdown Support: Handles Indian languages and presents answers in a readable format.
 
 Web Interface: User-friendly chat interface built with FastAPI and Jinja2 templates.
 
@@ -50,7 +48,7 @@ Project Structure
 text
 agri-chatbot/
 ├── data/
-│   └── chilli_rows.csv         # CSV with agricultural Q&A
+│   └── data.csv         # CSV with agricultural Q&A
 ├── chroma_db/                  # Chroma vector store directory
 ├── creating_database.py        # Script to build ChromaDB
 ├── main.py                     # Query handling logic
@@ -73,23 +71,19 @@ bash
 ollama --version
 2. Download LLM and Embedding Models
 bash
-ollama pull gemma:2b           # Small, fast LLM
-ollama pull nomic-embed-text   # Embedding model for vector search
+ollama pull gemma:1b           
+ollama pull nomic-embed-text   
 (You may choose other models as needed, e.g., llama3:8b, mistral:7b, etc.)
 
-3. Set Up Python Environment
-bash
-python -m venv venv
-source venv/bin/activate      # On Windows: venv\Scripts\activate
-4. Install Python Dependencies
+3. Install Python Dependencies
 bash
 pip install langchain chromadb pandas fastapi uvicorn python-multipart markdown
-5. Prepare Data
-Place your Q&A CSV (e.g., chilli_rows.csv) in the data/ directory.
+4. Prepare Data
+Place your Q&A CSV  in the data/ directory.
 
 The CSV should have columns: questions and answers.
 
-6. Build the Chroma Vector Database
+5. Build the Chroma Vector Database
 Run the script to convert your CSV to a vector database:
 
 bash
@@ -102,7 +96,7 @@ Generate embeddings for each Q&A pair,
 
 Store them in a persistent ChromaDB directory.
 
-7. Start the Web Application
+6. Start the Web Application
 bash
 uvicorn app:app --reload --port 8000
 Visit http://localhost:8000 in your browser.
@@ -199,12 +193,5 @@ Ensure you have pulled the correct model (ollama pull ...).
 ChromaDB path errors:
 Use absolute paths if needed, especially on Windows.
 
-Memory errors:
-Use smaller models (gemma:2b, tinyllama) if RAM is limited.
-
 Contributing
 Fork the repo, make changes, and submit a pull request.
-
-For new datasets, place your CSV in data/ and update the database using the build script.
-
-License
