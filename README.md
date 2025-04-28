@@ -1,197 +1,164 @@
 # agrichat-annam
-Agricultural RAG Chatbot
+# 🌱 AgriChat-Annam: Agricultural RAG Chatbot
+
 A Retrieval-Augmented Generation (RAG) chatbot for answering agricultural queries using local LLMs (Ollama), ChromaDB for vector search, and a FastAPI web interface.
 
-Table of Contents
-Features
+---
 
-Project Structure
+## Table of Contents
+- [Features](#features)
+- [Project Structure](#project-structure)
+- [Setup Instructions](#setup-instructions)
+  - [1. Install Ollama](#1-install-ollama)
+  - [2. Download LLM and Embedding Models](#2-download-llm-and-embedding-models)
+  - [3. Install Python Dependencies](#3-install-python-dependencies)
+  - [4. Prepare Data](#4-prepare-data)
+  - [5. Build the Chroma Vector Database](#5-build-the-chroma-vector-database)
+  - [6. Start the Web Application](#6-start-the-web-application)
+- [Code Explanation](#code-explanation)
+  - [Creating the Vector Database](#creating-the-vector-database)
+  - [Query Handling Logic](#query-handling-logic)
+  - [Web Interface (FastAPI)](#web-interface-fastapi)
+- [Usage](#usage)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
 
-Setup Instructions
+---
 
-1. Install Ollama
+## Features
+- **Local LLMs**: Uses Ollama to run models like Gemma, Llama locally
+- **Vector Search**: Stores and retrieves agricultural Q&A using ChromaDB and embeddings
+- **Web Interface**: User-friendly chat interface built with FastAPI and Jinja2 templates
+- **Privacy-Preserving**: All data and models run locally
 
-2. Download LLM and Embedding Models
+---
 
-3. Set Up Python Environment
-
-4. Install Python Dependencies
-
-5. Prepare Data
-
-6. Build the Chroma Vector Database
-
-7. Start the Web Application
-
-Code Explanation
-
-Creating the Vector Database
-
-Query Handling Logic
-
-Web Interface (FastAPI)
-
-Usage
-
-Troubleshooting
-
-Features
-Local LLMs: Uses Ollama to run models like Gemma, Llama locally.
-
-Vector Search: Stores and retrieves agricultural Q&A using ChromaDB and embeddings.
-
-Web Interface: User-friendly chat interface built with FastAPI and Jinja2 templates.
-
-Privacy-Preserving: All data and models run locally.
-
-Project Structure
-text
+## Project Structure
 agri-chatbot/
 ├── data/
-│   └── data.csv         # CSV with agricultural Q&A
-├── chroma_db/                  # Chroma vector store directory
-├── creating_database.py        # Script to build ChromaDB
-├── main.py                     # Query handling logic
-├── app.py                      # FastAPI web server
+│ └── data.csv # CSV with agricultural Q&A
+├── chroma_db/ # Chroma vector store directory
+├── creating_database.py # Script to build ChromaDB
+├── main.py # Query handling logic
+├── app.py # FastAPI web server
 ├── templates/
-│   └── index.html              # Web chat interface
-└── README.md                   # Project documentation
-Setup Instructions
-1. Install Ollama
-Linux:
+│ └── index.html # Web chat interface
+└── README.md # Project documentation
 
-bash
+text
+
+---
+
+## Setup Instructions
+
+### 1. Install Ollama
+**Linux:**
 curl -fsSL https://ollama.com/install.sh | sh
-Windows/Mac:
-Download and run the installer from https://ollama.com/download
 
-Verify Installation:
+text
 
-bash
+**Windows/Mac:**  
+Download installer from [ollama.ai](https://ollama.ai)
+
+**Verify Installation:**
 ollama --version
-2. Download LLM and Embedding Models
-bash
-ollama pull gemma:1b           
-ollama pull nomic-embed-text   
-(You may choose other models as needed, e.g., llama3:8b, mistral:7b, etc.)
 
-3. Install Python Dependencies
-bash
+text
+
+---
+
+### 2. Download LLM and Embedding Models
+ollama pull gemma:1b
+ollama pull nomic-embed-text
+
+text
+
+---
+
+### 3. Install Python Dependencies
 pip install langchain chromadb pandas fastapi uvicorn python-multipart markdown
-4. Prepare Data
-Place your Q&A CSV  in the data/ directory.
 
-The CSV should have columns: questions and answers.
+text
 
-5. Build the Chroma Vector Database
-Run the script to convert your CSV to a vector database:
+---
 
-bash
+### 4. Prepare Data
+1. Place your Q&A CSV in the `data/` directory
+2. Ensure CSV has columns: `questions` and `answers`
+
+---
+
+### 5. Build the Chroma Vector Database
 python creating_database.py
-This will:
 
-Read your CSV file,
+text
 
-Generate embeddings for each Q&A pair,
+---
 
-Store them in a persistent ChromaDB directory.
-
-6. Start the Web Application
-bash
+### 6. Start the Web Application
 uvicorn app:app --reload --port 8000
-Visit http://localhost:8000 in your browser.
 
-Code Explanation
-Creating the Vector Database (creating_database.py)
-Purpose: Convert CSV Q&A data into vector embeddings and store them in ChromaDB.
+text
+Visit [http://localhost:8000](http://localhost:8000)
 
-Key Classes:
+---
 
-OllamaEmbeddings: Wraps Ollama's embedding API for text.
+## Code Explanation
 
-ChromaDBBuilder: Loads CSV, creates LangChain Document objects, and stores them in ChromaDB using the embedding function.
+### Creating the Vector Database (`creating_database.py`)
+- Converts CSV Q&A data into vector embeddings
+- Uses `OllamaEmbeddings` wrapper for text embeddings
+- Stores documents in ChromaDB using `ChromaDBBuilder`
 
-Workflow:
+### Query Handling Logic (`main.py`)
+- `ChromaQueryHandler` class handles:
+  - Vector similarity search
+  - Result reranking
+  - LLM prompt construction
+  - Response generation via Ollama API
 
-Read each row from CSV.
+### Web Interface (FastAPI) (`app.py`)
+- FastAPI server with two endpoints:
+  - `GET /`: Renders chat interface
+  - `POST /query`: Processes user questions
+- Converts markdown responses to HTML
 
-Format as a document:
-Question: ...\nAnswer: ...
+---
 
-Generate embeddings using Ollama's nomic-embed-text model.
-
-Store in ChromaDB for fast retrieval.
-
-Query Handling Logic (main.py)
-Purpose: Retrieve relevant documents for a user question and generate a precise answer using an LLM.
-
-Key Classes:
-
-ChromaQueryHandler:
-
-Searches ChromaDB for relevant documents using vector similarity.
-
-Reranks results for relevance.
-
-Constructs a prompt with context and user question.
-
-Calls the LLM (via Ollama) to generate a concise, context-grounded answer.
-
-Workflow:
-
-User submits a question.
-
-Find top-matching documents from ChromaDB.
-
-Build a prompt with the context and question.
-
-Send prompt to LLM (e.g., Gemma, Llama) via Ollama API.
-
-Return the model's answer.
-
-Web Interface (FastAPI) (app.py)
-Purpose: Provide a web-based chat interface for users.
-
-Key Components:
-
-FastAPI server for HTTP endpoints.
-
-Jinja2 templates for rendering HTML.
-
-/ endpoint serves the homepage.
-
-/query endpoint processes user questions and displays answers.
-
-Workflow:
-
-User visits the homepage and enters a question.
-
-The question is sent to the /query endpoint.
-
-The backend retrieves an answer using ChromaQueryHandler.
-
-The answer is rendered in the chat interface.
-
-Usage
-Start Ollama server (if not running):
-
-bash
+## Usage
+1. Start Ollama server:
 ollama serve
-Start FastAPI app:
 
-bash
+text
+
+2. Launch application:
 uvicorn app:app --reload --port 8000
-Open http://localhost:8000 and interact with the chatbot.
 
-Troubleshooting
-Ollama not running:
-Run ollama serve in a separate terminal.
+text
 
-Model not found:
-Ensure you have pulled the correct model (ollama pull ...).
+3. Access chat interface at `http://localhost:8000`
 
-ChromaDB path errors:
-Use absolute paths if needed, especially on Windows.
+---
 
-Contributing
-Fork the repo, make changes, and submit a pull request.
+## Troubleshooting
+| Issue | Solution |
+|-------|----------|
+| Ollama not running | Run `ollama serve` in separate terminal |
+| Model not found | Verify with `ollama list` and pull required models |
+| ChromaDB path errors | Use absolute paths for Windows systems |
+| Low memory errors | Use smaller models like `gemma:1b` |
+
+---
+
+## Contributing
+1. Fork the repository
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Open a Pull Request
+
+---
+
+**License:** MIT  
+**Maintainer:** [Your Name]  
+**Documentation:** [Add Documentation Link if Available]
