@@ -10,18 +10,18 @@ import { themes as prismThemes } from 'prism-react-renderer';
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: 'RAG Chatbot',
+  title: 'Annam.ai',
   tagline: 'AI-driven Conversations for Knowledge Discovery',
   favicon: 'img/favicon.ico',
 
   // Set the production URL of your site here
-  url: 'https://rag-chatbot.example.com',
+  url: 'https://continuousactivelearning.github.io',
   // Set the /<baseUrl>/ pathname under which your site is served
-  baseUrl: '/',
+  baseUrl: '/aagrichat-annam',
 
   // GitHub pages deployment config.
-  organizationName: 'https://github.com/continuousactivelearning/agrichat-annam', // Usually your GitHub org/user name.
-  projectName: 'rag-chatbot', // Name of the RAG Chatbot project repo.
+  organizationName: 'continuousactivelearning', // Usually your GitHub org/user name.
+  projectName: 'agrichat-annam', // Name of the RAG Chatbot project repo.
 
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
