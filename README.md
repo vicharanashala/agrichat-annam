@@ -159,6 +159,3 @@ text
 
 ---
 
-**License:** MIT  
-**Maintainer:** [Your Name]  
-**Documentation:** [Add Documentation Link if Available]
