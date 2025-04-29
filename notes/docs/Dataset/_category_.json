@@ -1,8 +1,0 @@
-{
-    "label": "Dataset",
-    "position": 3,
-    "link": {
-      "type": "generated-index",
-      "description": "Dataset for training and testing the Agrichat-Annam model."
-    }
-  }
