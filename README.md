@@ -34,7 +34,7 @@ A Retrieval-Augmented Generation (RAG) chatbot for answering agricultural querie
 ---
 
 ## Project Structure
-agri-chatbot/
+```agri-chatbot/
 ├── data/
 │ └── data.csv # CSV with agricultural Q&A
 ├── chroma_db/ # Chroma vector store directory
@@ -44,7 +44,7 @@ agri-chatbot/
 ├── templates/
 │ └── index.html # Web chat interface
 └── README.md # Project documentation
-
+```
 text
 
 ---
