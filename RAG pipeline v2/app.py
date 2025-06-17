@@ -10,12 +10,12 @@ from main import ChromaQueryHandler
 app = FastAPI()
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory="template")
 
 query_handler = ChromaQueryHandler(
-    chroma_path=r"C:\Users\amank\Downloads\Agri-chatbot-versions\testCode\test_chroma_db_30000",
-    model_name="gemma3:27b",
-    base_url="http://192.168.1.67:11434/v1"
+    chroma_path=r"C:\Users\amank\agrichat-annam\RAG pipeline v2\ChromaDb",
+    model_name="gemma3:4b",
+    base_url="http://localhost:11434/v1"
 )
 
 @app.get("/", response_class=HTMLResponse)
