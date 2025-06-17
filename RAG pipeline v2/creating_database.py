@@ -57,8 +57,10 @@ class ChromaDBBuilder:
 
 
 if __name__ == "__main__":
-    csv_file = r"/Users/madhurthareja/itachicmd/agrichat-annam/RAG pipeline v2/data/sample_data.csv"
-    storage_dir = r"/Users/madhurthareja/itachicmd/agrichat-annam/RAG pipeline v2/chroma_db"
+
+    csv_file = r"C:\Users\amank\agrichat-annam\RAG pipeline v2\data\sample_data.csv"
+    storage_dir = r"C:\Users\amank\agrichat-annam\RAG pipeline v2\ChromaDb"
+
 
     builder = ChromaDBBuilder(csv_path=csv_file, persist_dir=storage_dir)
     builder.load_csv_to_documents()
