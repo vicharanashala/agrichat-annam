@@ -26,7 +26,7 @@ class ChromaDBBuilder:
     def __init__(self, csv_path, persist_dir, base_url='http://localhost:11434/v1'):
         self.csv_path = csv_path
         self.persist_dir = persist_dir
-        self.client = OpenAI(base_url=base_url)
+        self.client = OpenAI(base_url=base_url, api_key="ollama") 
         self.embedding_function = OllamaEmbeddings(self.client)
         self.documents = []
 
@@ -57,8 +57,8 @@ class ChromaDBBuilder:
 
 
 if __name__ == "__main__":
-    csv_file = r"C:\Users\amank\Downloads\Agri-chatbot-versions\Agri-chatbot\data\chilli_rows.csv"
-    storage_dir = r"C:\Users\amank\Downloads\Agri-chatbot-versions\testCode\test_chroma_db_Chilli-data"
+    csv_file = r"/Users/madhurthareja/itachicmd/agrichat-annam/RAG pipeline v2/data/sample_data.csv"
+    storage_dir = r"/Users/madhurthareja/itachicmd/agrichat-annam/RAG pipeline v2/chroma_db"
 
     builder = ChromaDBBuilder(csv_path=csv_file, persist_dir=storage_dir)
     builder.load_csv_to_documents()
