@@ -16,8 +16,8 @@ templates = Jinja2Templates(directory="templates")
 
 query_handler = ChromaQueryHandler(
     chroma_path=r"/Users/madhurthareja/itachicmd/agrichat-annam/RAG pipeline v2/chroma_db",
-    model_name="gemma:latest",
-    base_url="'http://localhost:11434/v1",
+    model_name="gemma3:1b",
+    base_url="http://localhost:11434/v1",
 )
 
 @app.get("/", response_class=HTMLResponse)
