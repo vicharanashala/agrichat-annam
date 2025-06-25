@@ -14,6 +14,7 @@
       <div class="sidebar-title">
         <i class="fas fa-history"></i>
         Recent Sessions
+        <button class="sidebar-close-btn" id="sidebarCloseBtn"><i class="fas fa-times"></i></button>
       </div>
       <div class="sidebar-controls">
         <button class="btn btn-new" id="new-session-btn">
@@ -82,19 +83,67 @@
 
   <script src="js/script.js"></script>
   <script>
-    document.getElementById('sidebarToggle').addEventListener('click', function () {
-      const sidebar = document.getElementById('sidebar');
-      const body = document.body;
-      const icon = document.getElementById('sidebarIcon');
+    const sidebar = document.getElementById('sidebar');
+    const toggleBtn = document.getElementById('sidebarToggle');
+    const closeBtn = document.getElementById('sidebarCloseBtn');
+    const backdrop = document.getElementById('backdrop');
+    const body = document.body;
 
-      const visible = sidebar.classList.toggle('collapsed');
-      body.classList.toggle('sidebar-collapsed', visible);
-      icon.className = visible ? 'fas fa-bars' : 'fas fa-times';
+    function isMobileView() {
+      return window.innerWidth <= 768;
+    }
+
+    function openSidebar() {
+      if (isMobileView()) {
+        sidebar.classList.add('show');
+        backdrop.classList.add('show');
+        body.classList.add('sidebar-open');
+      } else {
+        sidebar.classList.remove('collapsed');
+        body.classList.remove('sidebar-collapsed');
+      }
+    }
+
+    function closeSidebar() {
+      if (isMobileView()) {
+        sidebar.classList.remove('show');
+        backdrop.classList.remove('show');
+        body.classList.remove('sidebar-open');
+      } else {
+        sidebar.classList.add('collapsed');
+        body.classList.add('sidebar-collapsed');
+      }
+    }
+
+    toggleBtn.addEventListener('click', () => {
+      const isVisible = sidebar.classList.contains('show');
+      if (isMobileView()) {
+        isVisible ? closeSidebar() : openSidebar();
+      } else {
+        sidebar.classList.toggle('collapsed');
+        body.classList.toggle('sidebar-collapsed');
+      }
+    });
+
+    if (closeBtn) {
+      closeBtn.addEventListener('click', closeSidebar);
+    }
+
+    backdrop.addEventListener('click', closeSidebar);
+
+    window.addEventListener('resize', () => {
+      if (!isMobileView()) {
+        closeSidebar();
+      }
     });
   </script>
-  <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+
+
+<div id="loadingOverlay" class="loading-overlay" style="display: none;">
   <div class="spinner"></div>
 </div>
+<div id="backdrop" class="backdrop"></div>
+
 
 </body>
 </html>

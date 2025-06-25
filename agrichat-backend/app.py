@@ -6,6 +6,7 @@ from uuid import uuid4
 from datetime import datetime
 from bs4 import BeautifulSoup
 #from {// main.py path} import ChromaQueryHandler
+from RAGpipelinev3.main import ChromaQueryHandler
 import markdown
 import csv
 from io import StringIO

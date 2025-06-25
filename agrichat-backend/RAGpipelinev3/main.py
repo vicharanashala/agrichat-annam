@@ -3,7 +3,7 @@ from openai import OpenAI
 from pprint import pprint
 import numpy as np
 from numpy.linalg import norm
-from ollama_embedding import OllamaEmbeddings
+from .ollama_embedding import OllamaEmbeddings
 
 
 class ChromaQueryHandler:
