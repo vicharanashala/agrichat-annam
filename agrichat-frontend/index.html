@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AgriChat - Your Farming Assistant</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body class="sidebar-collapsed">
+  <aside class="sidebar collapsed" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">
+        <i class="fas fa-history"></i>
+        Recent Sessions
+        <button class="sidebar-close-btn" id="sidebarCloseBtn"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="sidebar-controls">
+        <button class="btn btn-new" id="new-session-btn">
+          <i class="fas fa-plus"></i>
+          New Chat
+        </button>
+        <button class="btn btn-toggle" id="viewToggle">
+          <i class="fas fa-eye"></i>
+          <span id="viewToggleText">Active</span>
+        </button>
+      </div>
+    </div>
+    <div class="sessions-container" id="sessionsContainer">
+      <div id="activeSessions"></div>
+      <div id="archivedSessions" style="display: none;"></div>
+      <div class="no-sessions" id="noSessions" style="display: none;">
+        <div class="icon"><i class="fas fa-inbox"></i></div>
+        <p>No sessions found</p>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main-container">
+    <header class="main-header">
+      <div class="header-left">
+        <button class="sidebar-toggle" id="sidebarToggle">
+          <i class="fas fa-bars" id="sidebarIcon"></i>
+        </button>
+        <h1 class="main-title">
+          <i class="fas fa-seedling"></i>
+          AgriChat
+        </h1>
+      </div>
+      <a class="export-button" id="exportBtn" style="display: none;">
+        <i class="fas fa-download"></i>
+        Export CSV
+      </a>
+    </header>
+
+    <div class="chat-area">
+      <div class="archived-notice" id="archivedNotice" style="display: none;">
+        <div class="icon"><i class="fas fa-archive"></i></div>
+        <h3>This session is archived</h3>
+        <p>You need to restore this session before you can continue the conversation.</p>
+        <button id="restoreBtn"><i class="fas fa-undo"></i> Restore Session</button>
+      </div>
+
+      <div class="chat-window" id="chatWindow" style="display: none;"></div>
+
+      <form id="chat-form" class="chat-form" style="display: none;">
+        <textarea id="user-input" placeholder="Ask your agricultural question here..." required rows="3"></textarea>
+        <button type="submit"><i class="fas fa-paper-plane"></i> Send</button>
+      </form>
+
+      <div class="start-screen" id="startScreen">
+        <div class="icon"><i class="fas fa-seedling"></i></div>
+        <h2>Welcome to AgriChat</h2>
+        <p>Your intelligent farming assistant is here to help you with agricultural queries, crop management, and farming best practices.</p>
+        <form id="start-form" class="chat-form" style="max-width: 600px; margin: 0 auto;">
+          <textarea name="question" placeholder="Ask me anything about farming, crops, soil, weather, or agricultural practices..." required rows="3"></textarea>
+          <button type="submit"><i class="fas fa-seedling"></i> Start Chat</button>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <script src="./script.js"></script>
+  <script>
+    const sidebar = document.getElementById('sidebar');
+    const toggleBtn = document.getElementById('sidebarToggle');
+    const closeBtn = document.getElementById('sidebarCloseBtn');
+    const backdrop = document.getElementById('backdrop');
+    const body = document.body;
+
+    function isMobileView() {
+      return window.innerWidth <= 768;
+    }
+
+    function openSidebar() {
+      if (isMobileView()) {
+        sidebar.classList.add('show');
+        backdrop.classList.add('show');
+        body.classList.add('sidebar-open');
+      } else {
+        sidebar.classList.remove('collapsed');
+        body.classList.remove('sidebar-collapsed');
+      }
+    }
+
+    function closeSidebar() {
+      if (isMobileView()) {
+        sidebar.classList.remove('show');
+        backdrop.classList.remove('show');
+        body.classList.remove('sidebar-open');
+      } else {
+        sidebar.classList.add('collapsed');
+        body.classList.add('sidebar-collapsed');
+      }
+    }
+
+    toggleBtn.addEventListener('click', () => {
+      const isVisible = sidebar.classList.contains('show');
+      if (isMobileView()) {
+        isVisible ? closeSidebar() : openSidebar();
+      } else {
+        sidebar.classList.toggle('collapsed');
+        body.classList.toggle('sidebar-collapsed');
+      }
+    });
+
+    if (closeBtn) {
+      closeBtn.addEventListener('click', closeSidebar);
+    }
+
+    backdrop.addEventListener('click', closeSidebar);
+
+    window.addEventListener('resize', () => {
+      if (!isMobileView()) {
+        closeSidebar();
+      }
+    });
+  </script>
+
+
+<div id="loadingOverlay" class="loading-overlay" style="display: none;">
+  <div class="spinner"></div>
+</div>
+<div id="backdrop" class="backdrop"></div>
+
+
+</body>
+</html>
