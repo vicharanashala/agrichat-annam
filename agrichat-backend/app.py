@@ -15,7 +15,7 @@ import os
 
 # client = MongoClient("mongodb://localhost:27017/")
 MONGO_URI = os.getenv("MONGO_URI")
-client = MongoClient(MONGO_URI,tls=True)
+client = MongoClient(MONGO_URI)
 db = client["agrichat"]
 sessions_collection = db["sessions"]
 
