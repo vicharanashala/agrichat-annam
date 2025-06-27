@@ -46,29 +46,34 @@ You are an AI assistant specialized in agricultural advisory. Use only the provi
 """
 
     def __init__(self, chroma_path: str, gemini_api_key: str, embedding_model: str = "models/text-embedding-004", chat_model: str = "gemma-3-27b-it"):
-        self.chat_model = chat_model
-        self.relevance_threshold = 0.5
+        try: 
+            self.chat_model = chat_model
+            self.relevance_threshold = 0.5
+            print("Using Gemini API key:", gemini_api_key[:5]) 
+            print("Creating embeddings...")
+            self.embedding_function = GoogleGenerativeAIEmbeddings(
+                model=embedding_model,
+                google_api_key=gemini_api_key
+            )
+            print("Embeddings ready.")
 
-        self.embedding_function = GoogleGenerativeAIEmbeddings(
-            model=embedding_model,
-            google_api_key=gemini_api_key
-        )
+            genai.configure(api_key=gemini_api_key)
+            self.genai_model = genai.GenerativeModel(self.chat_model)
 
-        genai.configure(api_key=gemini_api_key)
-        self.genai_model = genai.GenerativeModel(self.chat_model)
-
-        self.db = Chroma(
-            persist_directory=chroma_path,
-            embedding_function=self.embedding_function,
-        )
-        col = self.db._collection.get()["metadatas"]
-        self.meta_index = {
-            field: {m[field] for m in col if field in m and m[field]}
-            for field in [
-                "Year","Month","Day",
-                "Crop","DistrictName","Season","Sector","StateName"
-            ]
-        }
+            self.db = Chroma(
+                persist_directory=chroma_path,
+                embedding_function=self.embedding_function,
+            )
+            col = self.db._collection.get()["metadatas"]
+            self.meta_index = {
+                field: {m[field] for m in col if field in m and m[field]}
+                for field in [
+                    "Year","Month","Day",
+                    "Crop","DistrictName","Season","Sector","StateName"
+                ]
+            }
+        except Exception as e:
+            print(f"[gemini init error] {e}")
 
     def _create_metadata_filter(self, question):
         q = question.lower()
