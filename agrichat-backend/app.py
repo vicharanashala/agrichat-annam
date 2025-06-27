@@ -1,35 +1,74 @@
 from fastapi import FastAPI, Request, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
+from contextlib import asynccontextmanager
 from pymongo import MongoClient
 from uuid import uuid4
 from datetime import datetime
 from bs4 import BeautifulSoup
 #from {// main.py path} import ChromaQueryHandler
-from RAGpipelinev3.main import ChromaQueryHandler
+from RAGpipelinev3.Gemini_based_processing.main import ChromaQueryHandler
 import markdown
 import csv
 from io import StringIO
+import os
 
-app = FastAPI()
+# client = MongoClient("mongodb://localhost:27017/")
+MONGO_URI = os.getenv("MONGO_URI")
+client = MongoClient(MONGO_URI)
+db = client["agrichat"]
+sessions_collection = db["sessions"]
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    from threading import Thread
+    def run_background_task():
+        import time
+        while True:
+            try:
+                stats = db.command("collstats", "sessions")
+                total_docs = stats.get("count", 0)
+                index_size = stats.get("totalIndexSize", 0)
+                storage_size = stats.get("storageSize", 1)
+                ratio = index_size / storage_size
+                print(f"[Reindex Monitor] Ratio: {ratio:.2f}")
+
+                if total_docs > 1000 and ratio > 2.0:
+                    print("[Reindexing...]")
+                    result = db.command({"reIndex": "sessions"})
+                    print(f"[Reindex Done] {result}")
+                else:
+                    print("[Reindex Skipped]")
+            except Exception as e:
+                print(f"[Reindex Error] {e}")
+            time.sleep(86400*30)  # Sleep for 30 days
+
+    Thread(target=run_background_task, daemon=True).start()
+    yield
+
+app = FastAPI(lifespan=lifespan)
+
+origins = [
+    "https://agrichat-annam.vercel.app",
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-client = MongoClient("mongodb://localhost:27017/")
-db = client["agrichat"]
-sessions_collection = db["sessions"]
-
 query_handler = ChromaQueryHandler(
-    chroma_path="./chroma_db",
-    model_name="gemma:2b",
-    base_url="http://localhost:11434/v1",
+    chroma_path=".chroma_db",
+    gemini_api_key=os.getenv("GEMINI_API_KEY")
 )
+# query_handler = ChromaQueryHandler(
+#     chroma_path="./chroma_db",
+#     model_name="gemma:2b",
+#     base_url="http://localhost:11434/v1",
+# )
 
 def clean_session(s):
     s["_id"] = str(s["_id"])
@@ -51,7 +90,7 @@ async def new_session(question: str = Form(...)):
     answer_only = raw_answer.split("</think>")[-1].strip() if "</think>" in raw_answer else raw_answer.strip()
     html_answer = markdown.markdown(answer_only, extensions=["extra", "nl2br"])
     crop = "unknown"
-    state = "unkonwn"
+    state = "unknown"
     session = {
         "session_id": session_id,
         "timestamp": datetime.now(),
@@ -139,3 +178,10 @@ async def export_csv(session_id: str):
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+    
+@app.delete("/api/delete-session/{session_id}")
+async def delete_session(session_id: str):
+    result = sessions_collection.delete_one({"session_id":session_id})
+    if result.deleted_count == 0:
+        return JSONResponse(status_code=404, content={"error":"Session not found"})
+    return {"message": "Session deleted successfully"}

@@ -1,4 +1,5 @@
-const API_BASE = "http://localhost:8000/api";
+const API_BASE = "https://agrichat-annam.onrender.com/api";
+// const API_BASE = "http://localhost:8000/api";
 
 let currentSession = null;
 let showingArchived = false;
@@ -32,10 +33,8 @@ async function loadSessions() {
       </div>
     </a>
     <div class="session-actions">
-      <div class="session-status">
-        <i class="fas fa-circle" style="color: ${s.status === "archived" ? "#999" : "#28a745"}; font-size: 8px;"></i>
-        ${s.status.charAt(0).toUpperCase() + s.status.slice(1)}
-      </div>
+      <button class="btn-delete" onclick="deleteSession('${s.session_id}')"><i class="fas fa-trash"></i> Delete
+      </button>
       <button class="${s.status === "archived" ? "btn-unarchive" : "btn-archive"}" onclick="toggleSessionStatus('${s.session_id}', '${s.status}')">
         <i class="fas ${s.status === "archived" ? "fa-undo" : "fa-archive"}"></i>
         ${s.status === "archived" ? "Restore" : "Archive"}
@@ -91,6 +90,23 @@ async function toggleSessionStatus(session_id, currentStatus) {
   document.getElementById("archivedSessions").style.display = "none";
     loadChat(currentSession);
     }
+  loadSessions();
+}
+
+async function deleteSession(session_id){
+  const confirmed = confirm("Are you sure you want to delete this session?");
+  if (!confirmed) return;
+  await fetch(`${API_BASE}/delete-session/${session_id}`,{
+    method:"DELETE"
+  });
+  if(currentSession?.session_id === session_id){
+    currentSession=null;
+    document.getElementById("chatWindow").style.display = "none";
+    document.getElementById("chat-form").style.display = "none";
+    document.getElementById("archivedNotice").style.display = "none";
+    document.getElementById("exportBtn").style.display = "none";
+    document.getElementById("startScreen").style.display = "block";
+  }
   loadSessions();
 }
 
