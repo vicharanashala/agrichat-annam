@@ -1,10 +1,10 @@
 from langchain_community.vectorstores import Chroma
-from openai import OpenAI
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+import google.generativeai as genai
 from pprint import pprint
 import numpy as np
 from numpy.linalg import norm
-from ollama_embedding import OllamaEmbeddings
-
+import os
 
 class ChromaQueryHandler:
     PROMPT_TEMPLATE = """
@@ -45,15 +45,21 @@ You are an AI assistant specialized in agricultural advisory. Use only the provi
 ### Your Answer:
 """
 
-    def __init__(self, chroma_path: str, model_name : str="gemma3:4b", base_url:str='http://localhost:11434/v1'):
-        self.model_name = model_name
+    def __init__(self, chroma_path: str, gemini_api_key: str, embedding_model: str = "models/text-embedding-004", chat_model: str = "gemma-3-27b-it"):
+        self.chat_model = chat_model
         self.relevance_threshold = 0.5
-        self.client = OpenAI(base_url=base_url, api_key='ollama')
-        self.embedding_function = OllamaEmbeddings(self.client)
-        
+
+        self.embedding_function = GoogleGenerativeAIEmbeddings(
+            model=embedding_model,
+            google_api_key=gemini_api_key
+        )
+
+        genai.configure(api_key=gemini_api_key)
+        self.genai_model = genai.GenerativeModel(self.chat_model)
+
         self.db = Chroma(
             persist_directory=chroma_path,
-            embedding_function = self.embedding_function,
+            embedding_function=self.embedding_function,
         )
         col = self.db._collection.get()["metadatas"]
         self.meta_index = {
@@ -107,30 +113,25 @@ You are an AI assistant specialized in agricultural advisory. Use only the provi
         if not relevant_docs:
             return "No relevant information found in the knowledge base."
 
-        # print("relevant_docs: ", relevant_docs)
         md  = relevant_docs[0].metadata
-        # print(md)
         context = relevant_docs[0].page_content
 
-        # pprint(f"Context: {context}")
-
         prompt = self.construct_prompt(md, context, question)
-        messages = [
-            {"role": "system",  "content": "You are a helpful assistant who answers agricultural questions using only the context provided."},
-            {"role": "user",    "content": prompt}
-        ]
-        resp = self.client.chat.completions.create(
-            model=self.model_name,
-            messages=messages,
-            temperature=0.3
-        )
-        return resp.choices[0].message.content.strip()
 
+        response = self.genai_model.generate_content(
+            contents=prompt,
+            generation_config=genai.GenerationConfig(
+                temperature=0.3,
+                max_output_tokens=1024,
+            )
+        )
+        return response.text.strip()
 
 if __name__ == "__main__":
     chroma_path = r"agrichat-backend\RAG pipeline v3\chromaDb"
-    question = "yellow mosaic virus in greengram"
+    question = "Give information regarding wheat cultivation, any disease and their cure all information related?"
+    gemini_api_key = "AIzaSyDZ2ZOEd9bIwOAHmk4wjVuKrpAP4x56EPI"
 
-    query_handler = ChromaQueryHandler(chroma_path)
+    query_handler = ChromaQueryHandler(chroma_path, gemini_api_key)
     answer = query_handler.get_answer(question)
     pprint(f"Answer: {answer}")
