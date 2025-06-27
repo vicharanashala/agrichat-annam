@@ -60,3 +60,4 @@ if __name__ == "__main__":
     builder = ChromaDBBuilder(csv_path=csv_file, persist_dir=storage_dir)
     builder.load_csv_to_documents()
     builder.store_documents_to_chroma()
+
