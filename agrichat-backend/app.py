@@ -15,15 +15,15 @@ import os
 
 # client = MongoClient("mongodb://localhost:27017/")
 MONGO_URI = os.getenv("MONGO_URI")
-client = MongoClient(MONGO_URI)
+client = MongoClient(MONGO_URI,tls=True)
 db = client["agrichat"]
 sessions_collection = db["sessions"]
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from threading import Thread
+    import time
     def run_background_task():
-        import time
         while True:
             try:
                 stats = db.command("collstats", "sessions")
