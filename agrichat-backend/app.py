@@ -63,10 +63,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+chroma_path=".chroma_db"
+if not os.path.exists(chroma_path):
+    print(f"[Warning] chroma_path '{chroma_path}' does not exist!")
+
 query_handler = ChromaQueryHandler(
-    chroma_path=".chroma_db",
+    chroma_path=chroma_path,
     gemini_api_key=os.getenv("GEMINI_API_KEY")
 )
+
 # query_handler = ChromaQueryHandler(
 #     chroma_path="./chroma_db",
 #     model_name="gemma:2b",
