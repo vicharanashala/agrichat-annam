@@ -24,6 +24,7 @@ async def lifespan(app: FastAPI):
     from threading import Thread
     import time
     def run_background_task():
+        time.sleep(10)
         while True:
             try:
                 stats = db.command("collstats", "sessions")
@@ -50,6 +51,7 @@ app = FastAPI(lifespan=lifespan)
 
 origins = [
     "https://agrichat-annam.vercel.app",
+    "https://agrichat-annam.onrender.com"
 ]
 
 app.add_middleware(
