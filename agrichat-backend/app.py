@@ -63,7 +63,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-chroma_path=".chroma_db"
+chroma_path="./chroma_db"
 if not os.path.exists(chroma_path):
     print(f"[Warning] chroma_path '{chroma_path}' does not exist!")
 
