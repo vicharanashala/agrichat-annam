@@ -121,6 +121,7 @@ You are an AI assistant specialized in agricultural advisory. Use only the provi
 
     def get_answer(self, question: str) -> str:
         try:
+            print("[INFO] in get_answer")
             metadata_filter = self._create_metadata_filter(question)
             raw_results = self.db.similarity_search_with_score(question, k=10, filter=metadata_filter)
             relevant_docs = self.rerank_documents(question, raw_results)
@@ -136,7 +137,7 @@ You are an AI assistant specialized in agricultural advisory. Use only the provi
             context = relevant_docs[0].page_content
 
             prompt = self.construct_prompt(md, context, question)
-
+            print("[INFO] generating genai content")
             response = self.genai_model.generate_content(
                 contents=prompt,
                 generation_config=genai.GenerationConfig(
@@ -144,6 +145,7 @@ You are an AI assistant specialized in agricultural advisory. Use only the provi
                     max_output_tokens=1024,
                 )
             )
+            print("[INFO] got genai content")
             return response.text.strip()
         except Exception as e:
             logger.error(f"[get_answer Error] {e}")
