@@ -15,6 +15,20 @@ import os
 import certifi
 from contextlib import asynccontextmanager
 
+origins = [
+    "https://agrichat-annam.vercel.app"
+]
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    # allow_origins=origins,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # client = MongoClient("mongodb://localhost:27017/")
 MONGO_URI = os.getenv("MONGO_URI")
 client = MongoClient(MONGO_URI, tlsCAFile=certifi.where())
@@ -51,26 +65,12 @@ sessions_collection = db["sessions"]
 #     yield
 
 # app = FastAPI(lifespan=lifespan)
-app = FastAPI()
+
 @app.middleware("http")
 async def log_origin_and_path(request: Request, call_next):
     print(f"[REQUEST] {request.method} {request.url} | Origin: {request.headers.get('origin')}")
     response = await call_next(request)
     return response
-
-
-origins = [
-    "https://agrichat-annam.vercel.app"
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    # allow_origins=origins,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # chroma_path="./chroma_db"
 # chroma_path="./RAGpipelinev3/Gemini_based_processing/chromaDb"
