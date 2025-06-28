@@ -44,6 +44,9 @@ import csv
 from io import StringIO
 import os
 import certifi
+from datetime import datetime
+import pytz
+IST = pytz.timezone("Asia/Kolkata")
 
 origins = [
     "https://agrichat-annam.vercel.app"
@@ -154,7 +157,7 @@ async def new_session(question: str = Form(...)):
     
     session = {
         "session_id": session_id,
-        "timestamp": datetime.now(),
+        "timestamp": datetime.now(IST),
         "messages": [{"question": question, "answer": html_answer}],
         "crop": "unknown",
         "state": "unknown",
