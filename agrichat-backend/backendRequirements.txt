@@ -16,3 +16,4 @@ gunicorn
 langchain_google_genai
 google.generativeai
 certifi
+pytz
