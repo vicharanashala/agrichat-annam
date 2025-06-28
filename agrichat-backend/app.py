@@ -52,6 +52,12 @@ sessions_collection = db["sessions"]
 
 # app = FastAPI(lifespan=lifespan)
 app = FastAPI()
+@app.middleware("http")
+async def log_origin_and_path(request: Request, call_next):
+    print(f"[REQUEST] {request.method} {request.url} | Origin: {request.headers.get('origin')}")
+    response = await call_next(request)
+    return response
+
 
 origins = [
     "https://agrichat-annam.vercel.app"
@@ -59,7 +65,8 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    # allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -119,6 +126,7 @@ def clean_session(s):
 
 @app.get("/api/sessions")
 async def list_sessions():
+    print("[INFO] /api/sessions route was hit")
     sessions = list(
     sessions_collection.find({}, {"session_id": 1, "timestamp": 1, "crop": 1, "state": 1, "status": 1, "has_unread": 1, "messages": {"$slice": 1}})
     .sort("timestamp", -1)
