@@ -172,7 +172,7 @@ window.addEventListener("DOMContentLoaded", () => {
     loadChat(currentSession);
     hideLoader();
     loadSessions();
-
+    textarea.value="";
   });
 
   document.getElementById("chat-form").addEventListener("submit", async (e) => {
