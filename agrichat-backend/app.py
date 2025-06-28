@@ -1,7 +1,26 @@
 from fastapi import FastAPI, Request, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
-app = FastAPI()
+# app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global query_handler
+    chroma_path = "./RAGpipelinev3/Gemini_based_processing/chromaDb"
+
+    if not os.path.exists(chroma_path):
+        print(f"[Warning] chroma_path '{chroma_path}' does not exist!")
+
+    query_handler = ChromaQueryHandler(
+        chroma_path=chroma_path,
+        gemini_api_key=os.getenv("GEMINI_API_KEY")
+    )
+    print("[Startup] QueryHandler initialized.")
+
+    yield
+
+    print("[Shutdown] App shutting down...")
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -86,30 +105,12 @@ async def log_origin_and_path(request: Request, call_next):
 #         gemini_api_key=os.getenv("GEMINI_API_KEY")
 #     )
 
-# @asynccontextmanager
-# async def lifespan(app: FastAPI):
-#     global query_handler
-#     chroma_path = "./RAGpipelinev3/Gemini_based_processing/chromaDb"
 
-#     if not os.path.exists(chroma_path):
-#         print(f"[Warning] chroma_path '{chroma_path}' does not exist!")
-
-#     query_handler = ChromaQueryHandler(
-#         chroma_path=chroma_path,
-#         gemini_api_key=os.getenv("GEMINI_API_KEY")
-#     )
-#     print("[Startup] QueryHandler initialized.")
-
-#     yield
-
-#     print("[Shutdown] App shutting down...")
-
-# app = FastAPI(lifespan=lifespan)
-chroma_path="./RAGpipelinev3/Gemini_based_processing/chromaDb"
-query_handler = ChromaQueryHandler(
-    chroma_path=chroma_path,
-    gemini_api_key=os.getenv("GEMINI_API_KEY")
-)
+# chroma_path="./RAGpipelinev3/Gemini_based_processing/chromaDb"
+# query_handler = ChromaQueryHandler(
+#     chroma_path=chroma_path,
+#     gemini_api_key=os.getenv("GEMINI_API_KEY")
+# )
 
 # query_handler = ChromaQueryHandler(
 #     chroma_path="./chroma_db",
