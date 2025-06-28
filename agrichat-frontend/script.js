@@ -1,11 +1,16 @@
 const API_BASE = "https://agrichat-annam.onrender.com/api";
 // const API_BASE = "http://localhost:8000/api";
 
+let deviceId = localStorage.getItem("agrichat_device_id");
+if (!deviceId) {
+  deviceId = crypto.randomUUID();
+  localStorage.setItem("agrichat_device_id", deviceId);
+}
 let currentSession = null;
 let showingArchived = false;
 
 async function loadSessions() {
-  const res = await fetch(`${API_BASE}/sessions`);
+  const res = await fetch(`${API_BASE}/sessions?device_id=${deviceId}`);
   const { sessions } = await res.json();
 
   const activeDiv = document.getElementById("activeSessions");
@@ -161,6 +166,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
     const formData = new FormData();
     formData.append("question", question);
+    formData.append("device_id", deviceId);
     showLoader();
     const res = await fetch(`${API_BASE}/query`, {
       method: "POST",
