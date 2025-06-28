@@ -110,8 +110,11 @@ You are an AI assistant specialized in agricultural advisory. Use only the provi
         return [doc for doc, _ in scored[:top_k]]
 
     def construct_prompt(self, metadata: dict, context: str, question: str) -> str:
+        fields = ["Year", "Month", "Day", "Crop", "DistrictName", "Season", "Sector", "StateName"]
+        safe_metadata = {field: metadata.get(field, "N/A") for field in fields}
+
         return self.PROMPT_TEMPLATE.format(
-            **metadata,
+            **safe_metadata,
             context=context,
             question=question
         )
@@ -139,7 +142,7 @@ You are an AI assistant specialized in agricultural advisory. Use only the provi
         return response.text.strip()
 
 if __name__ == "__main__":
-    chroma_path = r"agrichat-backend\RAG pipeline v3\chromaDb"
+    chroma_path = r"agrichat-backend/RAG pipeline v3/Gemini_based_processing/chromaDb"
     question = "Give information regarding wheat cultivation, any disease and their cure all information related?"
     gemini_api_key = "AIzaSyDZ2ZOEd9bIwOAHmk4wjVuKrpAP4x56EPI"
 
