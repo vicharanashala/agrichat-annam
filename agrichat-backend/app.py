@@ -109,6 +109,10 @@ app = FastAPI(lifespan=lifespan)
 #     base_url="http://localhost:11434/v1",
 # )
 
+@app.get("/")
+async def root():
+    return {"message": "AgriChat backend is running."}
+
 def clean_session(s):
     s["_id"] = str(s["_id"])
     return s
