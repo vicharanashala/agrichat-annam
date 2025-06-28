@@ -1,6 +1,16 @@
 from fastapi import FastAPI, Request, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    # allow_origins=origins,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 from contextlib import asynccontextmanager
 from pymongo import MongoClient
 from uuid import uuid4
@@ -18,16 +28,6 @@ from contextlib import asynccontextmanager
 origins = [
     "https://agrichat-annam.vercel.app"
 ]
-app = FastAPI()
-
-app.add_middleware(
-    CORSMiddleware,
-    # allow_origins=origins,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # client = MongoClient("mongodb://localhost:27017/")
 MONGO_URI = os.getenv("MONGO_URI")
@@ -86,25 +86,25 @@ async def log_origin_and_path(request: Request, call_next):
 #         gemini_api_key=os.getenv("GEMINI_API_KEY")
 #     )
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    global query_handler
-    chroma_path = "./RAGpipelinev3/Gemini_based_processing/chromaDb"
+# @asynccontextmanager
+# async def lifespan(app: FastAPI):
+#     global query_handler
+#     chroma_path = "./RAGpipelinev3/Gemini_based_processing/chromaDb"
 
-    if not os.path.exists(chroma_path):
-        print(f"[Warning] chroma_path '{chroma_path}' does not exist!")
+#     if not os.path.exists(chroma_path):
+#         print(f"[Warning] chroma_path '{chroma_path}' does not exist!")
 
-    query_handler = ChromaQueryHandler(
-        chroma_path=chroma_path,
-        gemini_api_key=os.getenv("GEMINI_API_KEY")
-    )
-    print("[Startup] QueryHandler initialized.")
+#     query_handler = ChromaQueryHandler(
+#         chroma_path=chroma_path,
+#         gemini_api_key=os.getenv("GEMINI_API_KEY")
+#     )
+#     print("[Startup] QueryHandler initialized.")
 
-    yield
+#     yield
 
-    print("[Shutdown] App shutting down...")
+#     print("[Shutdown] App shutting down...")
 
-app = FastAPI(lifespan=lifespan)
+# app = FastAPI(lifespan=lifespan)
 # query_handler = ChromaQueryHandler(
 #     chroma_path=chroma_path,
 #     gemini_api_key=os.getenv("GEMINI_API_KEY")
