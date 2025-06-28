@@ -120,26 +120,34 @@ You are an AI assistant specialized in agricultural advisory. Use only the provi
         )
 
     def get_answer(self, question: str) -> str:
-        metadata_filter = self._create_metadata_filter(question)
-        raw_results = self.db.similarity_search_with_score(question, k=10, filter=metadata_filter)
-        relevant_docs = self.rerank_documents(question, raw_results)
+        try:
+            metadata_filter = self._create_metadata_filter(question)
+            raw_results = self.db.similarity_search_with_score(question, k=10, filter=metadata_filter)
+            relevant_docs = self.rerank_documents(question, raw_results)
 
-        if not relevant_docs:
-            return "No relevant information found in the knowledge base."
+            if not relevant_docs:
+                return "No relevant information found in the knowledge base."
 
-        md  = relevant_docs[0].metadata
-        context = relevant_docs[0].page_content
+            md  = relevant_docs[0].metadata
+            missing = [f for f in ["Year", "Month", "Day", "Crop", "DistrictName", "Season", "Sector", "StateName"] if f not in md]
+            if missing:
+                logger.warning(f"[Metadata Warning] Missing fields in doc: {missing}")
 
-        prompt = self.construct_prompt(md, context, question)
+            context = relevant_docs[0].page_content
 
-        response = self.genai_model.generate_content(
-            contents=prompt,
-            generation_config=genai.GenerationConfig(
-                temperature=0.3,
-                max_output_tokens=1024,
+            prompt = self.construct_prompt(md, context, question)
+
+            response = self.genai_model.generate_content(
+                contents=prompt,
+                generation_config=genai.GenerationConfig(
+                    temperature=0.3,
+                    max_output_tokens=1024,
+                )
             )
-        )
-        return response.text.strip()
+            return response.text.strip()
+        except Exception as e:
+            logger.error(f"[get_answer Error] {e}")
+            return "I encountered an error while processing your query."
 
 if __name__ == "__main__":
     chroma_path = r"agrichat-backend/RAG pipeline v3/Gemini_based_processing/chromaDb"

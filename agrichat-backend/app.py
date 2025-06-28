@@ -138,23 +138,32 @@ async def list_sessions():
 @app.post("/api/query")
 async def new_session(question: str = Form(...)):
     session_id = str(uuid4())
-    raw_answer = query_handler.get_answer(question)
+    
+    try:
+        raw_answer = query_handler.get_answer(question)
+    except Exception as e:
+        import traceback
+        print(f"[ERROR] Failed to get answer: {e}")
+        traceback.print_exc()
+        return JSONResponse(status_code=500, content={"error": "LLM processing failed."})
+
     answer_only = raw_answer.split("</think>")[-1].strip() if "</think>" in raw_answer else raw_answer.strip()
     html_answer = markdown.markdown(answer_only, extensions=["extra", "nl2br"])
-    crop = "unknown"
-    state = "unknown"
+    
     session = {
         "session_id": session_id,
         "timestamp": datetime.now(),
         "messages": [{"question": question, "answer": html_answer}],
-        "crop": crop,
-        "state": state,
+        "crop": "unknown",
+        "state": "unknown",
         "status": "active",
         "has_unread": True,
     }
+
     sessions_collection.insert_one(session)
     session.pop("_id", None)
     return {"session": session}
+
 
 @app.get("/api/session/{session_id}")
 async def get_session(session_id: str):
