@@ -64,14 +64,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-chroma_path="./chroma_db"
+# chroma_path="./chroma_db"
+chroma_path="./RAGpipelinev3/Gemini_based_processing/chromaDb"
 if not os.path.exists(chroma_path):
     print(f"[Warning] chroma_path '{chroma_path}' does not exist!")
 
-query_handler = ChromaQueryHandler(
-    chroma_path=chroma_path,
-    gemini_api_key=os.getenv("GEMINI_API_KEY")
-)
+query_handler=None
+@app.on_event("startup")
+def startup_event():
+    global query_handler
+    query_handler = ChromaQueryHandler(
+        chroma_path="./chroma_db",
+        gemini_api_key=os.getenv("GEMINI_API_KEY")
+    )
+# query_handler = ChromaQueryHandler(
+#     chroma_path=chroma_path,
+#     gemini_api_key=os.getenv("GEMINI_API_KEY")
+# )
 
 # query_handler = ChromaQueryHandler(
 #     chroma_path="./chroma_db",
