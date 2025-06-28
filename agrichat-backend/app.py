@@ -95,11 +95,6 @@ async def log_origin_and_path(request: Request, call_next):
     response = await call_next(request)
     return response
 
-# chroma_path="./chroma_db"
-# chroma_path="./RAGpipelinev3/Gemini_based_processing/chromaDb"
-# if not os.path.exists(chroma_path):
-#     print(f"[Warning] chroma_path '{chroma_path}' does not exist!")
-
 # query_handler=None
 # @app.on_event("startup")
 # def startup_event():
