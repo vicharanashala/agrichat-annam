@@ -105,10 +105,11 @@ async def log_origin_and_path(request: Request, call_next):
 #     print("[Shutdown] App shutting down...")
 
 # app = FastAPI(lifespan=lifespan)
-# query_handler = ChromaQueryHandler(
-#     chroma_path=chroma_path,
-#     gemini_api_key=os.getenv("GEMINI_API_KEY")
-# )
+chroma_path="./RAGpipelinev3/Gemini_based_processing/chromaDb"
+query_handler = ChromaQueryHandler(
+    chroma_path=chroma_path,
+    gemini_api_key=os.getenv("GEMINI_API_KEY")
+)
 
 # query_handler = ChromaQueryHandler(
 #     chroma_path="./chroma_db",
