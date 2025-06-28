@@ -12,10 +12,12 @@ import markdown
 import csv
 from io import StringIO
 import os
+import certifi
 
 # client = MongoClient("mongodb://localhost:27017/")
 MONGO_URI = os.getenv("MONGO_URI")
-client = MongoClient(MONGO_URI,tls=True)
+client = MongoClient(MONGO_URI, tlsCAFile=certifi.where())
+print(client.list_database_names()) 
 db = client["agrichat"]
 sessions_collection = db["sessions"]
 
