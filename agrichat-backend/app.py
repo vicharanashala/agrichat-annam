@@ -66,9 +66,9 @@ app.add_middleware(
 )
 
 # chroma_path="./chroma_db"
-chroma_path="./RAGpipelinev3/Gemini_based_processing/chromaDb"
-if not os.path.exists(chroma_path):
-    print(f"[Warning] chroma_path '{chroma_path}' does not exist!")
+# chroma_path="./RAGpipelinev3/Gemini_based_processing/chromaDb"
+# if not os.path.exists(chroma_path):
+#     print(f"[Warning] chroma_path '{chroma_path}' does not exist!")
 
 # query_handler=None
 # @app.on_event("startup")
@@ -82,7 +82,7 @@ if not os.path.exists(chroma_path):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global query_handler
-    chroma_path = "./chroma_db"
+    chroma_path = "./RAGpipelinev3/Gemini_based_processing/chromaDb"
 
     if not os.path.exists(chroma_path):
         print(f"[Warning] chroma_path '{chroma_path}' does not exist!")

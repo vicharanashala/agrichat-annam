@@ -5,6 +5,9 @@ from pprint import pprint
 import numpy as np
 from numpy.linalg import norm
 import os
+import logging
+
+logger = logging.getLogger("uvicorn.error")
 
 class ChromaQueryHandler:
     PROMPT_TEMPLATE = """
@@ -47,6 +50,7 @@ You are an AI assistant specialized in agricultural advisory. Use only the provi
 
     def __init__(self, chroma_path: str, gemini_api_key: str, embedding_model: str = "models/text-embedding-004", chat_model: str = "gemma-3-27b-it"):
         try: 
+            logger.info("[Init] Starting ChromaQueryHandler...")
             self.chat_model = chat_model
             self.relevance_threshold = 0.5
             print("Using Gemini API key:", gemini_api_key[:5]) 
@@ -72,6 +76,8 @@ You are an AI assistant specialized in agricultural advisory. Use only the provi
                     "Crop","DistrictName","Season","Sector","StateName"
                 ]
             }
+            logger.info("[Init] Chroma DB created")
+
         except Exception as e:
             print(f"[gemini init error] {e}")
 
