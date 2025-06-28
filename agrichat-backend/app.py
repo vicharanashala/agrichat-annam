@@ -13,6 +13,7 @@ import csv
 from io import StringIO
 import os
 import certifi
+from contextlib import asynccontextmanager
 
 # client = MongoClient("mongodb://localhost:27017/")
 MONGO_URI = os.getenv("MONGO_URI")
@@ -69,14 +70,34 @@ chroma_path="./RAGpipelinev3/Gemini_based_processing/chromaDb"
 if not os.path.exists(chroma_path):
     print(f"[Warning] chroma_path '{chroma_path}' does not exist!")
 
-query_handler=None
-@app.on_event("startup")
-def startup_event():
+# query_handler=None
+# @app.on_event("startup")
+# def startup_event():
+#     global query_handler
+#     query_handler = ChromaQueryHandler(
+#         chroma_path="./chroma_db",
+#         gemini_api_key=os.getenv("GEMINI_API_KEY")
+#     )
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     global query_handler
+    chroma_path = "./chroma_db"
+
+    if not os.path.exists(chroma_path):
+        print(f"[Warning] chroma_path '{chroma_path}' does not exist!")
+
     query_handler = ChromaQueryHandler(
-        chroma_path="./chroma_db",
+        chroma_path=chroma_path,
         gemini_api_key=os.getenv("GEMINI_API_KEY")
     )
+    print("[Startup] QueryHandler initialized.")
+
+    yield
+
+    print("[Shutdown] App shutting down...")
+
+app = FastAPI(lifespan=lifespan)
 # query_handler = ChromaQueryHandler(
 #     chroma_path=chroma_path,
 #     gemini_api_key=os.getenv("GEMINI_API_KEY")
