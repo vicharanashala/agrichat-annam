@@ -192,6 +192,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
     const formData = new FormData();
     formData.append("question", question);
+    formData.append("device_id", deviceId);
     showLoader();
     const res = await fetch(`${API_BASE}/session/${currentSession.session_id}/query`, {
       method: "POST",
