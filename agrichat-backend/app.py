@@ -131,17 +131,20 @@ def clean_session(s):
     return s
 
 @app.get("/api/sessions")
-async def list_sessions():
+async def list_sessions(request: Request):
+    device_id = request.query_params.get("device_id")
+    if not device_id:
+        return JSONResponse(status_code=400, content={"error": "Device ID is required"})
     print("[INFO] /api/sessions route was hit")
     sessions = list(
-    sessions_collection.find({}, {"session_id": 1, "timestamp": 1, "crop": 1, "state": 1, "status": 1, "has_unread": 1, "messages": {"$slice": 1}})
+    sessions_collection.find({"device_id": device_id}, {"session_id": 1, "timestamp": 1, "crop": 1, "state": 1, "status": 1, "has_unread": 1, "messages": {"$slice": 1}})
     .sort("timestamp", -1)
     .limit(20)
     )
     return {"sessions": [clean_session(s) for s in sessions]}
 
 @app.post("/api/query")
-async def new_session(question: str = Form(...)):
+async def new_session(question: str = Form(...), device_id: str = Form(...)):
     session_id = str(uuid4())
     print("[INFO] /api/sessions route was hit")
     try:
@@ -163,6 +166,7 @@ async def new_session(question: str = Form(...)):
         "state": "unknown",
         "status": "active",
         "has_unread": True,
+        "device_id": device_id, 
     }
 
     sessions_collection.insert_one(session)
@@ -181,10 +185,10 @@ async def get_session(session_id: str):
 
 
 @app.post("/api/session/{session_id}/query")
-async def continue_session(session_id: str, question: str = Form(...)):
+async def continue_session(session_id: str, question: str = Form(...), device_id: str = Form(...)):
     session = sessions_collection.find_one({"session_id": session_id})
-    if not session or session.get("status") == "archived":
-        return JSONResponse(status_code=403, content={"error": "Session is archived or missing"})
+    if not session or session.get("status") == "archived" or session.get("device_id") != device_id:
+        return JSONResponse(status_code=403, content={"error": "Session is archived, missing or unauthorized"})
 
     raw_answer = query_handler.get_answer(question)
     answer_only = raw_answer.split("</think>")[-1].strip()
