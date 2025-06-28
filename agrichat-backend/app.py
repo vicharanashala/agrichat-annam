@@ -138,7 +138,7 @@ async def list_sessions():
 @app.post("/api/query")
 async def new_session(question: str = Form(...)):
     session_id = str(uuid4())
-    
+    print("[INFO] /api/sessions route was hit")
     try:
         raw_answer = query_handler.get_answer(question)
     except Exception as e:
