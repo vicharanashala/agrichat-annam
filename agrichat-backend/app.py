@@ -1,9 +1,20 @@
 from fastapi import FastAPI, Request, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
-
+from pymongo import MongoClient
+from uuid import uuid4
+from datetime import datetime
+from bs4 import BeautifulSoup
+#from {// main.py path} import ChromaQueryHandler
+from RAGpipelinev3.Gemini_based_processing.main import ChromaQueryHandler
+import markdown
+import csv
+from io import StringIO
+import os
+import certifi
+import pytz
+IST = pytz.timezone("Asia/Kolkata")
 from contextlib import asynccontextmanager
-# app = FastAPI()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global query_handler
@@ -21,9 +32,9 @@ async def lifespan(app: FastAPI):
     yield
 
     print("[Shutdown] App shutting down...")
-
 app = FastAPI(lifespan=lifespan)
 
+origins = ["https://agrichat-annam.vercel.app"]
 app.add_middleware(
     CORSMiddleware,
     # allow_origins=origins,
@@ -32,25 +43,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-from contextlib import asynccontextmanager
-from pymongo import MongoClient
-from uuid import uuid4
-from datetime import datetime
-from bs4 import BeautifulSoup
-#from {// main.py path} import ChromaQueryHandler
-from RAGpipelinev3.Gemini_based_processing.main import ChromaQueryHandler
-import markdown
-import csv
-from io import StringIO
-import os
-import certifi
-from datetime import datetime
-import pytz
-IST = pytz.timezone("Asia/Kolkata")
-
-origins = [
-    "https://agrichat-annam.vercel.app"
-]
 
 # client = MongoClient("mongodb://localhost:27017/")
 MONGO_URI = os.getenv("MONGO_URI")
@@ -86,30 +78,8 @@ sessions_collection = db["sessions"]
 
 #     Thread(target=run_background_task, daemon=True).start()
 #     yield
-
 # app = FastAPI(lifespan=lifespan)
 
-@app.middleware("http")
-async def log_origin_and_path(request: Request, call_next):
-    print(f"[REQUEST] {request.method} {request.url} | Origin: {request.headers.get('origin')}")
-    response = await call_next(request)
-    return response
-
-# query_handler=None
-# @app.on_event("startup")
-# def startup_event():
-#     global query_handler
-#     query_handler = ChromaQueryHandler(
-#         chroma_path="./chroma_db",
-#         gemini_api_key=os.getenv("GEMINI_API_KEY")
-#     )
-
-
-# chroma_path="./RAGpipelinev3/Gemini_based_processing/chromaDb"
-# query_handler = ChromaQueryHandler(
-#     chroma_path=chroma_path,
-#     gemini_api_key=os.getenv("GEMINI_API_KEY")
-# )
 
 # query_handler = ChromaQueryHandler(
 #     chroma_path="./chroma_db",
@@ -130,7 +100,6 @@ async def list_sessions(request: Request):
     device_id = request.query_params.get("device_id")
     if not device_id:
         return JSONResponse(status_code=400, content={"error": "Device ID is required"})
-    print("[INFO] /api/sessions route was hit")
     sessions = list(
     sessions_collection.find({"device_id": device_id}, {"session_id": 1, "timestamp": 1, "crop": 1, "state": 1, "status": 1, "has_unread": 1, "messages": {"$slice": 1}})
     .sort("timestamp", -1)
@@ -141,13 +110,9 @@ async def list_sessions(request: Request):
 @app.post("/api/query")
 async def new_session(question: str = Form(...), device_id: str = Form(...)):
     session_id = str(uuid4())
-    print("[INFO] /api/sessions route was hit")
     try:
         raw_answer = query_handler.get_answer(question)
     except Exception as e:
-        import traceback
-        print(f"[ERROR] Failed to get answer: {e}")
-        traceback.print_exc()
         return JSONResponse(status_code=500, content={"error": "LLM processing failed."})
 
     answer_only = raw_answer.split("</think>")[-1].strip() if "</think>" in raw_answer else raw_answer.strip()
@@ -200,7 +165,7 @@ async def continue_session(session_id: str, question: str = Form(...), device_id
                 "has_unread": True,
                 "crop": crop,
                 "state": state,
-                "timestamp": datetime.now()
+                "timestamp": datetime.now(IST)
             },
         },
     )
