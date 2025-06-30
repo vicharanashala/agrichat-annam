@@ -15,6 +15,7 @@ import certifi
 import pytz
 IST = pytz.timezone("Asia/Kolkata")
 from contextlib import asynccontextmanager
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global query_handler
@@ -49,37 +50,6 @@ MONGO_URI = os.getenv("MONGO_URI")
 client = MongoClient(MONGO_URI, tlsCAFile=certifi.where())
 db = client["agrichat"]
 sessions_collection = db["sessions"]
-
-# @asynccontextmanager
-# async def lifespan(app: FastAPI):
-#     from threading import Thread
-#     import time
-#     def run_background_task():
-#         ...
-#     #     time.sleep(10)
-#     #     while True:
-#     #         try:
-#     #             stats = db.command("collstats", "sessions")
-#     #             total_docs = stats.get("count", 0)
-#     #             index_size = stats.get("totalIndexSize", 0)
-#     #             storage_size = stats.get("storageSize", 1)
-#     #             ratio = index_size / storage_size
-#     #             print(f"[Reindex Monitor] Ratio: {ratio:.2f}")
-
-#     #             if total_docs > 1000 and ratio > 2.0:
-#     #                 print("[Reindexing...]")
-#     #                 result = db.command({"reIndex": "sessions"})
-#     #                 print(f"[Reindex Done] {result}")
-#     #             else:
-#     #                 print("[Reindex Skipped]")
-#     #         except Exception as e:
-#     #             print(f"[Reindex Error] {e}")
-#     #         time.sleep(86400*30)  # Sleep for 30 days
-
-#     Thread(target=run_background_task, daemon=True).start()
-#     yield
-# app = FastAPI(lifespan=lifespan)
-
 
 # query_handler = ChromaQueryHandler(
 #     chroma_path="./chroma_db",

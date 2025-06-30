@@ -53,7 +53,6 @@ You are an AI assistant specialized in agricultural advisory. Use only the provi
             logger.info("[Init] Starting ChromaQueryHandler...")
             self.chat_model = chat_model
             self.relevance_threshold = 0.5
-            print("Using Gemini API key:", gemini_api_key[:5]) 
             print("Creating embeddings...")
             self.embedding_function = GoogleGenerativeAIEmbeddings(
                 model=embedding_model,
@@ -79,7 +78,7 @@ You are an AI assistant specialized in agricultural advisory. Use only the provi
             logger.info("[Init] Chroma DB created")
 
         except Exception as e:
-            print(f"[gemini init error] {e}")
+            print(f"[Error] {e}")
 
     def _create_metadata_filter(self, question):
         q = question.lower()
@@ -121,7 +120,6 @@ You are an AI assistant specialized in agricultural advisory. Use only the provi
 
     def get_answer(self, question: str) -> str:
         try:
-            print("[INFO] in get_answer")
             metadata_filter = self._create_metadata_filter(question)
             raw_results = self.db.similarity_search_with_score(question, k=10, filter=metadata_filter)
             relevant_docs = self.rerank_documents(question, raw_results)
@@ -137,7 +135,6 @@ You are an AI assistant specialized in agricultural advisory. Use only the provi
             context = relevant_docs[0].page_content
 
             prompt = self.construct_prompt(md, context, question)
-            print("[INFO] generating genai content")
             response = self.genai_model.generate_content(
                 contents=prompt,
                 generation_config=genai.GenerationConfig(
@@ -145,10 +142,9 @@ You are an AI assistant specialized in agricultural advisory. Use only the provi
                     max_output_tokens=1024,
                 )
             )
-            print("[INFO] got genai content")
             return response.text.strip()
         except Exception as e:
-            logger.error(f"[get_answer Error] {e}")
+            logger.error(f"[Error] {e}")
             return "I encountered an error while processing your query."
 
 if __name__ == "__main__":
