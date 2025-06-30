@@ -13,6 +13,7 @@ from io import StringIO
 import os
 import certifi
 import pytz
+from dateutil import parser
 IST = pytz.timezone("Asia/Kolkata")
 from contextlib import asynccontextmanager
 
@@ -90,7 +91,7 @@ async def new_session(question: str = Form(...), device_id: str = Form(...)):
     
     session = {
         "session_id": session_id,
-        "timestamp": datetime.now(IST),
+        "timestamp": datetime.now(IST).isoformat(),
         "messages": [{"question": question, "answer": html_answer}],
         "crop": "unknown",
         "state": "unknown",
@@ -135,7 +136,7 @@ async def continue_session(session_id: str, question: str = Form(...), device_id
                 "has_unread": True,
                 "crop": crop,
                 "state": state,
-                "timestamp": datetime.now(IST)
+                "timestamp": datetime.now(IST).isoformat()
             },
         },
     )
@@ -168,7 +169,7 @@ async def export_csv(session_id: str):
     for i, msg in enumerate(session.get("messages", [])):
         q = msg["question"]
         a = BeautifulSoup(msg["answer"], "html.parser").get_text()
-        t = session["timestamp"].astimezone(IST).strftime("%Y-%m-%d %H:%M:%S") if i == 0 else ""
+        t = parser.isoparse(session["timestamp"]).astimezone(IST).strftime("%Y-%m-%d %H:%M:%S") if i == 0 else ""
         writer.writerow([q, a, t])
 
     output.seek(0)
