@@ -28,7 +28,7 @@ async function loadSessions() {
   container.innerHTML = `
     <a href="#" class="session-link">
       <div class="session-date">
-        <i class="fas fa-calendar"></i> ${new Date(s.timestamp).toLocaleString()}
+        <i class="fas fa-calendar"></i> ${new Date(s.timestamp).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}
       </div>
       <div class="session-preview">${s.messages?.[0]?.question?.slice(0, 50) || ""}...</div>
       <div class="badges">

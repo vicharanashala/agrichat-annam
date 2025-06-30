@@ -168,7 +168,7 @@ async def export_csv(session_id: str):
     for i, msg in enumerate(session.get("messages", [])):
         q = msg["question"]
         a = BeautifulSoup(msg["answer"], "html.parser").get_text()
-        t = session["timestamp"].strftime("%Y-%m-%d %H:%M:%S") if i == 0 else ""
+        t = session["timestamp"].astimezone(IST).strftime("%Y-%m-%d %H:%M:%S") if i == 0 else ""
         writer.writerow([q, a, t])
 
     output.seek(0)
