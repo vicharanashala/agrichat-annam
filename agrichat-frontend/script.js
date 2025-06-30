@@ -22,9 +22,6 @@ async function loadSessions() {
   let archivedCount = 0;
 
   sessions.forEach((s) => {
-  console.log("Raw timestamp:", s.timestamp);
-console.log("Parsed to local string:", new Date(s.timestamp).toLocaleString());
-console.log("Parsed with Asia/Kolkata:", new Date(s.timestamp).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }));
 
   const isActiveSession = currentSession?.session_id === s.session_id;
   const container = document.createElement("div");
