@@ -46,11 +46,12 @@ ollama pull nomic-embed-text
 
 ## Step 4: Set Up Knowledge Base
 
-1. Place your agricultural Q&A CSV file in `data/data.csv`
+1. Place your agricultural Q&A CSV file in `agrichat-backend/<current-pipeline>/data/sample_data.csv`
 2. Ensure the CSV has columns: `questions,answers`
 3. Build the vector database:
 
 ```bash
+cd agrichat-backend/<current-pipeline>
 python creating_database.py
 ```
 
@@ -67,7 +68,7 @@ ollama serve
 In your **main terminal**, start the FastAPI app:
 
 ```bash
-uvicorn app:app --reload --port 8000
+uvicorn agrichat-backend.app:app --reload --port 8000
 ```
 
 ---
