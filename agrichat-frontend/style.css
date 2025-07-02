@@ -18,6 +18,7 @@
   --warning: #ff6b35;
   --success: #28a745;
   --sidebar-width: 320px;
+  --delete: #e00f0f;
 }
 
 body {
@@ -241,6 +242,21 @@ body.sidebar-collapsed {
 
 .btn-unarchive:hover {
   background: rgba(40, 167, 69, 0.1);
+}
+
+.btn-delete {
+  background: none;
+  border: none;
+  font-size: 11px;
+  color: var(--delete);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.btn-delete:hover {
+  background: rgba(255, 107, 53, 0.1);
 }
 
 .main-container {

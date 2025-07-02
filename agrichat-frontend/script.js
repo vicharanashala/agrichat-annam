@@ -1,10 +1,16 @@
-const API_BASE = "http://localhost:8000/api";
+const API_BASE = "https://agrichat-annam.onrender.com/api";
+// const API_BASE = "http://localhost:8000/api";
 
+let deviceId = localStorage.getItem("agrichat_device_id");
+if (!deviceId) {
+  deviceId = crypto.randomUUID();
+  localStorage.setItem("agrichat_device_id", deviceId);
+}
 let currentSession = null;
 let showingArchived = false;
 
 async function loadSessions() {
-  const res = await fetch(`${API_BASE}/sessions`);
+  const res = await fetch(`${API_BASE}/sessions?device_id=${deviceId}`);
   const { sessions } = await res.json();
 
   const activeDiv = document.getElementById("activeSessions");
@@ -16,13 +22,14 @@ async function loadSessions() {
   let archivedCount = 0;
 
   sessions.forEach((s) => {
+
   const isActiveSession = currentSession?.session_id === s.session_id;
   const container = document.createElement("div");
   container.className = `session-entry  ${s.status === 'archived' ? 'archived' : ''} ${isActiveSession ? 'active' : ''}`;
   container.innerHTML = `
     <a href="#" class="session-link">
       <div class="session-date">
-        <i class="fas fa-calendar"></i> ${new Date(s.timestamp).toLocaleString()}
+        <i class="fas fa-calendar"></i> ${new Date(s.timestamp).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}
       </div>
       <div class="session-preview">${s.messages?.[0]?.question?.slice(0, 50) || ""}...</div>
       <div class="badges">
@@ -32,10 +39,8 @@ async function loadSessions() {
       </div>
     </a>
     <div class="session-actions">
-      <div class="session-status">
-        <i class="fas fa-circle" style="color: ${s.status === "archived" ? "#999" : "#28a745"}; font-size: 8px;"></i>
-        ${s.status.charAt(0).toUpperCase() + s.status.slice(1)}
-      </div>
+      <button class="btn-delete" onclick="deleteSession('${s.session_id}')"><i class="fas fa-trash"></i> Delete
+      </button>
       <button class="${s.status === "archived" ? "btn-unarchive" : "btn-archive"}" onclick="toggleSessionStatus('${s.session_id}', '${s.status}')">
         <i class="fas ${s.status === "archived" ? "fa-undo" : "fa-archive"}"></i>
         ${s.status === "archived" ? "Restore" : "Archive"}
@@ -94,6 +99,23 @@ async function toggleSessionStatus(session_id, currentStatus) {
   loadSessions();
 }
 
+async function deleteSession(session_id){
+  const confirmed = confirm("Are you sure you want to delete this session?");
+  if (!confirmed) return;
+  await fetch(`${API_BASE}/delete-session/${session_id}`,{
+    method:"DELETE"
+  });
+  if(currentSession?.session_id === session_id){
+    currentSession=null;
+    document.getElementById("chatWindow").style.display = "none";
+    document.getElementById("chat-form").style.display = "none";
+    document.getElementById("archivedNotice").style.display = "none";
+    document.getElementById("exportBtn").style.display = "none";
+    document.getElementById("startScreen").style.display = "block";
+  }
+  loadSessions();
+}
+
 function appendMessage(sender, text) {
   const div = document.createElement("div");
   div.className = `message ${sender}`;
@@ -145,6 +167,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
     const formData = new FormData();
     formData.append("question", question);
+    formData.append("device_id", deviceId);
     showLoader();
     const res = await fetch(`${API_BASE}/query`, {
       method: "POST",
@@ -156,7 +179,7 @@ window.addEventListener("DOMContentLoaded", () => {
     loadChat(currentSession);
     hideLoader();
     loadSessions();
-
+    textarea.value="";
   });
 
   document.getElementById("chat-form").addEventListener("submit", async (e) => {
@@ -170,6 +193,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
     const formData = new FormData();
     formData.append("question", question);
+    formData.append("device_id", deviceId);
     showLoader();
     const res = await fetch(`${API_BASE}/session/${currentSession.session_id}/query`, {
       method: "POST",
