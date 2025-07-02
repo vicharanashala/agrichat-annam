@@ -18,17 +18,16 @@ agrichat-annam/
 ├── agrichat-backend/          # FastAPI Backend with RAG pipelines
 │   ├── app.py
 │   ├── backendRequirements.txt
-│   ├── RAGpipelinev3/         # Main RAG pipeline (embedding, retrieval, LLM)
-│   │   ├── main.py
-│   │   ├── creating_database.py
-│   │   ├── ollama_embedding.py
-│   │   ├── chromaDb/
-│   │   └── Data/
-│   │
-│   └── Gemini_based_processing/   # Gemini-based RAG variant
+│   └── RAGpipelinev3/         # Main RAG pipeline (embedding, retrieval, LLM)
 │       ├── main.py
 │       ├── creating_database.py
-│       └── chromaDb/
+│       ├── ollama_embedding.py
+│       ├── chromaDb/
+│       ├── Data/
+│       └── Gemini_based_processing/   # Gemini-based RAG variant
+│           ├── main.py
+│           ├── creating_database.py
+│           └── chromaDb/
 │
 ├── agrichat-frontend/         # Static frontend (HTML, JS, CSS)
 │   ├── index.html
