@@ -1,64 +1,96 @@
 ---
 sidebar_position: 2
 ---
-# Project Structure
 
-📁 **Project Structure**  
-This project is organized in a simple and modular format to separate the dataset, vector database, core logic, and web interface. Below is an overview of the core structure:
+# 📁 Project Structure
+
+AgriChat-Annam is structured in a modular format to separate the retrieval pipelines, backend API, and static frontend. Below is the top-level layout:
 
 ---
 
 ```bash
 agrichat-annam/
-├── data/                      # Agricultural Q&A dataset
-│   └── data.csv
-├── chroma_db/                  # Vector storage directory for embeddings
-├── creating_database.py        # Script to build ChromaDB from CSV
-├── main.py                     # Core query logic for RAG pipeline
-├── app.py                      # FastAPI server application
-├── requirements.txt            # Dependency list for Python environment
-└── templates/                  # Frontend templates and static assets
-    ├── index.html              # Web chat interface (HTML)
-    └── static/                 # Static files (CSS, JS)
-        └── style.css           # Styling for the frontend
-```
+├── .env                        # Environment config (used in backend)
+├── docker-compose.yml         # Runs frontend and backend together
+├── render.yaml                # Render deployment settings
+├── README.md
+│
+├── agrichat-backend/          # FastAPI Backend with RAG pipelines
+│   ├── app.py
+│   ├── backendRequirements.txt
+│   └── RAGpipelinev3/         # Main RAG pipeline (embedding, retrieval, LLM)
+│       ├── main.py
+│       ├── creating_database.py
+│       ├── ollama_embedding.py
+│       ├── chromaDb/
+│       ├── Data/
+│       └── Gemini_based_processing/   # Gemini-based RAG variant
+│           ├── main.py
+│           ├── creating_database.py
+│           └── chromaDb/
+│
+├── agrichat-frontend/         # Static frontend (HTML, JS, CSS)
+│   ├── index.html
+│   ├── script.js
+│   ├── style.css
+│   └── Dockerfile
+│
+├── nginx/                     # NGINX config for containerized frontend
+│   └── default.conf
+````
 
 ---
 
-🔙 **Key Components**
+🔧 **Key Components**
 
-- **data/**:  
-  Contains the CSV file (`data.csv`) used to generate the knowledge base for retrieval.
+* **`Pipelines/`**
+  The core RAG logic is modularized for experimentation and easy upgrades:
 
-- **chroma_db/**:  
-  Stores the generated Chroma vector database built from the CSV file. This enables fast semantic search.
+  * `RAG pipeline v1/`: Initial version with markdown parsing and basic retrieval.
+  * `RAG pipeline v2/`: Improved with SentenceTransformer-based embeddings.
+  * `RAGpipelinev3/`: Default pipeline using Ollama + optimized Chroma workflows.
+  * `Gemini_based_processing/`: Cloud-based variant using Google Gemini APIs.
 
-- **creating_database.py**:  
-  Script that reads the CSV data, generates embeddings using the `nomic-embed-text` model, and saves the vectors into ChromaDB.
+* **`Data/`**
+  Each pipeline contains its own `data/` folder, typically with a CSV knowledge base (`sample_data.csv`).
 
-- **main.py**:  
-  Core logic for processing user queries, fetching relevant answers from the database, and interacting with the AI model.
+* **`chromaDb/`**
+  Stores Chroma vector databases for semantic search, unique to each pipeline.
 
-- **app.py**:  
-  FastAPI server that provides API endpoints for frontend interaction. It processes user questions and returns AI-generated answers.
+* **`creating_database.py`**
+  Converts raw CSV/markdown into vector embeddings and stores them in ChromaDB.
 
-- **templates/**:  
-  Contains all frontend resources:
-  - `index.html`: Main user interface for the chat application.
-  - `static/style.css`: Styling for the web interface to enhance user experience.
+* **`main.py`**
+  Executes core RAG flow: vector search + LLM response.
+
+* **`app.py`**
+  FastAPI server. The top-level `agrichat-backend/app.py` launches the app and imports the active pipeline. Pipelines may also include their own test endpoints.
+
+* **`agrichat-frontend/`**
+  Static frontend served via NGINX:
+
+  * `index.html`: Chat UI
+  * `script.js`: API interactions
+  * `style.css`: Visual styling
 
 ---
 
 🔍 **Notes**
 
-- **Simple RAG Pipeline**:  
-  The system uses a lightweight retrieval-augmented generation (RAG) approach — retrieving relevant data before answering.
+* **Pipeline Flexibility**
+  Supports multiple RAG pipelines — developers can swap or upgrade by changing imports/config.
 
-- **Frontend Static Files**:  
-  HTML templates are supported by static CSS files to make the interface clean and usable.
+* **Modular & Extensible Design**
+  Each pipeline is fully encapsulated, making experimentation and switching straightforward.
 
-- **Local-First Deployment**:  
-  Designed for quick local deployment using FastAPI with minimal dependencies.
+* **Frontend-Backend Separation**
+  Clear decoupling between UI and backend via REST API improves scalability and deployment.
 
----
+* **LLM-Agnostic Architecture**
+  Compatible with both local (Ollama) and cloud (Gemini) LLMs.
 
+* **Developer Docs**
+  Internal developer documentation is maintained in the `/docs` folder using [Docusaurus](https://docusaurus.io).
+
+* **Local-First with Cloud Support**
+  Designed for smooth local dev (FastAPI + static files) and easy Docker/Render/cloud deployment.
