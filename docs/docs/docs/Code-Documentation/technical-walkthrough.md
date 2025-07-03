@@ -205,51 +205,96 @@ response = self.client.chat.completions.create(
 
 ---
 
-## 6. FastAPI Web Application
+## 6. FastAPI Web Application 
 
-> **Purpose:** Provide a user-friendly web interface for interacting with the chatbot.
+> **Purpose:** Serve a JSON API backend for a fully decoupled chatbot frontend powered by JavaScript and static assets.
 
-### a. FastAPI Setup
-
-```python
-app = FastAPI()
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
-```
-
-- Sets up static file serving and Jinja2 templating for HTML rendering.
-
-### b. Query Handling Endpoint
+### a. Backend Architecture
 
 ```python
-@app.post("/query", response_class=HTMLResponse)
-async def query(request: Request, question: str = Form(...)):
-    raw_answer = query_handler.get_answer(question)
-    html_answer = markdown.markdown(answer_only, extensions=["extra", "nl2br"])
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "result": html_answer,
-        "question": question
-    })
+app = FastAPI(lifespan=lifespan)
 ```
 
-- Receives user queries from the web form.
-- Calls the retrieval and LLM pipeline.
-- Renders the answer (converted from markdown to HTML) on the webpage.
+* Uses `lifespan()` context to initialize the `ChromaQueryHandler` on startup.
+* MongoDB used to store and manage sessions.
+* All endpoints return JSON; no `HTMLResponse` or `Jinja2Templates`.
 
-### c. Frontend (HTML/CSS)
+### b. Device-based Session Isolation
 
-- **index.html:** Provides a clean, responsive user interface for question submission and answer display.
-- **style.css:** Ensures a professional, readable, and visually appealing UI.
+* A unique `device_id` is stored in `localStorage` by the frontend (`script.js`) and sent with every API request.
+* Sessions are filtered by device, ensuring each user sees only their own history.
+
+### c. Key Endpoints
+
+| Method   | Endpoint                                   | Purpose                           |
+| -------- | ------------------------------------------ | --------------------------------- |
+| `GET`    | `/api/sessions?device_id=...`              | List active and archived sessions |
+| `POST`   | `/api/query`                               | Start a new session               |
+| `GET`    | `/api/session/{session_id}`                | Retrieve full session data        |
+| `POST`   | `/api/session/{session_id}/query`          | Continue an existing session      |
+| `POST`   | `/api/toggle-status/{session_id}/{status}` | Archive or restore a session      |
+| `DELETE` | `/api/delete-session/{session_id}`         | Delete a session permanently      |
+| `GET`    | `/api/export/csv/{session_id}`             | Download chat transcript as CSV   |
+
+### d. HTML Answer Formatting
+
+* Gemini-generated responses may include markdown.
+* All answers are converted to HTML via Python `markdown.markdown(...)` before being stored in MongoDB.
+* In `script.js`, these are inserted directly into the DOM as inner HTML.
+
+### e. Timezone Handling
+
+* All timestamps are stored in ISO format with `Asia/Kolkata (IST)` timezone.
+* Frontend converts them to readable form using:
+
+```javascript
+new Date(s.timestamp).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })
+```
+
+---
+
+## 7. Static Frontend (HTML + JS)
+
+> **Purpose:** Provide a clean, responsive UI that communicates with the backend via pure JavaScript (Fetch API).
+
+### a. Features of `script.js`
+
+* `device_id` stored in browser localStorage and attached to all requests.
+* Displays:
+
+  * Active & archived sessions.
+  * Chat messages (threaded view).
+  * Archived session notice.
+* Enables:
+
+  * Session creation, deletion, toggling (archive/restore).
+  * Session CSV export.
+  * Seamless chat updates.
+  * Loader UI for in-progress queries.
+
+### b. UI Logic Highlights
+
+* Archived sessions:
+
+  * Disable message input.
+  * Show notice + "Restore" button.
+* New session creation resets the view.
+* "has\_unread" badge shown for sessions with unseen messages.
+* Smooth auto-scroll after message append.
 
 ---
 
 ## Summary: Advantages & Innovations
 
-- **Semantic Deduplication:** Removes redundant knowledge, improving retrieval diversity.
-- **Row-based Chunking:** Ensures each Q&A pair is contextually coherent and maximally useful.
-- **Local Embedding & LLM:** Privacy, speed, and flexibility; no reliance on third-party APIs.
-- **ChromaDB Integration:** Fast, persistent, and scalable vector storage.
-- **Cosine Reranking:** Increases answer relevance and precision.
-- **Structured Prompting:** Reduces hallucinations, ensures factual, context-based answers.
-- **Modern Web UI:** FastAPI + Jinja2 + Markdown for a seamless user experience.
+| Feature                                | Benefit                                             |
+| -------------------------------------- | --------------------------------------------------- |
+| **Semantic Deduplication**             | Ensures high-quality, unique data                   |
+| **Row-based Chunking**                 | Maintains context integrity of Q\&A pairs           |
+| **Local Embedding + LLM (via Ollama)** | Fast, private, cost-free inference                  |
+| **ChromaDB Vector Store**              | Persistent and fast semantic retrieval              |
+| **Cosine Reranking**                   | Improves response precision using dual filtering    |
+| **Structured Prompting**               | Reduces hallucination, boosts factual relevance     |
+| **Modern JSON API**                    | Easily integrates with decoupled UIs or mobile apps |
+| **Static Frontend**                    | Fully portable, fast, and cacheable                 |
+| **Device-based Session Tracking**      | Isolated, personalized user experience              |
+| **CSV Export & Session Management**    | Power-user functionality for researchers/farmers    |

@@ -131,17 +131,36 @@ Answer:
 ### Special Handling
 - If the model outputs a `<think>...</think>` reasoning block, only the content after `</think>` is rendered in the UI.
 
-## 8. FastAPI Web Application Interface
 
-A user-friendly interface is served using **FastAPI** + **Jinja2**.
+## 8. Web Application Interface (FastAPI + Static Frontend)
+
+The AgriChat-Annam system provides a clean and responsive web interface built using **HTML, CSS, and JavaScript**, with backend interaction managed via **FastAPI JSON APIs**.
+
+### Architecture
+
+* **Frontend**:
+  A static frontend (`index.html`, `script.js`, `style.css`) located in the `agrichat-frontend/` folder. It renders a threaded chatbot UI and communicates with the backend via `fetch()` API calls.
+
+* **Backend**:
+  A FastAPI server (`agrichat-backend/app.py`) exposes REST API endpoints for:
+
+  * Creating and resuming chat sessions
+  * Handling user queries and returning model-generated responses
+  * Archiving, restoring, and exporting chat history
+
+* **Session Management**:
+  Each conversation is stored with a `session_id` and timestamp. Session state, messages, and device IDs are persisted in MongoDB for recovery and context-aware RAG.
 
 ### Features
-- Query submission form
-- Clean UI with CSS-styled markdown rendering
-- Responses displayed in bullet or paragraph format
-- Logs both markdown and HTML output to terminal for debugging
+
+* Dynamic session listing (recent, archived)
+* Context-aware chat with semantic history summarization
+* CSV export for each session
+* Responsive textarea and chat layout
+* Color-coded session sidebar
 
 ### UI Enhancements
-- HTML output rendered from markdown using the `markdown` module
-- Responsive design
-- Structured presentation of diseases, symptoms, and treatments
+
+* **Fully Decoupled**: Backend and frontend can be deployed independently (e.g., Vercel + Render).
+* **Streaming Responses**: (Optional) FastAPI supports token-by-token streaming, though currently responses are returned as full JSON objects.
+* **Mobile Responsive**: The frontend is optimized for both desktop and mobile usage.

@@ -34,21 +34,36 @@ A Retrieval-Augmented Generation (RAG) chatbot for answering agricultural querie
 ---
 
 ## Project Structure
-```
-agri-chatbot/
-├── data/
-│ └── data.csv # CSV with agricultural Q&A
-├── chroma_db/ # Chroma vector store directory
-├── creating_database.py # Script to build ChromaDB
-├── main.py # Query handling logic
-├── app.py # FastAPI web server
-├── templates/
-│ └── index.html # Web chat interface
-└── README.md # Project documentation
-```
-text
-
----
+```bash
+agrichat-annam/
+├── .env                        # Environment config (used in backend)
+├── docker-compose.yml         # Runs frontend and backend together
+├── render.yaml                # Render deployment settings
+├── README.md
+│
+├── agrichat-backend/          # FastAPI Backend with RAG pipelines
+│   ├── app.py
+│   ├── backendRequirements.txt
+│   └── RAGpipelinev3/         # Main RAG pipeline (embedding, retrieval, LLM)
+│       ├── main.py
+│       ├── creating_database.py
+│       ├── ollama_embedding.py
+│       ├── chromaDb/
+│       ├── Data/
+│       └── Gemini_based_processing/   # Gemini-based RAG variant
+│           ├── main.py
+│           ├── creating_database.py
+│           └── chromaDb/
+│
+├── agrichat-frontend/         # Static frontend (HTML, JS, CSS)
+│   ├── index.html
+│   ├── script.js
+│   ├── style.css
+│   └── Dockerfile
+│
+├── nginx/                     # NGINX config for containerized frontend
+│   └── default.conf
+````
 
 ## Setup Instructions
 
@@ -132,7 +147,7 @@ ollama serve
 
 text
 
-2. Launch application:
+2. Launch application(from agrichat-backend directory):
 uvicorn app:app --reload --port 8000
 
 text
@@ -159,4 +174,3 @@ text
 5. Open a Pull Request
 
 ---
-
