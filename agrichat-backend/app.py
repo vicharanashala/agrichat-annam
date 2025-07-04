@@ -16,6 +16,9 @@ import pytz
 from dateutil import parser
 IST = pytz.timezone("Asia/Kolkata")
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+from pathlib import Path
+load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -92,7 +95,7 @@ async def new_session(question: str = Form(...), device_id: str = Form(...)):
     session = {
         "session_id": session_id,
         "timestamp": datetime.now(IST).isoformat(),
-        "messages": [{"question": question, "answer": html_answer}],
+        "messages": [{"question": question, "answer": html_answer, "rating":None}],
         "crop": "unknown",
         "state": "unknown",
         "status": "active",
@@ -131,7 +134,7 @@ async def continue_session(session_id: str, question: str = Form(...), device_id
     sessions_collection.update_one(
         {"session_id": session_id},
         {
-            "$push": {"messages": {"question": question, "answer": html_answer}},
+            "$push": {"messages": {"question": question, "answer": html_answer, "rating": None}},
             "$set": {
                 "has_unread": True,
                 "crop": crop,
@@ -165,12 +168,13 @@ async def export_csv(session_id: str):
 
     output = StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Question", "Answer", "Timestamp"])
+    writer.writerow(["Question", "Answer", "Rating", "Timestamp"])
     for i, msg in enumerate(session.get("messages", [])):
         q = msg["question"]
         a = BeautifulSoup(msg["answer"], "html.parser").get_text()
+        r = msg.get("rating","")
         t = parser.isoparse(session["timestamp"]).astimezone(IST).strftime("%Y-%m-%d %H:%M:%S") if i == 0 else ""
-        writer.writerow([q, a, t])
+        writer.writerow([q, a, r, t])
 
     output.seek(0)
     filename = f"session_{session_id}.csv"
@@ -186,3 +190,19 @@ async def delete_session(session_id: str):
     if result.deleted_count == 0:
         return JSONResponse(status_code=404, content={"error":"Session not found"})
     return {"message": "Session deleted successfully"}
+
+@app.post("/api/session/{session_id}/rate")
+async def rate_answer(session_id:str, question_index: int=Form(...), rating: str = Form(...)):
+    if rating not in ["up","down"]:
+        return JSONResponse(status_code=400,content={"error": "Invalid rating"})
+    
+    session = sessions_collection.find_one({"session_id":session_id})
+    if not session:
+        return JSONResponse(status_code=404,content={"error": "Session not found"})
+    if question_index<0 or question_index>=len(session["messages"]):
+        return JSONResponse(status_code=400,content={"error": "Invalid message index"})
+    
+    update_field = f"messages.{question_index}.rating"
+    sessions_collection.update_one({"session_id":session_id},{"$set":{update_field:rating}})
+    return {"message":"Rating Updated"}
+    
