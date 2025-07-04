@@ -116,12 +116,70 @@ async function deleteSession(session_id){
   loadSessions();
 }
 
-function appendMessage(sender, text) {
+async function rateAnswer(index, rating, btn) {
+  if (!currentSession) return;
+
+  const formData = new FormData();
+  formData.append("question_index", index);
+  formData.append("rating", rating);
+
+  await fetch(`${API_BASE}/session/${currentSession.session_id}/rate`, {
+    method: "POST",
+    body: formData,
+  });
+
+  // UI feedback
+  const messageDiv = btn.closest(".message");
+  const upBtn = messageDiv.querySelector(".thumbs-up");
+  const downBtn = messageDiv.querySelector(".thumbs-down");
+
+  upBtn.classList.remove("selected");
+  downBtn.classList.remove("selected");
+
+  if (rating === "up") {
+    upBtn.classList.add("selected");
+  } else {
+    downBtn.classList.add("selected");
+  }
+}
+
+
+function copyToClipboard(button) {
+  const answer = button.closest(".message").querySelector(".bot-answer").innerText;
+  navigator.clipboard.writeText(answer).then(() => {
+    button.innerHTML = '<i class="fas fa-check"></i>';
+    setTimeout(() => {
+      button.innerHTML = '<i class="fas fa-copy"></i>';
+    }, 1000);
+  });
+}
+
+
+function appendMessage(sender, text, index = null, rating = null) {
   const div = document.createElement("div");
   div.className = `message ${sender}`;
-  div.innerHTML = `<strong><i class="fas fa-${sender === "user" ? "user" : "robot"}"></i> ${sender === "user" ? "You" : "AgriChat"}:</strong> ${text}`;
+
+  if (sender === "user") {
+    div.innerHTML = `<strong><i class="fas fa-user"></i> You:</strong> ${text}`;
+  } else {
+    div.innerHTML = `
+      <strong><i class="fa fa-robot"></i> AgriChat:</strong>
+      <div class="bot-answer">${text}</div>
+      <div class="message-actions">
+        <button class="copy-btn" onclick="copyToClipboard(this)" title="Copy"><i class="fas fa-copy"></i></button>
+        <button class="rate-btn thumbs-up ${rating === 'up' ? 'selected' : ''}" onclick="rateAnswer(${index}, 'up', this)">
+          <i class="fas fa-thumbs-up"></i>
+        </button>
+        <button class="rate-btn thumbs-down ${rating === 'down' ? 'selected' : ''}" onclick="rateAnswer(${index}, 'down', this)">
+          <i class="fas fa-thumbs-down"></i>
+        </button>
+      </div>
+    `;
+  }
+
   document.getElementById("chatWindow").appendChild(div);
 }
+
 
 function loadChat(session) {
   document.getElementById("startScreen").style.display = "none";
@@ -137,10 +195,11 @@ function loadChat(session) {
     document.getElementById("chat-form").style.display = "flex";
   }
 
-  session.messages.forEach((msg) => {
+  session.messages.forEach((msg, idx) => {
     appendMessage("user", msg.question);
-    appendMessage("bot", msg.answer);
+    appendMessage("bot", msg.answer, idx, msg.rating || null);
   });
+
 
   document.getElementById("chatWindow").scrollTop = document.getElementById("chatWindow").scrollHeight;
 }
