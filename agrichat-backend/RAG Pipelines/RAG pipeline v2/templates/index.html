@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AgriChat - Ask Your Question</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <aside class="sidebar">
+        <h2>🕓 Recent Sessions</h2>
+        <ul>
+            {% for s in recent_sessions %}
+            <li class="session-entry">
+                <a href="/resume/{{ s.session_id }}">
+                    <div class="session-header">
+                    <div class="timestamp">{{ s.timestamp.strftime('%d %b %Y %H:%M') }}</div>
+                    {% if s.has_unread %}
+                        <span class="badge new-badge">New</span>
+                    {% endif %}
+                    </div>
+                    <div class="badges">
+                        <span class="badge">{{ s.crop }}</span>
+                        <span class="badge">{{ s.state }}</span>
+                    </div>
+                    <div class="status {{ 'active' if s.status == 'active' else 'archived' }}">
+                        {{ s.status.capitalize() }}
+                    </div>
+                    
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </aside>
+    <main class="container">
+        <div class="header-row">
+            <h1>🌾 AgriChat: Smart Agricultural Assistant</h1>
+            {% if session %}
+            <div class="export-button">
+                <a href="/export/csv/{{ session.session_id }}" >Export CSV</a>
+            </div>
+            {% endif %}
+        </div>
+        
+        {% if messages %}
+        <div class="chat-window">
+            {% for m in messages %}
+                <div class="message user">
+                    <strong>You:</strong><br>{{ m.question }}
+                </div>
+                <div class="message bot">
+                    <strong>AgriChat:</strong><br>{{ m.answer | safe }}
+                </div>
+            {% endfor %}
+        </div>
+
+        <form method="post" action="/resume/{{ session.session_id }}/query" class="chat-form">
+            <textarea name="question" placeholder="Type your agricultural query here..." required>{{ question if question else ''}}</textarea>
+            <button type="submit">Send</button>
+        </form>
+        {% else %}
+        <div class="start-screen">
+            🤖Start a new consultation session by asking a question.<br>
+            <form method="post" action="/query" class="chat-form" style="margin-top: 20px; justify-content: center;">
+                <textarea name="question" placeholder="Type your agricultural query here..." required>{{ question if question else ''}}</textarea>
+                <button type="submit">Start</button>
+            </form>
+        </div>
+        {% endif %}
+
+        {% if session %}
+        <div class="new-session">
+            🔄 <a href="/">Start New Session</a>
+        </div>
+        {% endif %}
+    </main>
+</body>
+</html>
