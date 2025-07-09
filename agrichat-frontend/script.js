@@ -128,7 +128,6 @@ async function rateAnswer(index, rating, btn) {
     body: formData,
   });
 
-  // UI feedback
   const messageDiv = btn.closest(".message");
   const upBtn = messageDiv.querySelector(".thumbs-up");
   const downBtn = messageDiv.querySelector(".thumbs-down");
@@ -205,6 +204,12 @@ function loadChat(session) {
 }
 
 window.addEventListener("DOMContentLoaded", () => {
+  const savedState = localStorage.getItem("agrichat_user_state");
+  if (savedState) {
+    const stateSelect = document.getElementById("stateSelect");
+    if (stateSelect) stateSelect.value = savedState;
+  }
+
   loadSessions();
 
   document.getElementById("new-session-btn").addEventListener("click", () => {
@@ -222,11 +227,21 @@ window.addEventListener("DOMContentLoaded", () => {
     e.preventDefault();
     const textarea = e.target.querySelector("textarea");
     const question = textarea.value.trim();
+    const state = document.getElementById("stateSelect").value;
+
+    if (!state) {
+      alert("Please select your state.");
+      return;
+    }
+    localStorage.setItem("agrichat_user_state", state); 
+
     if (!question) return;
 
     const formData = new FormData();
     formData.append("question", question);
     formData.append("device_id", deviceId);
+    formData.append("state", state);
+
     showLoader();
     const res = await fetch(`${API_BASE}/query`, {
       method: "POST",
@@ -253,6 +268,8 @@ window.addEventListener("DOMContentLoaded", () => {
     const formData = new FormData();
     formData.append("question", question);
     formData.append("device_id", deviceId);
+    formData.append("state", localStorage.getItem("agrichat_user_state") || "");
+
     showLoader();
     const res = await fetch(`${API_BASE}/session/${currentSession.session_id}/query`, {
       method: "POST",
