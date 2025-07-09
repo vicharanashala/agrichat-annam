@@ -39,7 +39,7 @@ async def lifespan(app: FastAPI):
     print("[Shutdown] App shutting down...")
 app = FastAPI(lifespan=lifespan)
 
-origins = ["https://agrichat-annam.vercel.app"]
+#origins = ["https://agrichat-annam.vercel.app"]
 app.add_middleware(
     CORSMiddleware,
     # allow_origins=origins,
@@ -82,7 +82,7 @@ async def list_sessions(request: Request):
     return {"sessions": [clean_session(s) for s in sessions]}
 
 @app.post("/api/query")
-async def new_session(question: str = Form(...), device_id: str = Form(...)):
+async def new_session(question: str = Form(...), device_id: str = Form(...), state: str = Form(...)):
     session_id = str(uuid4())
     try:
         raw_answer = query_handler.get_answer(question)
@@ -97,7 +97,7 @@ async def new_session(question: str = Form(...), device_id: str = Form(...)):
         "timestamp": datetime.now(IST).isoformat(),
         "messages": [{"question": question, "answer": html_answer, "rating":None}],
         "crop": "unknown",
-        "state": "unknown",
+        "state": state,
         "status": "active",
         "has_unread": True,
         "device_id": device_id, 
@@ -119,7 +119,7 @@ async def get_session(session_id: str):
 
 
 @app.post("/api/session/{session_id}/query")
-async def continue_session(session_id: str, question: str = Form(...), device_id: str = Form(...)):
+async def continue_session(session_id: str, question: str = Form(...), device_id: str = Form(...), state: str = Form("")):
     session = sessions_collection.find_one({"session_id": session_id})
     if not session or session.get("status") == "archived" or session.get("device_id") != device_id:
         return JSONResponse(status_code=403, content={"error": "Session is archived, missing or unauthorized"})
@@ -129,7 +129,7 @@ async def continue_session(session_id: str, question: str = Form(...), device_id
     html_answer = markdown.markdown(answer_only, extensions=["extra", "nl2br"])
 
     crop = session.get("crop", "unknown")
-    state = session.get("state", "unknown")
+    state = state or session.get("state", "unknown")
 
     sessions_collection.update_one(
         {"session_id": session_id},
