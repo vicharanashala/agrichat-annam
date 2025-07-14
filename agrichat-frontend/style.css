@@ -612,3 +612,40 @@ body.sidebar-collapsed {
     overflow: hidden;
   }
 }
+
+.message-actions {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.copy-btn,
+.rate-btn {
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: transparent;
+  color: #333;
+  padding: 4px 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.copy-btn:hover,
+.rate-btn:hover {
+  background-color: #e6f4ea;
+  border-color: #58b368;
+}
+
+.rate-btn.selected {
+  background-color: #58b368;
+  color: white;
+  border-color: #58b368;
+}
+
+.rate-btn.thumbs-down.selected {
+  background-color: #d9534f;
+  border-color: #d9534f;
+}
