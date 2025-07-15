@@ -1,5 +1,75 @@
-// const API_BASE = "https://agrichat-annam.onrender.com/api";
-const API_BASE = "http://localhost:8000/api";
+const API_BASE = "https://agrichat-annam.onrender.com/api";
+// const API_BASE = "http://localhost:8000/api";
+
+const stateLanguageMap = {
+  "Andhra Pradesh": "Telugu",
+  "Arunachal Pradesh": "English",
+  "Assam": "Assamese",
+  "Bihar": "Hindi",
+  "Chhattisgarh": "Hindi",
+  "Goa": "Konkani",
+  "Gujarat": "Gujarati",
+  "Haryana": "Hindi",
+  "Himachal Pradesh": "Hindi",
+  "Jharkhand": "Hindi",
+  "Karnataka": "Kannada",
+  "Kerala": "Malayalam",
+  "Madhya Pradesh": "Hindi",
+  "Maharashtra": "Marathi",
+  "Manipur": "Manipuri",
+  "Meghalaya": "English",
+  "Mizoram": "Mizo",
+  "Nagaland": "English",
+  "Odisha": "Odia",
+  "Punjab": "Punjabi",
+  "Rajasthan": "Hindi",
+  "Sikkim": "Nepali",
+  "Tamil Nadu": "Tamil",
+  "Telangana": "Telugu",
+  "Tripura": "Bengali",
+  "Uttar Pradesh": "Hindi",
+  "Uttarakhand": "Hindi",
+  "West Bengal": "Bengali",
+  "Delhi": "Hindi",
+  "Jammu and Kashmir": "Urdu",
+  "Ladakh": "Urdu"
+};
+const allIndianLanguages = [
+  "Assamese", "Bengali", "Bodo", "Dogri", "Gujarati", "Hindi", "Kannada",
+  "Kashmiri", "Konkani", "Maithili", "Malayalam", "Manipuri", "Marathi", 
+  "Nepali", "Odia", "Punjabi", "Sanskrit", "Santali", "Sindhi", "Tamil", 
+  "Telugu", "Urdu", "English"
+];
+
+
+function populateStateDropdowns() {
+  const stateSelects = [document.getElementById("manualStateSelect"), document.getElementById("stateSelect")];
+  const langSelect = document.getElementById("manualLanguageSelect");
+
+  stateSelects.forEach(select => {
+    if (select) {
+      select.innerHTML = '<option value="">--Select State--</option>';
+      Object.keys(stateLanguageMap).forEach((state) => {
+        const opt = document.createElement("option");
+        opt.value = state;
+        opt.textContent = state;
+        select.appendChild(opt);
+      });
+    }
+  });
+
+  if (langSelect) {
+    langSelect.innerHTML = '<option value="">--Select Language--</option>';
+    allIndianLanguages.forEach((lang) => {
+      const opt = document.createElement("option");
+      opt.value = lang;
+      opt.textContent = lang;
+      langSelect.appendChild(opt);
+    });
+  }
+}
+
+
 
 let deviceId = localStorage.getItem("agrichat_device_id");
 if (!deviceId) {
@@ -204,6 +274,8 @@ function loadChat(session) {
 }
 
 window.addEventListener("DOMContentLoaded", () => {
+  populateStateDropdowns();
+  detectLocationAndLanguage();
   const savedState = localStorage.getItem("agrichat_user_state");
   if (savedState) {
     const stateSelect = document.getElementById("stateSelect");
@@ -212,6 +284,11 @@ window.addEventListener("DOMContentLoaded", () => {
 
   loadSessions();
 
+  document.getElementById("editLocationBtn").addEventListener("click", () => {
+    const locationEdit = document.getElementById("locationEdit");
+    const isHidden = locationEdit.style.display === "none" || locationEdit.style.display === "";
+    locationEdit.style.display = isHidden ? "flex" : "none";
+  });
   document.getElementById("new-session-btn").addEventListener("click", () => {
     currentSession = null;
     document.getElementById("startScreen").style.display = "block";
@@ -225,15 +302,21 @@ window.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("start-form").addEventListener("submit", async (e) => {
     e.preventDefault();
+    console.log("Start form found:", document.getElementById("start-form"));
+
     const textarea = e.target.querySelector("textarea");
     const question = textarea.value.trim();
-    const state = document.getElementById("stateSelect").value;
+    const state = document.getElementById("manualStateSelect").value;
 
     if (!state) {
       alert("Please select your state.");
       return;
     }
-    localStorage.setItem("agrichat_user_state", state); 
+    const lang = stateLanguageMap[state] || "English";
+    localStorage.setItem("agrichat_user_state", state);
+    localStorage.setItem("agrichat_user_language", lang);
+    showLoader();
+    await updateLanguageInBackend(state, lang); 
 
     if (!question) return;
 
@@ -241,6 +324,7 @@ window.addEventListener("DOMContentLoaded", () => {
     formData.append("question", question);
     formData.append("device_id", deviceId);
     formData.append("state", state);
+    formData.append("language", lang);
 
     showLoader();
     const res = await fetch(`${API_BASE}/query`, {
@@ -302,3 +386,81 @@ function showLoader() {
 function hideLoader() {
   document.getElementById("loadingOverlay").style.display = "none";
 }
+
+async function detectLocationAndLanguage(updateBackend = false) {
+  if (!navigator.geolocation) return;
+
+  navigator.geolocation.getCurrentPosition(async (position) => {
+    const lat = position.coords.latitude;
+    const lon = position.coords.longitude;
+    console.log("Coordinates:", lat, lon);
+    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
+    const data = await response.json();
+    console.log("Reverse geocoded data:", data);
+    const state = data.address.state || data.address.county || "Unknown";
+    const language = stateLanguageMap[state] || "English";
+     console.log("Detected:", state, language);
+    localStorage.setItem("agrichat_user_state", state);
+    localStorage.setItem("agrichat_user_language", language);
+
+    updateLocationUI(state, language);
+
+    if (updateBackend) {
+      await updateLanguageInBackend(state, language);  
+    }
+  });
+}
+
+function updateLocationUI(state, language) {
+  document.getElementById("locationState").textContent = state;
+  document.getElementById("locationLanguage").textContent = language;
+
+  const manualStateSelect = document.getElementById("manualStateSelect");
+  const manualLangSelect = document.getElementById("manualLanguageSelect");
+
+  if (manualStateSelect) manualStateSelect.value = state;
+  if (manualLangSelect) manualLangSelect.value = language;
+}
+
+
+async function updateLanguageInBackend(state, language) {
+  await fetch(`${API_BASE}/update-language`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      device_id: deviceId,
+      state: state,
+      language: language
+    })
+  });
+}
+
+
+document.getElementById("manualStateSelect").addEventListener("change", async (e) => {
+  const selectedState = e.target.value;
+  const defaultLang = stateLanguageMap[selectedState] || "Hindi";
+  const selectedLang = document.getElementById("manualLanguageSelect").value || defaultLang;
+
+  localStorage.setItem("agrichat_user_state", selectedState);
+  localStorage.setItem("agrichat_user_language", selectedLang);
+
+  updateLocationUI(selectedState, selectedLang);
+  await updateLanguageInBackend(selectedState, selectedLang);
+});
+
+document.getElementById("manualLanguageSelect").addEventListener("change", async (e) => {
+  const selectedLang = e.target.value;
+  const selectedState = document.getElementById("manualStateSelect").value;
+
+  localStorage.setItem("agrichat_user_language", selectedLang);
+  if (selectedState) localStorage.setItem("agrichat_user_state", selectedState);
+
+  updateLocationUI(selectedState, selectedLang);
+  if (selectedState) await updateLanguageInBackend(selectedState, selectedLang);
+});
+
+document.getElementById("resetLocationBtn").addEventListener("click", async () => {
+  await detectLocationAndLanguage(true);
+  document.getElementById("locationEdit").style.display = "none"; 
+});
+
