@@ -6,7 +6,7 @@ from uuid import uuid4
 from datetime import datetime
 from bs4 import BeautifulSoup
 #from {// main.py path} import ChromaQueryHandler
-from RAGpipelinev3.Gemini_based_processing.main import ChromaQueryHandler
+from Agentic_RAG.chroma_query_handler import ChromaQueryHandler
 import markdown
 import csv
 from io import StringIO
@@ -19,6 +19,7 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from pathlib import Path
 load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
+from fastapi import Body
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -82,7 +83,7 @@ async def list_sessions(request: Request):
     return {"sessions": [clean_session(s) for s in sessions]}
 
 @app.post("/api/query")
-async def new_session(question: str = Form(...), device_id: str = Form(...), state: str = Form(...)):
+async def new_session(question: str = Form(...), device_id: str = Form(...), state: str = Form(...), language: str = Form(...)):
     session_id = str(uuid4())
     try:
         raw_answer = query_handler.get_answer(question)
@@ -99,6 +100,7 @@ async def new_session(question: str = Form(...), device_id: str = Form(...), sta
         "crop": "unknown",
         "state": state,
         "status": "active",
+        "language": language,
         "has_unread": True,
         "device_id": device_id, 
     }
@@ -206,3 +208,18 @@ async def rate_answer(session_id:str, question_index: int=Form(...), rating: str
     sessions_collection.update_one({"session_id":session_id},{"$set":{update_field:rating}})
     return {"message":"Rating Updated"}
     
+
+@app.post("/api/update-language")
+async def update_language(data: dict = Body(...)):
+    device_id = data.get("device_id")
+    state = data.get("state")
+    language = data.get("language")
+    print(state,language)
+    if not device_id:
+        return JSONResponse(status_code=400, content={"error": "Device ID is required"})
+
+    result = sessions_collection.update_many(
+        {"device_id": device_id},
+        {"$set": {"state": state, "language": language}}
+    )
+    return {"status": "success", "matched": result.matched_count, "updated": result.modified_count}
