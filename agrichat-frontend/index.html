@@ -39,61 +39,45 @@
 
   <main class="main-container">
     <header class="main-header">
+  <div class="header-left">
+    <button class="sidebar-toggle" id="sidebarToggle">
+      <i class="fas fa-bars" id="sidebarIcon"></i>
+    </button>
+    <h1 class="main-title">
+      <i class="fas fa-seedling"></i>
+      AgriChat
+    </h1>
+  </div>
 
-      <div class="header-left">
-        <button class="sidebar-toggle" id="sidebarToggle">
-          <i class="fas fa-bars" id="sidebarIcon"></i>
-        </button>
-        <h1 class="main-title">
-          <i class="fas fa-seedling"></i>
-          AgriChat
-        </h1>
+  <div class="location-info-bar">
+    <div class="location-info" id="locationInfo">
+      <i class="fas fa-map-marker-alt"></i>
+      <span id="locationState">Detecting...</span>,
+      <span id="locationLanguage">Detecting...</span>
+      <button id="editLocationBtn" class="edit-icon-btn" title="Edit">
+        <i class="fas fa-pencil-alt"></i>
+      </button>
+    </div>
+
+    <div class="location-dropdown" id="locationEdit" style="display: none;">
+      <div class="dropdown-group">
+        <label for="manualStateSelect">State</label>
+        <select id="manualStateSelect"></select>
       </div>
-       <select id="stateSelect" required style="margin-bottom: 10px; padding: 10px; border-radius: 8px; border: 1px solid #ccc;">
-    <option value="">-- Select your State / UT --</option>
-    <option value="Andhra Pradesh">Andhra Pradesh</option>
-    <option value="Arunachal Pradesh">Arunachal Pradesh</option>
-    <option value="Assam">Assam</option>
-    <option value="Bihar">Bihar</option>
-    <option value="Chhattisgarh">Chhattisgarh</option>
-    <option value="Goa">Goa</option>
-    <option value="Gujarat">Gujarat</option>
-    <option value="Haryana">Haryana</option>
-    <option value="Himachal Pradesh">Himachal Pradesh</option>
-    <option value="Jharkhand">Jharkhand</option>
-    <option value="Karnataka">Karnataka</option>
-    <option value="Kerala">Kerala</option>
-    <option value="Madhya Pradesh">Madhya Pradesh</option>
-    <option value="Maharashtra">Maharashtra</option>
-    <option value="Manipur">Manipur</option>
-    <option value="Meghalaya">Meghalaya</option>
-    <option value="Mizoram">Mizoram</option>
-    <option value="Nagaland">Nagaland</option>
-    <option value="Odisha">Odisha</option>
-    <option value="Punjab">Punjab</option>
-    <option value="Rajasthan">Rajasthan</option>
-    <option value="Sikkim">Sikkim</option>
-    <option value="Tamil Nadu">Tamil Nadu</option>
-    <option value="Telangana">Telangana</option>
-    <option value="Tripura">Tripura</option>
-    <option value="Uttar Pradesh">Uttar Pradesh</option>
-    <option value="Uttarakhand">Uttarakhand</option>
-    <option value="West Bengal">West Bengal</option>
-    <option value="Andaman and Nicobar Islands">Andaman and Nicobar Islands</option>
-    <option value="Chandigarh">Chandigarh</option>
-    <option value="Dadra and Nagar Haveli and Daman and Diu">Dadra and Nagar Haveli and Daman and Diu</option>
-    <option value="Delhi">Delhi</option>
-    <option value="Jammu and Kashmir">Jammu and Kashmir</option>
-    <option value="Ladakh">Ladakh</option>
-    <option value="Lakshadweep">Lakshadweep</option>
-    <option value="Puducherry">Puducherry</option>
-  </select>
-      <a class="export-button" id="exportBtn" style="display: none;">
-        <i class="fas fa-download"></i>
-        Export CSV
-      </a>
+      <div class="dropdown-group">
+        <label for="manualLanguageSelect">Language</label>
+        <select id="manualLanguageSelect"></select>
+      </div>
+      <button id="resetLocationBtn" class="reset-location-btn"><i class="fas fa-sync-alt"></i> Reset</button>
+    </div>
+  </div>
 
-    </header>
+  <a class="export-button" id="exportBtn" style="display: none;">
+    <i class="fas fa-download"></i>
+    Export CSV
+  </a>
+</header>
+
 
     <div class="chat-area">
       <div class="archived-notice" id="archivedNotice" style="display: none;">
@@ -122,7 +106,12 @@
     </div>
   </main>
 
-  <script src="./script.js"></script>
+
+<div id="loadingOverlay" class="loading-overlay" style="display: none;">
+  <div class="spinner"></div>
+</div>
+<div id="backdrop" class="backdrop"></div>
+<script src="./script.js"></script>
   <script>
     const sidebar = document.getElementById('sidebar');
     const toggleBtn = document.getElementById('sidebarToggle');
@@ -178,13 +167,6 @@
       }
     });
   </script>
-
-
-<div id="loadingOverlay" class="loading-overlay" style="display: none;">
-  <div class="spinner"></div>
-</div>
-<div id="backdrop" class="backdrop"></div>
-
 
 </body>
 </html>
