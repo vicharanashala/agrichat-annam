@@ -97,10 +97,40 @@
        <div class="start-screen" id="startScreen">
         <div class="icon"><i class="fas fa-seedling"></i></div>
         <h2>Welcome to AgriChat</h2>
-        <p>Your intelligent farming assistant is here to help you with agricultural queries, crop management, and farming best practices.</p>
-        <form id="start-form" class="chat-form" style="max-width: 600px; margin: 0 auto;">
+
+         <div class="subheading-container">
+         <p>Your intelligent farming assistant is here to help you with <br> agricultural queries, crop management, and farming best practices.</p>
+         </div>        
+         <form id="start-form" class="chat-form" style="max-width: 600px; margin: 0 auto;">
           <textarea name="question" placeholder="Ask me anything about farming, crops, soil, weather, or agricultural practices..." required rows="3"></textarea>
-          <button type="submit"><i class="fas fa-seedling"></i> Start Chat</button>
+            <div class="button-row">
+
+           <div class="tooltip-container">
+             <button type="button" class="feature-button inactive" aria-label="Attach file or image">
+               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                 <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m18.375 12.739l-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13"/>
+               </svg>
+             </button>
+             <span class="tooltip-text">Beta feature</span>
+           </div>
+
+           <div class="tooltip-container">
+             <button type="button" class="feature-button inactive" aria-label="Start voice input">
+             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+               <g>
+                 <path d="M5 3a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0V3z"/>
+                 <path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/>
+               </g>
+             </svg>
+           </button>
+           <span class="tooltip-text">Beta feature</span>
+           </div>
+
+           <div class="tooltip-container">
+             <button class="start-chat-button">
+               <i class="fas fa-seedling"></i> Start Chat
+             </button>
+           </div>
         </form>
       </div>
     </div>
