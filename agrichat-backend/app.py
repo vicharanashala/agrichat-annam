@@ -40,7 +40,7 @@ async def lifespan(app: FastAPI):
     print("[Shutdown] App shutting down...")
 app = FastAPI(lifespan=lifespan)
 
-#origins = ["https://agrichat-annam.vercel.app"]
+origins = ["https://agrichat-annam.vercel.app"]
 app.add_middleware(
     CORSMiddleware,
     # allow_origins=origins,
