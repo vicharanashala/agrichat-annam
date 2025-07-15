@@ -432,7 +432,7 @@ body.sidebar-collapsed {
   box-shadow: 0 0 0 3px rgba(123, 185, 123, 0.1);
 }
 
-.chat-form .start-chat-button {
+.chat-form button {
   padding: 15px 25px;
   background: linear-gradient(135deg, var(--primary-green) 0%, var(--light-green) 100%);
   color: var(--white);
@@ -445,11 +445,10 @@ body.sidebar-collapsed {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: fit-content;
 }
 
 .chat-form button:hover {
-  transform: translateY(0px);
+  transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(45, 90, 45, 0.3);
 }
 
@@ -475,104 +474,6 @@ body.sidebar-collapsed {
   font-size: 16px;
   margin-bottom: 30px;
   line-height: 1.6;
-}
-
-#start-form {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-}
-
-#start-form textarea {
-  width: 100%;
-  box-sizing: border-box;
-  resize: vertical;
-  margin-bottom: 8px;
-}
-
-#start-form .button-row {
-  display: flex;
-  justify-content: flex-end; /* Buttons align to the right */
-  gap: 12px;
-}
-
-.subheading-container {
-  max-width: 600px;
-  margin: 0 auto;
-}
-
-.chat-form .feature-button {
-  all: unset;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  color: #177a38;
-  cursor: pointer;
-  border-radius: 8px;
-  border: 2px solid transparent;
-  background-color: transparent;
-  /* transition: background-color 1s cubic-bezier(0.4, 0, 0.2, 1), color 1s cubic-bezier(0.4, 0, 0.2, 1), border-color 1s cubic-bezier(0.4, 0, 0.2, 1) !important; */
-  transition: background 0.3s, color 0.1s, transform 0.5s;
-  flex-shrink: 0;
-}
-
-/* Hover effect */
-.chat-form .feature-button:hover {
-  background-color: rgba(237, 255, 242, 0.863);
-  color: #279b4e;
-  transform: translateY(0px);
-}
-
-.chat-form .button-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* Optional grey inactive state */
-.chat-form .feature-button.inactive {
-  color: #888888;
-}
-
-/* Tooltip wrapper for positioning */
-.tooltip-container {
-  position: relative;
-  display: inline-block;
-}
-
-/* Tooltip text, hidden by default */
-.tooltip-text {
-  visibility: hidden;
-  opacity: 0;
-  width: max-content;
-  background: #222;
-  color: #fff;
-  text-align: center;
-  border-radius: 6px;
-  padding: 6px 12px;
-  position: absolute;
-  z-index: 10;
-  left: 50%;
-  bottom: 125%; /* place above the button */
-  transform: translateX(-50%);
-  font-size: 13px;
-  pointer-events: none;
-  transition: opacity 0.3s;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-}
-
-/* Show tooltip on hover */
-.tooltip-container:hover .tooltip-text {
-  visibility: visible;
-  opacity: 1;
-}
-
-/* Optional: Hover effect for inactive button */
-.chat-form .feature-button.inactive:hover {
-  color: #888888;
-  cursor: not-allowed;
 }
 
 .archived-notice {
@@ -747,9 +648,4 @@ body.sidebar-collapsed {
 .rate-btn.thumbs-down.selected {
   background-color: #d9534f;
   border-color: #d9534f;
-}
-
-::selection {
-  background: var(--accent-green);
-  color: #ffffff;
 }
