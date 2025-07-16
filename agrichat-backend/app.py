@@ -6,7 +6,8 @@ from uuid import uuid4
 from datetime import datetime
 from bs4 import BeautifulSoup
 #from {// main.py path} import ChromaQueryHandler
-from Agentic_RAG.chroma_query_handler import ChromaQueryHandler
+import Agentic_RAG_.main as query_handler
+# from Agentic_RAG.chroma_query_handler import ChromaQueryHandler
 import markdown
 import csv
 from io import StringIO
@@ -21,24 +22,25 @@ from pathlib import Path
 load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
 from fastapi import Body
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    global query_handler
-    chroma_path = "./RAGpipelinev3/Gemini_based_processing/chromaDb"
+# @asynccontextmanager
+# async def lifespan(app: FastAPI):
+#     global query_handler
+#     chroma_path = "./RAGpipelinev3/Gemini_based_processing/chromaDb"
 
-    if not os.path.exists(chroma_path):
-        print(f"[Warning] chroma_path '{chroma_path}' does not exist!")
+#     if not os.path.exists(chroma_path):
+#         print(f"[Warning] chroma_path '{chroma_path}' does not exist!")
 
-    query_handler = ChromaQueryHandler(
-        chroma_path=chroma_path,
-        gemini_api_key=os.getenv("GEMINI_API_KEY")
-    )
-    print("[Startup] QueryHandler initialized.")
+#     query_handler = ChromaQueryHandler(
+#         chroma_path=chroma_path,
+#         gemini_api_key=os.getenv("GEMINI_API_KEY")
+#     )
+#     print("[Startup] QueryHandler initialized.")
 
-    yield
+#     yield
 
-    print("[Shutdown] App shutting down...")
-app = FastAPI(lifespan=lifespan)
+#     print("[Shutdown] App shutting down...")
+# app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 
 origins = ["https://agrichat-annam.vercel.app"]
 app.add_middleware(
