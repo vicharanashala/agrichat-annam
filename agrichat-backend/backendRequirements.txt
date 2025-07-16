@@ -20,3 +20,4 @@ pytz
 python-dateutil
 crewai
 firecrawl
+langchain_chroma
