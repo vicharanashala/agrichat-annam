@@ -19,3 +19,4 @@ certifi
 pytz
 python-dateutil
 crewai
+firecrawl
