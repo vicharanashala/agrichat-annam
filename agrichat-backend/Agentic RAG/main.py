@@ -8,15 +8,13 @@ from crew_tasks import (
     hallucination_task, answer_task
 )
 
-def run_agentic_rag(question):
+def get_answer(question):
     rag_crew = Crew(
         agents=[
-            Retriever_Agent, Grader_agent,
-            hallucination_grader, answer_grader
+            Retriever_Agent
         ],
         tasks=[
-            retriever_task, grader_task,
-            hallucination_task, answer_task
+            retriever_task
         ],
         verbose=True,
     )
@@ -29,5 +27,4 @@ if __name__ == "__main__":
         question = input("Ask your agricultural question or type 'exit' to quit: ")
         if question.strip().lower() == "exit":
             break
-        answer = run_agentic_rag(question)
-        print(answer)
+        answer = get_answer(question)
