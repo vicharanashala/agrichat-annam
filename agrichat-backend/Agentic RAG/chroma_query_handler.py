@@ -47,7 +47,7 @@ You are an expert agricultural assistant. The database could not provide a relev
 ### Your Answer:
 """
 
-    def __init__(self, chroma_path: str, gemini_api_key: str, embedding_model: str = "models/text-embedding-004", chat_model: str = "gemini/gemma-3-27b-it"):
+    def __init__(self, chroma_path: str, gemini_api_key: str, embedding_model: str = "models/text-embedding-004", chat_model: str = "gemma-3-27b-it"):
         self.chat_model = chat_model
         self.embedding_function = GoogleGenerativeAIEmbeddings(
             model=embedding_model,
@@ -139,5 +139,3 @@ You are an expert agricultural assistant. The database could not provide a relev
         except Exception as e:
             logger.error(f"[Error] {e}")
             return "I don't have enough information to answer that."
-
-
