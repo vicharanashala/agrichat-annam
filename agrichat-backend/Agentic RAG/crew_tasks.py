@@ -7,21 +7,6 @@ from tools import FireCrawlWebSearchTool, RAGTool
 firecrawl_tool = FireCrawlWebSearchTool(api_key="fc-3042e1475cda4e51b0ce4fdd6ea58578")
 rag_tool = RAGTool(chroma_path=r"C:\Users\amank\Gemini_based_processing\chromaDb", gemini_api_key="AIzaSyCzS2rkrIU-qed90akvU4sjT43W8UANA5A")
 
-# router_task = Task(
-#     description=(
-#         "Analyse the keywords in the question {question}. "
-#         "Based on the keywords decide whether it is eligible for a vectorstore search or a web search. "
-#         "Return a single word 'vectorstore' if it is eligible for vectorstore search. "
-#         "Return a single word 'websearch' if it is eligible for web search. "
-#         "Do not provide any other preamble or explanation."
-#     ),
-#     expected_output=(
-#         "Give a binary choice 'websearch' or 'vectorstore' based on the question. "
-#         "Do not provide any other preamble or explanation."
-#     ),
-#     agent=Router_Agent
-# )
-
 retriever_task = Task(
     description=(
         "For the question {question}, always attempt to answer using the RAG tool (vectorstore) only."
@@ -75,13 +60,3 @@ answer_task = Task(
     context=[hallucination_task],
     agent=answer_grader,
 )
-
-
-crew = Crew(
-			tasks=[retriever_task],
-			process=Process.sequential,
-			verbose=True,
-			# process=Process.hierarchical, # In case you wanna use that instead https://docs.crewai.com/how-to/Hierarchical/
-		)
-
-result = crew.kickoff(inputs={"question": "What is Potato Blight and how can it be controlled?"})
