@@ -27,7 +27,6 @@ body {
   display: grid;
   grid-template-columns: var(--sidebar-width) 1fr;
   height: 100vh;
-  overflow: hidden;
   transition: grid-template-columns 0.3s ease;
 }
 
@@ -264,7 +263,7 @@ body.sidebar-collapsed {
   flex-direction: column;
   height: 100vh;
   position: relative;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .main-header {
@@ -336,7 +335,7 @@ body.sidebar-collapsed {
   display: flex;
   flex-direction: column;
   padding: 20px;
-  overflow: hidden;
+  /* overflow: hidden; */
 }
 
 .chat-window {
@@ -409,6 +408,7 @@ body.sidebar-collapsed {
   border: 2px solid var(--border-light);
   border-radius: 16px;
   padding: 15px;
+  margin-bottom: 20px;
   display: flex;
   gap: 15px;
   box-shadow: 0 4px 20px var(--shadow);
@@ -457,6 +457,8 @@ body.sidebar-collapsed {
   text-align: center;
   color: var(--text-light);
   padding: 60px 20px;
+  padding-top: 80px;
+  margin-bottom: 40px;
 }
 
 .start-screen .icon {
@@ -753,3 +755,48 @@ body.sidebar-collapsed {
   background: var(--accent-green);
   color: #ffffff;
 }
+
+@media (max-width: 768px) {
+  body {
+    height: auto;
+    min-height: 100vh;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .main-container {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
+  .start-screen {
+    padding-top: 10px;
+  }
+
+  .chat-area {
+    flex: none;
+    display: block;
+    height: auto;
+    min-height: 100vh;
+    padding-bottom: 16px; /* prevents chat-form cutoff */
+    overflow: visible;
+  }
+
+  #stateSelect {
+    width: 130px;  /* or preferred width (100-160px is typical for mobile) */
+    min-width: 0;
+    max-width: 60vw;
+    padding: 8px;
+    font-size: 13px;
+  }
+  
+  /* Optional: space around the select if needed */
+  .main-header #stateSelect {
+    margin-left: 5px;
+    margin-right: 5px;
+    margin-bottom: 0;
+  }
+}
+
+
