@@ -9,7 +9,6 @@ from .crew_tasks import (
 )
 
 def get_answer(question):
-    print("here")
     rag_crew = Crew(
         agents=[
             Retriever_Agent
@@ -21,8 +20,6 @@ def get_answer(question):
     )
     inputs = {"question": question}
     result = rag_crew.kickoff(inputs=inputs)
-    print(question)
-    print("Result object from crew.kickoff():", result)
 
     if hasattr(result, "output"):
         return result.output
