@@ -6,8 +6,9 @@ from uuid import uuid4
 from datetime import datetime
 from bs4 import BeautifulSoup
 #from {// main.py path} import ChromaQueryHandler
-import Agentic_RAG_.main as query_handler
+# import Agentic_RAG_.main as query_handler
 # from Agentic_RAG.chroma_query_handler import ChromaQueryHandler
+from Agentic_RAG_.main import initialize_handler
 import markdown
 import csv
 from io import StringIO
@@ -21,6 +22,15 @@ from dotenv import load_dotenv
 from pathlib import Path
 load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
 from fastapi import Body
+
+query_handler = None
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global query_handler
+    query_handler = initialize_handler()
+    print("[Startup] QueryHandler initialized.")
+    yield
+    print("[Shutdown] Cleanup complete.")
 
 # @asynccontextmanager
 # async def lifespan(app: FastAPI):
@@ -39,8 +49,8 @@ from fastapi import Body
 #     yield
 
 #     print("[Shutdown] App shutting down...")
-# app = FastAPI(lifespan=lifespan)
-app = FastAPI()
+app = FastAPI(lifespan=lifespan)
+# app = FastAPI()
 
 origins = ["https://agrichat-annam.vercel.app"]
 app.add_middleware(
@@ -88,7 +98,8 @@ async def list_sessions(request: Request):
 async def new_session(question: str = Form(...), device_id: str = Form(...), state: str = Form(...), language: str = Form(...)):
     session_id = str(uuid4())
     try:
-        raw_answer = query_handler.get_answer(question)
+        raw_answer = query_handler(question)
+        # raw_answer = query_handler.get_answer(question)
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": "LLM processing failed."})
 
@@ -128,7 +139,8 @@ async def continue_session(session_id: str, question: str = Form(...), device_id
     if not session or session.get("status") == "archived" or session.get("device_id") != device_id:
         return JSONResponse(status_code=403, content={"error": "Session is archived, missing or unauthorized"})
 
-    raw_answer = query_handler.get_answer(question)
+    raw_answer = query_handler(question)
+    # raw_answer = query_handler.get_answer(question)
     answer_only = raw_answer.split("</think>")[-1].strip()
     html_answer = markdown.markdown(answer_only, extensions=["extra", "nl2br"])
 

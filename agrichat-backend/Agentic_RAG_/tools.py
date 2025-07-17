@@ -25,17 +25,29 @@ class FireCrawlWebSearchTool(BaseTool):
         combined_markdown = "\n\n".join([item.get("markdown", "") for item in search_result.data])
         return combined_markdown if combined_markdown else "No relevant web search results found."
 
+_chroma_handler = None  
+
+def inject_chroma_handler(handler: ChromaQueryHandler):
+    global _chroma_handler
+    _chroma_handler = handler
+
+def get_rag_tool():
+    if _chroma_handler is None:
+        raise RuntimeError("ChromaQueryHandler not yet injected. Call inject_chroma_handler first.")
+    return RAGTool(handler=_chroma_handler)
 
 class RAGTool(BaseTool):
     _handler: any = PrivateAttr()
 
-    def __init__(self, chroma_path, gemini_api_key, **kwargs):
+    def __init__(self, handler: ChromaQueryHandler, **kwargs):
+    # def __init__(self, chroma_path, gemini_api_key, **kwargs):
         super().__init__(
             name="rag_tool",
             description="Retrieval-Augmented Generation tool using ChromaDB and Gemini API.",
             **kwargs
         )
-        self._handler = ChromaQueryHandler(chroma_path, gemini_api_key)
+        # self._handler = ChromaQueryHandler(chroma_path, gemini_api_key)
+        self._handler = handler
 
     def _run(self, question: str) -> str:
         return self._handler.get_answer(question)
