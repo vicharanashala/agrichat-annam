@@ -49,7 +49,8 @@
           AgriChat
         </h1>
       </div>
-       <select id="stateSelect" required style="margin-bottom: 10px; padding: 10px; border-radius: 8px; border: 1px solid #ccc;">
+      
+       <!-- <select id="stateSelect" required style="margin-bottom: 10px; padding: 10px; border-radius: 8px; border: 1px solid #ccc;">
     <option value="">-- Select your State / UT --</option>
     <option value="Andhra Pradesh">Andhra Pradesh</option>
     <option value="Arunachal Pradesh">Arunachal Pradesh</option>
@@ -87,7 +88,8 @@
     <option value="Ladakh">Ladakh</option>
     <option value="Lakshadweep">Lakshadweep</option>
     <option value="Puducherry">Puducherry</option>
-  </select>
+  </select> -->
+
       <a class="export-button" id="exportBtn" style="display: none;">
         <i class="fas fa-download"></i>
         Export CSV
@@ -105,9 +107,17 @@
 
       <div class="chat-window" id="chatWindow" style="display: none;"></div>
 
+      <!-- In-chat form (outside start screen, fixed at bottom, hidden by default) -->
       <form id="chat-form" class="chat-form" style="display: none;">
         <textarea id="user-input" placeholder="Ask your agricultural question here..." required rows="3"></textarea>
-        <button type="submit"><i class="fas fa-paper-plane"></i> Send</button>
+
+        <button type="submit" class="send-button" aria-label="Send">
+          <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 28 28">
+            <path fill="currentColor" d="M3.79 2.625c-.963-.46-2.021.42-1.746 1.451l2.016 7.533a1 1 0 0 0 .824.732l9.884 1.412c.286.04.286.454 0 .495l-9.883 1.411a1 1 0 0 0-.824.732l-2.017 7.537c-.275 1.03.783 1.91 1.746 1.451L25.288 15.13c.949-.452.949-1.804 0-2.257L3.79 2.626Z"/>
+          </svg>
+        </button>
+
+        <!-- <button type="submit" class="send-button"><i class="fas fa-paper-plane"></i> </button> -->
       </form>
 
        <div class="start-screen" id="startScreen">
@@ -117,8 +127,13 @@
         <div class="subheading-container">
         <p>Your intelligent farming assistant is here to help you with <br> agricultural queries, crop management, and farming best practices.</p>
         </div>
+
+        <!-- Welcome Screen chat-form floating in page-->
         <form id="start-form" class="chat-form" style="max-width: 600px; margin: 0 auto;">
-          <textarea name="question" placeholder="Ask me anything about farming, crops, soil, weather, or agricultural practices..." required rows="3"></textarea>
+        <textarea id="start-input" name="question" placeholder="Ask me anything about farming, crops, soil, weather, or agricultural practices..." required rows="3"></textarea>
+
+        <!-- <form id="start-form" class="chat-form" style="max-width: 600px; margin: 0 auto;">
+          <textarea name="question" placeholder="Ask me anything about farming, crops, soil, weather, or agricultural practices..." required rows="3"></textarea> -->
           <div class="button-row">
 
           <div class="tooltip-container">
@@ -143,7 +158,7 @@
           </div>
 
           <div class="tooltip-container">
-            <button class="start-chat-button">
+            <button type="submit" class="start-chat-button">
               <i class="fas fa-seedling"></i> Start Chat
             </button>
           </div>
@@ -160,6 +175,25 @@
     const closeBtn = document.getElementById('sidebarCloseBtn');
     const backdrop = document.getElementById('backdrop');
     const body = document.body;
+
+    
+    // Make 'Enter' key submit the form
+    // For start form textarea
+    document.getElementById('start-input')?.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault(); // Stop newline
+        this.form.requestSubmit(); // Submit the form
+      }
+    });
+
+    // For chat form textarea
+    document.getElementById('user-input')?.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        this.form.requestSubmit();
+      }
+    });
+
 
     function isMobileView() {
       return window.innerWidth <= 768;
@@ -208,6 +242,27 @@
         closeSidebar();
       }
     });
+
+    // document.addEventListener('DOMContentLoaded', function() {
+    //   const startScreen = document.getElementById('startScreen');
+    //   const chatForm = document.getElementById('chat-form');
+    //   const startChatBtn = document.querySelector('.start-chat-button');
+
+    //   // Ensure chatForm and startScreen exist, and button is present
+    //   if (startChatBtn && chatForm && startScreen) {
+    //     startChatBtn.addEventListener('click', function(e){
+    //       e.preventDefault();
+    //       // Hide the start screen (including all intro stuff).
+    //       startScreen.style.display = 'none';
+    //       // Make the chat form sticky at the bottom.
+    //       chatForm.classList.add('sticky');
+    //       // Show the main chat window (if using)
+    //       const chatWindow = document.getElementById('chatWindow');
+    //       if(chatWindow) chatWindow.style.display = 'block';
+    //     });
+    //   }
+    // });
+
   </script>
 
 
@@ -219,3 +274,4 @@
 
 </body>
 </html>
+

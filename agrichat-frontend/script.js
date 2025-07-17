@@ -143,15 +143,49 @@ async function rateAnswer(index, rating, btn) {
 }
 
 
+// function copyToClipboard(button) {
+//   const answer = button.closest(".message").querySelector(".bot-answer").innerText;
+//   navigator.clipboard.writeText(answer).then(() => {
+//     button.innerHTML = '<i class="fas fa-check"></i>';
+//     setTimeout(() => {
+//       button.innerHTML = '<i class="fas fa-copy"></i>';
+//     }, 1000);
+//   });
+// }
+
+
 function copyToClipboard(button) {
   const answer = button.closest(".message").querySelector(".bot-answer").innerText;
   navigator.clipboard.writeText(answer).then(() => {
-    button.innerHTML = '<i class="fas fa-check"></i>';
+    // Add the selected class to flash grey
+    button.classList.add('selected');
+
+    // Swap icon for checkmark SVG (optional, but users like feedback)
+    button.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 512 512">
+        <path fill="currentColor" d="M504.5 75.5c-10-10-26.2-10-36.2 0L184 359.8l-140.3-140.3
+        c-10-10-26.2-10-36.2 0s-10 26.2 0 36.2l160 160c10 10 26.2 10 36.2 0l320-320c10-10
+        10-26.2 0-36.2z"/>
+      </svg>
+    `;
+
     setTimeout(() => {
-      button.innerHTML = '<i class="fas fa-copy"></i>';
-    }, 1000);
+      button.classList.remove('selected');
+      
+      // Restore the Copy svg icon
+      button.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 448 512">
+          <path fill="currentColor" d="M320 448v40c0 13.255-10.745 24-24 24H24c-13.255 0-24-10.745-24-24V120c0-13.255
+          10.745-24 24-24h72v296c0 30.879 25.121 56 56 56h168zm0-344V0H152c-13.255 0-24
+          10.745-24 24v368c0 13.255 10.745 24 24 24h272c13.255 0 24-10.745 24-24V128H344c-13.2
+          0-24-10.8-24-24zm120.971-31.029L375.029 7.029A24 24 0 0 0 358.059 0H352v96h96v-6.059a24
+          24 0 0 0-7.029-16.97z"/>
+        </svg>
+      `;
+    }, 800); // stays grey for 0.8 seconds
   });
 }
+
 
 
 function appendMessage(sender, text, index = null, rating = null) {
@@ -159,22 +193,30 @@ function appendMessage(sender, text, index = null, rating = null) {
   div.className = `message ${sender}`;
 
   if (sender === "user") {
-    div.innerHTML = `<strong><i class="fas fa-user"></i> You:</strong> ${text}`;
-  } else {
-    div.innerHTML = `
-      <strong><i class="fa fa-robot"></i> AgriChat:</strong>
-      <div class="bot-answer">${text}</div>
-      <div class="message-actions">
-        <button class="copy-btn" onclick="copyToClipboard(this)" title="Copy"><i class="fas fa-copy"></i></button>
-        <button class="rate-btn thumbs-up ${rating === 'up' ? 'selected' : ''}" onclick="rateAnswer(${index}, 'up', this)">
-          <i class="fas fa-thumbs-up"></i>
-        </button>
-        <button class="rate-btn thumbs-down ${rating === 'down' ? 'selected' : ''}" onclick="rateAnswer(${index}, 'down', this)">
-          <i class="fas fa-thumbs-down"></i>
-        </button>
-      </div>
-    `;
-  }
+  div.innerHTML = ` ${text}`;
+} else {
+  div.innerHTML = `
+    <div class="bot-answer">${text}</div>
+    <div class="message-actions">
+      <button class="copy-btn" onclick="copyToClipboard(this)" title="Copy">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 448 512">
+          <path fill="currentColor" d="M320 448v40c0 13.255-10.745 24-24 24H24c-13.255 0-24-10.745-24-24V120c0-13.255 10.745-24 24-24h72v296c0 30.879 25.121 56 56 56h168zm0-344V0H152c-13.255 0-24 10.745-24 24v368c0 13.255 10.745 24 24 24h272c13.255 0 24-10.745 24-24V128H344c-13.2 0-24-10.8-24-24zm120.971-31.029L375.029 7.029A24 24 0 0 0 358.059 0H352v96h96v-6.059a24 24 0 0 0-7.029-16.97z"/>
+        </svg>
+      </button>
+      <button class="rate-btn thumbs-up ${rating === 'up' ? 'selected' : ''}" onclick="rateAnswer(${index}, 'up', this)" title="Thumbs up">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+          <path fill="currentColor" fill-rule="evenodd" d="M15 9.7h4a2 2 0 0 1 1.6.9a2 2 0 0 1 .3 1.8l-2.4 7.2c-.3.9-.5 1.4-1.9 1.4c-2 0-4.2-.7-6.1-1.3L9 19.3V9.5A32 32 0 0 0 13.2 4c.1-.4.5-.7.9-.9h1.2c.4.1.7.4 1 .7l.2 1.3zM4.2 10H7v8a2 2 0 1 1-4 0v-6.8c0-.7.5-1.2 1.2-1.2" clip-rule="evenodd"/>
+        </svg>
+      </button>
+      <button class="rate-btn thumbs-down ${rating === 'down' ? 'selected' : ''}" onclick="rateAnswer(${index}, 'down', this)" title="Thumbs down">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+          <path fill="currentColor" fill-rule="evenodd" d="M9 14.3H5a2 2 0 0 1-1.6-.9a2 2 0 0 1-.3-1.8l2.4-7.2C5.8 3.5 6 3 7.4 3c2 0 4.2.7 6.1 1.3l1.4.4v9.8a32 32 0 0 0-4.2 5.5c-.1.4-.5.7-.9.9a1.7 1.7 0 0 1-2.1-.7c-.2-.4-.3-.8-.3-1.3zm10.8-.3H17V6a2 2 0 1 1 4 0v6.8c0 .7-.5 1.2-1.2 1.2" clip-rule="evenodd"/>
+        </svg>
+      </button>
+    </div>
+  `;
+}
+
 
   document.getElementById("chatWindow").appendChild(div);
 }
@@ -185,6 +227,12 @@ function loadChat(session) {
   document.getElementById("chatWindow").style.display = "block";
   document.getElementById("chatWindow").innerHTML = "";
   document.getElementById("exportBtn").style.display = "inline-block";
+
+  // new
+  if (!session || typeof session.status === "undefined" || !Array.isArray(session.messages)) {
+    alert("Could not load chat session (data missing or malformed).");
+    return;
+  }
 
   if (session.status === "archived") {
     document.getElementById("archivedNotice").style.display = "block";
@@ -225,14 +273,18 @@ window.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("start-form").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const textarea = e.target.querySelector("textarea");
+    const textarea = document.getElementById("start-input");
+    // const textarea = e.target.querySelector("textarea");
     const question = textarea.value.trim();
-    const state = document.getElementById("stateSelect").value;
+    // const state = document.getElementById("stateSelect").value;
 
-    if (!state) {
-      alert("Please select your state.");
-      return;
-    }
+    const stateSelect = document.getElementById("stateSelect");
+    const state = stateSelect ? stateSelect.value : "none"; // or "" as default
+
+    // if (!state) {
+    //   alert("Please select your state.");
+    //   return;
+    // }
     localStorage.setItem("agrichat_user_state", state); 
 
     if (!question) return;
@@ -249,6 +301,7 @@ window.addEventListener("DOMContentLoaded", () => {
     });
 
     const data = await res.json();
+    console.log('API response:', data); // new line to log data
     currentSession = data.session;
     loadChat(currentSession);
     hideLoader();
