@@ -39,15 +39,34 @@
 
   <main class="main-container">
     <header class="main-header">
+  <div class="header-left">
+    <button class="sidebar-toggle" id="sidebarToggle">
+      <i class="fas fa-bars" id="sidebarIcon"></i>
+    </button>
+    <h1 class="main-title">
+      <i class="fas fa-seedling"></i>
+      AgriChat
+    </h1>
+  </div>
 
-      <div class="header-left">
-        <button class="sidebar-toggle" id="sidebarToggle">
-          <i class="fas fa-bars" id="sidebarIcon"></i>
-        </button>
-        <h1 class="main-title">
-          <i class="fas fa-seedling"></i>
-          AgriChat
-        </h1>
+  <div class="location-info-bar">
+    <div class="location-info" id="locationInfo">
+      <i class="fas fa-map-marker-alt"></i>
+      <span id="locationState">Detecting...</span>,
+      <span id="locationLanguage">Detecting...</span>
+      <button id="editLocationBtn" class="edit-icon-btn" title="Edit">
+        <i class="fas fa-pencil-alt"></i>
+      </button>
+    </div>
+
+    <div class="location-dropdown" id="locationEdit" style="display: none;">
+      <div class="dropdown-group">
+        <label for="manualStateSelect">State</label>
+        <select id="manualStateSelect"></select>
+      </div>
+      <div class="dropdown-group">
+        <label for="manualLanguageSelect">Language</label>
+        <select id="manualLanguageSelect"></select>
       </div>
 
       <div class="location-info-bar">
@@ -114,14 +133,16 @@
     <option value="Lakshadweep">Lakshadweep</option>
     <option value="Puducherry">Puducherry</option>
   </select> -->
+      <button id="resetLocationBtn" class="reset-location-btn"><i class="fas fa-sync-alt"></i> Reset</button>
+    </div>
+  </div>
 
-      <a class="export-button" id="exportBtn" style="display: none;">
-        <i class="fas fa-download"></i>
-        Export CSV
-      </a>
-
-    </header>
-
+  <a class="export-button" id="exportBtn" style="display: none;">
+    <i class="fas fa-download"></i>
+    Export CSV
+  </a>
+</header>
+    
     <div class="chat-area">
       <div class="archived-notice" id="archivedNotice" style="display: none;">
         <div class="icon"><i class="fas fa-archive"></i></div>
@@ -187,13 +208,17 @@
               <i class="fas fa-seedling"></i> Start Chat
             </button>
           </div>
-
         </form>
       </div>
     </div>
   </main>
 
-  <script src="./script.js"></script>
+
+<div id="loadingOverlay" class="loading-overlay" style="display: none;">
+  <div class="spinner"></div>
+</div>
+<div id="backdrop" class="backdrop"></div>
+<script src="./script.js"></script>
   <script>
     const sidebar = document.getElementById('sidebar');
     const toggleBtn = document.getElementById('sidebarToggle');
@@ -268,34 +293,7 @@
       }
     });
 
-    // document.addEventListener('DOMContentLoaded', function() {
-    //   const startScreen = document.getElementById('startScreen');
-    //   const chatForm = document.getElementById('chat-form');
-    //   const startChatBtn = document.querySelector('.start-chat-button');
-
-    //   // Ensure chatForm and startScreen exist, and button is present
-    //   if (startChatBtn && chatForm && startScreen) {
-    //     startChatBtn.addEventListener('click', function(e){
-    //       e.preventDefault();
-    //       // Hide the start screen (including all intro stuff).
-    //       startScreen.style.display = 'none';
-    //       // Make the chat form sticky at the bottom.
-    //       chatForm.classList.add('sticky');
-    //       // Show the main chat window (if using)
-    //       const chatWindow = document.getElementById('chatWindow');
-    //       if(chatWindow) chatWindow.style.display = 'block';
-    //     });
-    //   }
-    // });
-
   </script>
-
-
-<div id="loadingOverlay" class="loading-overlay" style="display: none;">
-  <div class="spinner"></div>
-</div>
-<div id="backdrop" class="backdrop"></div>
-
 
 </body>
 </html>

@@ -319,6 +319,8 @@ function appendMessage(sender, text, index = null, rating = null) {
 window.addEventListener("DOMContentLoaded", () => {
   populateStateDropdowns();
   detectLocationAndLanguage();
+  populateStateDropdowns();
+  detectLocationAndLanguage();
   const savedState = localStorage.getItem("agrichat_user_state");
   if (savedState) {
     const stateSelect = document.getElementById("stateSelect");
@@ -347,9 +349,27 @@ window.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("start-form").addEventListener("submit", async (e) => {
     e.preventDefault();
+
+//     const textarea = document.getElementById("start-input");
+//     // const textarea = e.target.querySelector("textarea");
+//     const question = textarea.value.trim();
+//     // const state = document.getElementById("stateSelect").value;
+
+//     const stateSelect = document.getElementById("stateSelect");
+//     const state = stateSelect ? stateSelect.value : "none"; // or "" as default
+
+//     // if (!state) {
+//     //   alert("Please select your state.");
+//     //   return;
+//     // }
+//     localStorage.setItem("agrichat_user_state", state); 
+
+    
     console.log("Start form found:", document.getElementById("start-form"));
 
     const textarea = e.target.querySelector("textarea");
+    console.log("Start form found:", document.getElementById("start-form"));
+
     const question = textarea.value.trim();
     const state = document.getElementById("manualStateSelect").value;
 
@@ -432,143 +452,6 @@ function hideLoader() {
   document.getElementById("loadingOverlay").style.display = "none";
 }
 
-
-// function loadChat(session) {
-//   document.getElementById("startScreen").style.display = "none";
-//   document.getElementById("chatWindow").style.display = "block";
-//   document.getElementById("chatWindow").innerHTML = "";
-//   document.getElementById("exportBtn").style.display = "inline-block";
-
-//   // new
-//   if (!session || typeof session.status === "undefined" || !Array.isArray(session.messages)) {
-//     alert("Could not load chat session (data missing or malformed).");
-//     return;
-//   }
-
-//   if (session.status === "archived") {
-//     document.getElementById("archivedNotice").style.display = "block";
-//     document.getElementById("chat-form").style.display = "none";
-//   } else {
-//     document.getElementById("archivedNotice").style.display = "none";
-//     document.getElementById("chat-form").style.display = "flex";
-//   }
-
-//   session.messages.forEach((msg, idx) => {
-//     appendMessage("user", msg.question);
-//     appendMessage("bot", msg.answer, idx, msg.rating || null);
-//   });
-
-
-//   document.getElementById("chatWindow").scrollTop = document.getElementById("chatWindow").scrollHeight;
-// }
-
-// window.addEventListener("DOMContentLoaded", () => {
-//   const savedState = localStorage.getItem("agrichat_user_state");
-//   if (savedState) {
-//     const stateSelect = document.getElementById("stateSelect");
-//     if (stateSelect) stateSelect.value = savedState;
-//   }
-
-//   loadSessions();
-
-//   document.getElementById("new-session-btn").addEventListener("click", () => {
-//     currentSession = null;
-//     document.getElementById("startScreen").style.display = "block";
-//     document.getElementById("chatWindow").style.display = "none";
-//     document.getElementById("chat-form").style.display = "none";
-//     document.getElementById("exportBtn").style.display = "none";
-//     document.getElementById("archivedNotice").style.display = "none";
-//   });
-
-//   document.getElementById("viewToggle").addEventListener("click", toggleView);
-
-//   document.getElementById("start-form").addEventListener("submit", async (e) => {
-//     e.preventDefault();
-//     const textarea = document.getElementById("start-input");
-//     // const textarea = e.target.querySelector("textarea");
-//     const question = textarea.value.trim();
-//     // const state = document.getElementById("stateSelect").value;
-
-//     const stateSelect = document.getElementById("stateSelect");
-//     const state = stateSelect ? stateSelect.value : "none"; // or "" as default
-
-//     // if (!state) {
-//     //   alert("Please select your state.");
-//     //   return;
-//     // }
-//     localStorage.setItem("agrichat_user_state", state); 
-
-//     if (!question) return;
-
-//     const formData = new FormData();
-//     formData.append("question", question);
-//     formData.append("device_id", deviceId);
-//     formData.append("state", state);
-
-//     showLoader();
-//     const res = await fetch(`${API_BASE}/query`, {
-//       method: "POST",
-//       body: formData,
-//     });
-
-//     const data = await res.json();
-//     console.log('API response:', data); // new line to log data
-//     currentSession = data.session;
-//     loadChat(currentSession);
-//     hideLoader();
-//     loadSessions();
-//     textarea.value="";
-//   });
-
-//   document.getElementById("chat-form").addEventListener("submit", async (e) => {
-//     e.preventDefault();
-//     const input = document.getElementById("user-input");
-//     const question = input.value.trim();
-//     if (!question || !currentSession) return;
-
-//     appendMessage("user", question);
-//     input.value = "";
-
-//     const formData = new FormData();
-//     formData.append("question", question);
-//     formData.append("device_id", deviceId);
-//     formData.append("state", localStorage.getItem("agrichat_user_state") || "");
-
-//     showLoader();
-//     const res = await fetch(`${API_BASE}/session/${currentSession.session_id}/query`, {
-//       method: "POST",
-//       body: formData,
-//     });
-//     const data = await res.json();
-//     const last = data.session.messages.at(-1);
-//     hideLoader();
-//     appendMessage("bot", last.answer);
-//   });
-
-//   document.getElementById("restoreBtn").addEventListener("click", async () => {
-//   if (currentSession) {
-//     toggleSessionStatus(currentSession.session_id, "archived");
-//   }
-// });
-
-
-//   document.getElementById("exportBtn").addEventListener("click", () => {
-//     if (currentSession) {
-//       window.open(`${API_BASE}/export/csv/${currentSession.session_id}`, "_blank");
-//     }
-//   });
-// });
-
-function showLoader() {
-  document.getElementById("loadingOverlay").style.display = "flex";
-}
-
-function hideLoader() {
-  document.getElementById("loadingOverlay").style.display = "none";
-}
-
-/* Detecting Location */
-
 async function detectLocationAndLanguage(updateBackend = false) {
   if (!navigator.geolocation) return;
 
@@ -645,3 +528,4 @@ document.getElementById("resetLocationBtn").addEventListener("click", async () =
   await detectLocationAndLanguage(true);
   document.getElementById("locationEdit").style.display = "none"; 
 });
+
