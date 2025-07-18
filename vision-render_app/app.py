@@ -9,7 +9,7 @@ import os
 # Load YOLO model
 model = YOLO("best.pt")
 
-# Class descriptions
+# Class descriptions (all lowercase for case-insensitive matching)
 class_descriptions = {
     "anthracnose": "Dark, sunken lesions on leaves and stems.",
     "healthy": "This leaf appears healthy with no visible signs of disease.",
@@ -34,7 +34,7 @@ st.markdown(
 # Sidebar - Upload Image
 with st.sidebar:
     st.header("📤 Upload Image")
-    uploaded_file = st.file_uploader("Choose a leaf or crop image", type=["jpg", "jpeg", "png"])
+    uploaded_file = st.file_uploader("Choose a leaf or crop image", type=["JPG","JPEG","PNG"])
 
 # Layout
 left_col, right_col = st.columns(2)
@@ -82,8 +82,11 @@ if uploaded_file:
 
                         st.write(f"**🧪 Class:** {class_name}")
                         st.write(f"**🔢 Confidence:** {conf * 100:.2f}%")
-                        if class_name in class_descriptions:
-                            st.info(f"📝 {class_descriptions[class_name]}")
+
+                        # Case-insensitive match
+                        desc = class_descriptions.get(class_name.lower())
+                        if desc:
+                            st.info(f"📝 {desc}")
                         else:
                             st.warning("ℹ️ No description available.")
                         st.markdown("---")
