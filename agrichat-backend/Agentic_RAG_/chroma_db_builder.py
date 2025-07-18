@@ -50,8 +50,8 @@ class ChromaDBBuilder:
         print(f"[SUCCESS] Stored {len(self.documents)} agricultural Q/A pairs in ChromaDB at: {self.persist_dir}")
 
 if __name__ == "__main__":
-    csv_file = r"C:\Users\amank\Gemini_based_processing\data\sample_data.csv"
-    storage_dir = r"C:\Users\amank\Gemini_based_processing\chromaDb"
+    csv_file = r"agrichat-backend\Agentic_RAG_\data\sample_data.csv"
+    storage_dir = r"agrichat-backend\Agentic_RAG_\chromaDb"
     os.environ["GOOGLE_API_KEY"] = "AIzaSyCzS2rkrIU-qed90akvU4sjT43W8UANA5A"
     builder = ChromaDBBuilder(csv_path=csv_file, persist_dir=storage_dir)
     builder.load_csv_to_documents()

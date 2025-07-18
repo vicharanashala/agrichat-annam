@@ -59,7 +59,7 @@ def initialize_handler():
     Designed to be called once (e.g., in FastAPI lifespan).
     """
     chroma_handler = ChromaQueryHandler(
-        chroma_path="agrichat-backend/RAGpipelinev3/Gemini_based_processing/chromaDb",
+        chroma_path="agrichat-backend\Agentic_RAG_\chromaDb",
         gemini_api_key="AIzaSyCzS2rkrIU-qed90akvU4sjT43W8UANA5A"
     )
     inject_chroma_handler(chroma_handler)
