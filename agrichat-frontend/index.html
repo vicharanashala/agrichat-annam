@@ -49,6 +49,31 @@
           AgriChat
         </h1>
       </div>
+
+      <div class="location-info-bar">
+    <div class="location-info" id="locationInfo">
+      <i class="fas fa-map-marker-alt"></i>
+      <span id="locationState">Detecting...</span>,
+      <span id="locationLanguage">Detecting...</span>
+      <button id="editLocationBtn" class="edit-icon-btn" title="Edit">
+        <i class="fas fa-pencil-alt"></i>
+      </button>
+    </div>
+
+    <div class="location-dropdown" id="locationEdit" style="display: none;">
+      <div class="dropdown-group">
+        <label for="manualStateSelect">State</label>
+        <select id="manualStateSelect"></select>
+      </div>
+      <div class="dropdown-group">
+        <label for="manualLanguageSelect">Language</label>
+        <select id="manualLanguageSelect"></select>
+      </div>
+      <button id="resetLocationBtn" class="reset-location-btn"><i class="fas fa-sync-alt"></i> Reset</button>
+    </div>
+  </div>
+
+  </div>
       
        <!-- <select id="stateSelect" required style="margin-bottom: 10px; padding: 10px; border-radius: 8px; border: 1px solid #ccc;">
     <option value="">-- Select your State / UT --</option>

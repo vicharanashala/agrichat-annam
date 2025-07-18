@@ -883,6 +883,119 @@ body.sidebar-collapsed {
   color: rgb(189, 178, 183) !important;
 }
 
+/* Start of Detecting Location Styles*/
+
+.edit-icon-btn {
+  background: transparent;
+  border: none;
+  color: var(--primary-green);
+  cursor: pointer;
+  font-size: 16px;
+  margin-left: 10px;
+  transition: color 0.2s ease;
+}
+
+.edit-icon-btn:hover {
+  color: var(--accent-green);
+}
+
+.location-info-bar {
+  position: relative;
+}
+
+.location-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 50;
+  background: var(--white);
+  border: 2px solid var(--border-light);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  width: 360px;
+  display: none;
+}
+
+.location-dropdown.show {
+  display: block;
+}
+
+.location-dropdown .dropdown-group {
+  margin-bottom: 12px;
+  margin-right: 20px;
+}
+
+.location-dropdown .dropdown-group label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--text-dark);
+}
+
+.location-dropdown select {
+  width: 100%;
+  padding: 10px;
+  border-radius: 10px;
+  border: 2px solid var(--border-light);
+  font-size: 14px;
+  background: var(--very-light-green);
+  color: var(--text-dark);
+  transition: all 0.2s ease;
+}
+
+select option {
+  background-color: var(--white);
+  color: var(--text-dark);
+}
+
+select option:checked {
+  background-color: var(--accent-green);
+  color: white;
+}
+
+
+.location-dropdown select:focus {
+  outline: none;
+  border-color: var(--accent-green);
+  box-shadow: 0 0 0 3px rgba(123, 185, 123, 0.15);
+}
+
+.reset-location-btn {
+  background-color: #3c793c;
+  color: rgb(224, 255, 205);
+  border: 1px solid var(--accent-green);
+  height: fit-content;
+  margin-top: 32px;
+  padding: 6px 6px; 
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+
+ ::selection {
+   background: var(--accent-green);
+   color: #ffffff;
+ }
+
+.reset-location-btn:hover {
+  background: #6aa86a;
+  transform: translateY(-1px);
+}
+
+.hidden { 
+  display: none !important;
+}
+
+/* End of Detecting Location Styles*/
+
 ::selection {
   background: var(--accent-green);
   color: #ffffff;
@@ -980,13 +1093,62 @@ body.sidebar-collapsed {
     padding-right: 8px;
   }
 }
+
+@media (max-width: 551px) {
+  .main-title {
+    font-size: 16px;
+  }
+
+  .location-info {
+    font-size: 16px;
+  }
+
+  .export-button {
+    padding: 8px 12px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 459px) {
+
+  .sidebar-toggle {
+    width: 30px;
+    height: 30px;
+  }
+
+  .header-left {
+    gap: 5px;
+  }
+
+  .main-title {
+    font-size: 16px;
+    gap: 3px;
+  }
+
+  .location-info {
+    font-size: 14px;
+    padding: 10px;
+  }
+
+  .fa-pencil-alt {
+    font-size: 12px;
+  }
+
+  .export-button {
+    width: 60px;
+    height: 60px;
+    font-size: 12px;
+  }
+}
+
 @media (max-width: 388px) {
   .main-title {
-    font-size: 20px;
+    font-size: 14px;
     font-weight: 700;
     color: var(--primary-green);
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 3px;
+    margin-right: 5px;
   }
 }
