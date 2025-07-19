@@ -1,7 +1,7 @@
 #  Language-Aware Transcription App
 
 This is a Gradio-based web interface for **automatic language detection and transcription** of audio files using two powerful models:
-- [`openai/whisper-large-v3`](https://huggingface.co/openai/whisper-large-v3) for language detection
+- [`openai/whisper-large`](https://huggingface.co/openai/whisper-large) for language detection
 - [`ai4bharat/indic-conformer-600m-multilingual`](https://huggingface.co/ai4bharat/indic-conformer-600m-multilingual) for multilingual speech transcription using both CTC and RNNT decoders.
 
 ---
