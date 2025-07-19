@@ -42,6 +42,7 @@ You can try the live demo here:
 - [OpenAI Whisper]
 - [AI4Bharat Indic Conformer]
 - [Gradio]
+- [Hugging Face]
 
 ---
 
