@@ -51,3 +51,7 @@ Uploading a maize leaf with powdery mildew returns:
 📝 Description: White powdery spots on leaf surfaces.
 
 ---
+🌐 Live App: https://vision-agrichat-2.onrender.com/
+
+---
+
