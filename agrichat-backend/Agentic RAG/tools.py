@@ -2,7 +2,6 @@ from firecrawl import FirecrawlApp, ScrapeOptions
 import numpy as np
 from pydantic import PrivateAttr
 from crewai.tools import BaseTool
-from langchain_chroma import Chroma
 from chroma_query_handler import ChromaQueryHandler
 
 class FireCrawlWebSearchTool(BaseTool):
