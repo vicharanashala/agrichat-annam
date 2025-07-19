@@ -13,18 +13,6 @@ llm = LLM(
     temperature=0.0
 )
 
-# Router_Agent = Agent(
-#     role='Router',
-#     goal='Route user question to a vectorstore or web search',
-#     backstory=(
-#         "You are an expert at routing a user question to a vectorstore or web search."
-#         "Use the vectorstore for questions on concepts related to Retrieval-Augmented Generation."
-#         "You do not need to be stringent with the keywords in the question related to these topics. Otherwise, use web-search."
-#     ),
-#     verbose=True,
-#     llm=llm,
-# )
-
 Retriever_Agent = Agent(
     role="Retriever",
     goal="Always attempt to answer the user query using the RAG tool (vectorstore) first. "
