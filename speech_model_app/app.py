@@ -6,8 +6,8 @@ from transformers import WhisperProcessor, WhisperForConditionalGeneration, Auto
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Whisper model for language detection
-lang_id_model = WhisperForConditionalGeneration.from_pretrained("openai/whisper-medium").to(device)
-lang_id_processor = WhisperProcessor.from_pretrained("openai/whisper-medium")
+lang_id_model = WhisperForConditionalGeneration.from_pretrained("openai/whisper-large").to(device)
+lang_id_processor = WhisperProcessor.from_pretrained("openai/whisper-large")
 
 # Indic Conformer model for transcription
 model = AutoModel.from_pretrained("ai4bharat/indic-conformer-600m-multilingual", trust_remote_code=True)
@@ -50,8 +50,8 @@ demo = gr.Interface(
         gr.Textbox(label="CTC Transcription"),
         gr.Textbox(label="RNNT Transcription")
     ],
-    title="Language-Aware Transcription",
-    description="Step 1: Detect language using Whisper. Step 2: Transcribe using AI4Bharat Indic Conformer."
+    title="Language-Aware Transcription_2",
+    description="Step 1: Detect language using Whisper-Large. Step 2: Transcribe using AI4Bharat Indic Conformer."
 )
 
 if __name__ == "__main__":
