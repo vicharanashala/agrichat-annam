@@ -10,10 +10,11 @@ rag_tool = RAGTool(chroma_path=r"C:\Users\amank\Gemini_based_processing\chromaDb
 retriever_task = Task(
     description=(
         "For the question {question}, always attempt to answer using the RAG tool (vectorstore) only."
-        "Present the final answer in a clear and structured format, clearly indicating the source."
+        "If the RAG tool does not provide a relevant or confident answer, then use the web search tool to find the answer."
+        "You must always present the final answer in a clear and structured format, indicating the source."
     ),
     expected_output=(
-        "A clear and concise answer to the question."
+        "Present the final answer in a clear and structured format, clearly indicating the source."
     ),
     agent=Retriever_Agent
 )
