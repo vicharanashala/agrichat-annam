@@ -55,7 +55,7 @@ from crewai import Crew
 
 def initialize_handler():
     chroma_handler = ChromaQueryHandler(
-        chroma_path="agrichat-backend\Agentic_RAG_\chromaDb",
+        chroma_path="Agentic_RAG_/chromaDb",
         gemini_api_key="AIzaSyCzS2rkrIU-qed90akvU4sjT43W8UANA5A"
     )
     inject_chroma_handler(chroma_handler)
