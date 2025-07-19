@@ -1,7 +1,7 @@
 #  Language-Aware Transcription App
 
 This is a Gradio-based web interface for **automatic language detection and transcription** of audio files using two powerful models:
-- [`openai/whisper-medium`](https://huggingface.co/openai/whisper-medium) for language detection
+- [`openai/whisper-large-v3`](https://huggingface.co/openai/whisper-large-v3) for language detection
 - [`ai4bharat/indic-conformer-600m-multilingual`](https://huggingface.co/ai4bharat/indic-conformer-600m-multilingual) for multilingual speech transcription using both CTC and RNNT decoders.
 
 ---
@@ -24,7 +24,7 @@ The app provides a simple web UI:
 3. The transcription is generated using both CTC and RNNT decoders.
 
 You can try the live demo here:  
-👉 [Hugging Face Space Demo](https://huggingface.co/spaces/Noumida/Speech_to_Text_LID_Transcription)
+👉 [Hugging Face Space Demo](https://huggingface.co/spaces/Noumida/Speech_to_Text_LID_Transcription_2)
 
 ---
 
