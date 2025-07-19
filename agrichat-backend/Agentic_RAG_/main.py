@@ -54,10 +54,6 @@ from .crew_tasks import get_tasks
 from crewai import Crew
 
 def initialize_handler():
-    """
-    Initializes and returns a callable to handle questions using CrewAI.
-    Designed to be called once (e.g., in FastAPI lifespan).
-    """
     chroma_handler = ChromaQueryHandler(
         chroma_path="agrichat-backend\Agentic_RAG_\chromaDb",
         gemini_api_key="AIzaSyCzS2rkrIU-qed90akvU4sjT43W8UANA5A"
@@ -79,7 +75,6 @@ def initialize_handler():
         )
         inputs = {"question": question}
         result = rag_crew.kickoff(inputs=inputs)
-        print(f"[CrewAI Result for]: {question} -> {result}")
 
         if hasattr(result, "output"):
             return result.output

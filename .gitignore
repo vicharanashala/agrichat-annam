@@ -1,7 +1,13 @@
 .env
-agrichat-backend/Agentic RAG/__pycache__/tools.cpython-313.pyc
-agrichat-backend/Agentic RAG/chromaDb/chroma.sqlite3
-agrichat-backend/Agentic RAG/chromaDb/ba7ba9ba-1fcc-4c37-aa03-5051eab682ab/data_level0.bin
-agrichat-backend/Agentic RAG/chromaDb/ba7ba9ba-1fcc-4c37-aa03-5051eab682ab/header.bin
-agrichat-backend/Agentic RAG/chromaDb/ba7ba9ba-1fcc-4c37-aa03-5051eab682ab/length.bin
-agrichat-backend/Agentic RAG/chromaDb/ba7ba9ba-1fcc-4c37-aa03-5051eab682ab/link_lists.bin
+agrichat-backend/Agentic_RAG/__pycache__/tools.cpython-313.pyc
+agrichat-backend/Agentic_RAG/chromaDb/chroma.sqlite3
+agrichat-backend/Agentic_RAG/chromaDb/ba7ba9ba-1fcc-4c37-aa03-5051eab682ab/data_level0.bin
+agrichat-backend/Agentic_RAG/chromaDb/ba7ba9ba-1fcc-4c37-aa03-5051eab682ab/header.bin
+agrichat-backend/Agentic_RAG/chromaDb/ba7ba9ba-1fcc-4c37-aa03-5051eab682ab/length.bin
+agrichat-backend/Agentic_RAG/chromaDb/ba7ba9ba-1fcc-4c37-aa03-5051eab682ab/link_lists.bin
+agrichat-backend/Agentic_RAG_/__pycache__/tools.cpython-313.pyc
+agrichat-backend/Agentic_RAG_/chromaDb/chroma.sqlite3
+agrichat-backend/Agentic_RAG_/chromaDb/ba7ba9ba-1fcc-4c37-aa03-5051eab682ab/data_level0.bin
+agrichat-backend/Agentic_RAG_/chromaDb/ba7ba9ba-1fcc-4c37-aa03-5051eab682ab/header.bin
+agrichat-backend/Agentic_RAG_/chromaDb/ba7ba9ba-1fcc-4c37-aa03-5051eab682ab/length.bin
+agrichat-backend/Agentic_RAG_/chromaDb/ba7ba9ba-1fcc-4c37-aa03-5051eab682ab/link_lists.bin

@@ -77,13 +77,14 @@ def get_tasks():
 
     retriever_task = Task(
         description=(
-            "For the question {question}, always attempt to answer using the RAG tool (vectorstore) only."
-            "Present the final answer in a clear and structured format, clearly indicating the source."
-        ),
-        expected_output=(
-            "A clear and concise answer to the question."
-        ),
-        agent=Retriever_Agent
+        "For the question {question}, always attempt to answer using the RAG tool (vectorstore) only."
+        "If the RAG tool does not provide a relevant or confident answer, then use the web search tool to find the answer."
+        "You must always present the final answer in a clear and structured format, indicating the source."
+    ),
+    expected_output=(
+        "Present the final answer in a clear and structured format, clearly indicating the source."
+    ),
+    agent=Retriever_Agent
     )
 
     grader_task = Task(
