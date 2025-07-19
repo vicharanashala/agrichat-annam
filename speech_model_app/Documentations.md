@@ -39,10 +39,9 @@ You can try the live demo here:
 
 ##  Credits
 
-- [OpenAI Whisper](https://huggingface.co/openai/whisper-medium)
-- [AI4Bharat Indic Conformer](https://huggingface.co/ai4bharat/indic-conformer-600m-multilingual)
-- [Gradio](https://gradio.app/)
-- [Hugging Face Space](https://huggingface.co/spaces/Noumida/Speech_to_Text_LID_Transcription)
+- [OpenAI Whisper]
+- [AI4Bharat Indic Conformer]
+- [Gradio]
 
 ---
 
