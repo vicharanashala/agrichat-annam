@@ -1,13 +1,13 @@
 🌿 Vision_agrichat - Crop Disease Detection App
 
-**Vision_agrichat** is an intelligent web application designed to detect crop diseases from leaf images using a **YOLOv12n** deep learning model. Built using **Streamlit** and deployed on **Render.com**, the app provides a fast and user-friendly interface for farmers, researchers, and agri-tech developers to identify diseases and take action promptly.
+**Vision_agrichat** is an intelligent web application designed to detect crop diseases from leaf images using a **YOLOv12s** deep learning model. Built using **Streamlit** and deployed on **Render.com**, the app provides a fast and user-friendly interface for farmers, researchers, and agri-tech developers to identify diseases and take action promptly.
 
 ---
 
 📌 Key Features
 
 - 📤 Upload crop or leaf images directly through the web interface
-- 🧠 Performs real-time disease detection using **YOLOv12n** (a lightweight object detection model)
+- 🧠 Performs real-time disease detection using **YOLOv12s** (a lightweight object detection model)
 - 📋 Displays predicted class, confidence score, and disease-specific descriptions
 - 🖥️ Built with **Streamlit** – easily accessible through any modern web browser
 - 🚀 One-click deployment on **Render.com** with automatic build and deployment
