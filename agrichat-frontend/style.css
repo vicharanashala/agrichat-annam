@@ -1205,4 +1205,9 @@ select option:checked {
   .start-screen .icon {
     margin-top: 5px;
   }
+
+  #chat-form textarea {
+    margin: 0px 10px 0 23% !important;
+  }
+
 }
