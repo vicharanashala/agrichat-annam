@@ -37,6 +37,79 @@
     </div>
   </aside>
 
+  <!-- Login/Register Form -->
+
+  <!-- LOGIN/REGISTER DOUBLE SECTIONED POPUP -->
+    <div id="loginOverlay" style="
+  position: fixed; inset: 0; background: rgba(255, 255, 255, 0.664);
+  display: flex; align-items: center; justify-content: center; z-index: 9999;">
+  
+  <div style="
+    background: white; border-radius: 12px; box-shadow: 0 8px 36px rgba(0,0,0,0.2);
+    width: 700px; max-width: 90vw; height: 400px;
+    display: flex;">
+
+    <!-- Login Panel -->
+    <div style="
+      flex: 1; padding: 2em; border-right: 1px solid #eee; display: flex; flex-direction: column; justify-content: center;">
+      <h2 style="color: #248241; padding-bottom: 1rem;">Login</h2>
+      <small style="margin-bottom:10px; color:#666;">For existing members</small>
+      <form id="loginForm" style="display: flex; flex-direction: column; gap: 1em;">
+        <input type="text" placeholder="Username" required style="padding: 0.7em; border: 1px solid #ccc; border-radius: 6px;">
+        <input type="password" placeholder="Password" required style="padding: 0.7em; border: 1px solid #ccc; border-radius: 6px;">
+        <button type="submit" style="background: #118650; color: white; padding: 0.7em; border:none; border-radius: 6px; cursor: pointer;">Login</button>
+      </form>
+    </div>
+
+    <!-- Register Panel -->
+    <div style="
+      flex: 1; padding: 2em; display: flex; flex-direction: column; justify-content: center; background: rgb(55, 148, 51); border-top-right-radius: 6px; border-bottom-right-radius: 6px;">
+      <h2 style="color: #f1f7f3; padding-bottom: 1rem; margin-top: 1.4rem;">Register</h2>
+      <small style="margin-bottom:10px; color:#ffffff;">For new members</small>
+      <form id="registerForm" style="display: flex; flex-direction: column; gap:1em;">
+        
+      <input type="text" id="aadharInput" maxlength="14" placeholder="12-digit Aadhar ID"
+        style="padding: 0.7em; border: 1px solid #ccc; border-radius: 6px; letter-spacing:2px;" oninput="formatAadhaar(this)" autocomplete="off" required>
+
+        <div style="display: flex; gap: 0.5em; align-items: center;">
+        <span style="font-size:1em; padding: 0.3em 1em; border: 1px solid #ccc; border-radius:6px; background:#e9ecef;">🇮🇳 +91</span>
+        
+        <input
+          type="tel"
+          id="phoneInput"
+          maxlength="13"
+          placeholder="12345 67890"
+          autocomplete="off"
+          style="flex:1; padding:0.7em; border:1px solid #ccc; border-radius:6px; letter-spacing:1.5px;"
+          required
+          oninput="formatIndianPhone(this)"
+        >
+      </div>
+
+        <button type="submit" style="background: #15570c; color: white; padding: 0.7em; border:none; border-radius: 6px; cursor: pointer;">Sign Up</button>
+      </form>
+
+      <!-- For Guests -->
+      <button 
+      id="guestBtnRegister" 
+      type="button"
+      style="
+        margin-top: 1em; 
+        background: none; 
+        color: #fff;
+        text-decoration: underline;
+        cursor: pointer; 
+        border: none; 
+        font-size: 0.9em;
+        padding: 0;">
+      Or continue as guest with 5 messages
+      </button>
+    
+    </div>
+  </div>
+</div>  
+  <!-- End of Login/Register Form -->
+
   <main class="main-container">
     <header class="main-header">
   <div class="header-left">
@@ -167,42 +240,6 @@
         </div>
       </form>
 
-
-      <!-- In-chat form (outside start screen, fixed at bottom, hidden by default) -->
-      <!-- <form id="chat-form" class="chat-form" style="display: none;">
-        <textarea id="user-input" placeholder="Ask your agricultural question here..." required rows="3"></textarea>
-
-        <div class="button-row">
-          <div class="tooltip-container">
-            <button type="button" class="feature-button inactive" aria-label="Attach file or image">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m18.375 12.739l-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13"/>
-              </svg>
-            </button>
-            <span class="tooltip-text">Beta feature</span>
-          </div>
-
-          <div class="tooltip-container">
-            <button type="button" class="feature-button inactive" aria-label="Start voice input">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <g>
-                  <path d="M5 3a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0V3z"/>
-                  <path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/>
-                </g>
-              </svg>
-            </button>
-            <span class="tooltip-text">Beta feature</span>
-          </div>
-        </div>
-
-        <button type="submit" class="send-button" aria-label="Send">
-          <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 28 28">
-            <path fill="currentColor" d="M3.79 2.625c-.963-.46-2.021.42-1.746 1.451l2.016 7.533a1 1 0 0 0 .824.732l9.884 1.412c.286.04.286.454 0 .495l-9.883 1.411a1 1 0 0 0-.824.732l-2.017 7.537c-.275 1.03.783 1.91 1.746 1.451L25.288 15.13c.949-.452.949-1.804 0-2.257L3.79 2.626Z"/>
-          </svg>
-        </button>
-      </form> -->
-
-
        <div class="start-screen" id="startScreen">
         <div class="icon"><i class="fas fa-seedling"></i></div>
         <h2>Welcome to AgriChat</h2>
@@ -214,9 +251,6 @@
         <!-- Welcome Screen chat-form floating in page-->
         <form id="start-form" class="chat-form" style="max-width: 600px; margin: 0 auto;">
         <textarea id="start-input" name="question" placeholder="Ask me anything about farming, crops, soil, weather, or agricultural practices..." required rows="3"></textarea>
-
-        <!-- <form id="start-form" class="chat-form" style="max-width: 600px; margin: 0 auto;">
-          <textarea name="question" placeholder="Ask me anything about farming, crops, soil, weather, or agricultural practices..." required rows="3"></textarea> -->
 
           <div class="button-row">
 
@@ -264,7 +298,45 @@
     const backdrop = document.getElementById('backdrop');
     const body = document.body;
 
-    
+    // TEMPORARY FIX: Click 'Guest text' to close login overlay
+    document.getElementById('guestBtnRegister').addEventListener('click', function() {
+      const overlay = document.getElementById('loginOverlay');
+      if (overlay) {
+        overlay.style.display = 'none';
+      }
+    });
+
+    // Format Indian phone number with spaces for readability
+    function formatIndianPhone(input) {
+      let val = input.value.replace(/\D/g, '').slice(0, 10); // max 10 digits
+      if(val.length > 5) {
+          input.value = val.slice(0,5) + ' ' + val.slice(5);
+      } else {
+          input.value = val;
+      }
+    }
+
+    // To submit Indian phone number with country code, without spaces
+    function getFullPhone() {
+      const code = "+91";  // hardcoded since dropdown with other country code options was removed
+      const phone = document.getElementById('phoneInput').value.replace(/\s/g, '');
+      return code + phone;
+    }
+
+    // Format Aadhar input with spaces after every 4 digits for readability
+    function formatAadhaar(input) {
+      // Remove all non-digits
+      let val = input.value.replace(/\D/g, '');
+      // Only keep first 12 digits
+      val = val.substring(0, 12);
+      // Format as '1234 5678 9012'
+      let parts = [];
+      for(let i = 0; i < val.length; i += 4) {
+        parts.push(val.substring(i, i + 4));
+      }
+      input.value = parts.join(' ');
+    }
+
     // Make 'Enter' key submit the form
     // For start form textarea
     document.getElementById('start-input')?.addEventListener('keydown', function(e) {
