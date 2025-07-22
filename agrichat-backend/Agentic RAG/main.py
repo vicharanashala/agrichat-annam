@@ -28,3 +28,4 @@ if __name__ == "__main__":
         if question.strip().lower() == "exit":
             break
         answer = get_answer(question)
+        print(answer)
