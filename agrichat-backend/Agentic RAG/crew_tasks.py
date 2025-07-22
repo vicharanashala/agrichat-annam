@@ -61,12 +61,5 @@ answer_task = Task(
     context=[hallucination_task],
 )
 
-gemini_api_key = "AIzaSyCzS2rkrIU-qed90akvU4sjT43W8UANA5A"
-rag_tool = RAGTool(chroma_path=r"C:\Users\amank\Gemini_based_processing\chromaDb", gemini_api_key=gemini_api_key)
-firecrawl_tool = FireCrawlWebSearchTool(api_key="fc-3042e1475cda4e51b0ce4fdd6ea58578")
-fallback_tool = FallbackAgriTool(
-    google_api_key=gemini_api_key,
-    model="gemini-2.5-flash",
-    websearch_tool=firecrawl_tool
-)
+
 
