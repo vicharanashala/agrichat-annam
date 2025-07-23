@@ -18,7 +18,7 @@ You are an expert agricultural assistant. Using only the provided context (do no
 - Briefly define technical terms inline if needed.
 - Avoid botanical or scientific explanations that are not relevant to farmers unless explicitly asked.
 
-**If the context does not contain relevant information, reply exactly:**  
+**If the context does not contain relevant information, reply exactly:**   
 `I don't have enough information to answer that.`
 
 ### Context
@@ -26,35 +26,16 @@ You are an expert agricultural assistant. Using only the provided context (do no
 
 ### User Question
 {question}
-
 ---
 ### Your Answer:
 """
-
-    FALLBACK_PROMPT = """
-You are an expert agricultural assistant. The database could not provide a relevant answer. Using only your own training and knowledge, answer the following question in a detailed, structured, and explanatory manner. Do not mention or reveal any metadata such as date, district, state, or season unless the user asks for it. Stay strictly within the scope of the user's question and do not introduce unrelated information.
-
-### Detailed Explanation
-- Provide a comprehensive, step-by-step explanation only as it directly relates to the user's question.
-- Use bullet points, sub-headings, or tables to clarify complex information.
-- Reference and explain all relevant data points.
-- Avoid botanical or scientific explanations that are not relevant to farmers unless explicitly asked.
-
-### User Question
-{question}
-
----
-### Your Answer:
-"""
-
     def __init__(self, chroma_path: str, gemini_api_key: str, embedding_model: str = "models/text-embedding-004", chat_model: str = "gemma-3-27b-it"):
-        self.chat_model = chat_model
         self.embedding_function = GoogleGenerativeAIEmbeddings(
             model=embedding_model,
             google_api_key=gemini_api_key
         )
         genai.configure(api_key=gemini_api_key)
-        self.genai_model = genai.GenerativeModel(self.chat_model)
+        self.genai_model = genai.GenerativeModel(chat_model)
         self.db = Chroma(
             persist_directory=chroma_path,
             embedding_function=self.embedding_function,
@@ -64,7 +45,7 @@ You are an expert agricultural assistant. The database could not provide a relev
             field: {m[field] for m in col if field in m and m[field]}
             for field in [
                 "Year","Month","Day",
-                "Crop","DistrictName","Season","Sector","StateName"
+                "Crop","District","Season","Sector","State"
             ]
         }
 
@@ -81,7 +62,7 @@ You are an expert agricultural assistant. The database could not provide a relev
     def cosine_sim(self, a, b):
         return np.dot(a, b) / (norm(a) * norm(b))
 
-    def rerank_documents(self, question:str, results, top_k:int=5):
+    def rerank_documents(self, question: str, results, top_k: int = 10):
         query_embedding = self.embedding_function.embed_query(question)
         scored = []
         for doc, _ in results:
@@ -96,9 +77,6 @@ You are an expert agricultural assistant. The database could not provide a relev
             context=context,
             question=question
         )
-
-    def construct_fallback_prompt(self, question: str) -> str:
-        return self.FALLBACK_PROMPT.format(question=question)
 
     def get_answer(self, question: str) -> str:
         try:
@@ -116,26 +94,9 @@ You are an expert agricultural assistant. The database could not provide a relev
                         max_output_tokens=1024,
                     )
                 )
-                if response.text.strip() == "I don't have enough information to answer that.":
-                    prompt = self.construct_fallback_prompt(question)
-                    response = self.genai_model.generate_content(
-                        contents=prompt,
-                        generation_config=genai.GenerationConfig(
-                            temperature=0.4,
-                            max_output_tokens=1024,
-                        )
-                    )
                 return response.text.strip()
             else:
-                prompt = self.construct_fallback_prompt(question)
-                response = self.genai_model.generate_content(
-                    contents=prompt,
-                    generation_config=genai.GenerationConfig(
-                        temperature=0.4,
-                        max_output_tokens=1024,
-                    )
-                )
-                return response.text.strip()
+                return "I don't have enough information to answer that."
         except Exception as e:
             logger.error(f"[Error] {e}")
             return "I don't have enough information to answer that."

@@ -1,92 +1,6 @@
-# from crewai import Agent
-# from .tools import FireCrawlWebSearchTool, RAGTool
-
-
-
-# firecrawl_tool = FireCrawlWebSearchTool(api_key="fc-3042e1475cda4e51b0ce4fdd6ea58578")
-# rag_tool = RAGTool(chroma_path=r"agrichat-backend/RAGpipelinev3/Gemini_based_processing/chromaDb", gemini_api_key="AIzaSyCzS2rkrIU-qed90akvU4sjT43W8UANA5A")
-
-# from crewai import LLM
-# llm = LLM(
-#     model='gemini/gemini-2.5-flash',
-#     api_key='AIzaSyCzS2rkrIU-qed90akvU4sjT43W8UANA5A',
-#     temperature=0.0
-# )
-
-# # Router_Agent = Agent(
-# #     role='Router',
-# #     goal='Route user question to a vectorstore or web search',
-# #     backstory=(
-# #         "You are an expert at routing a user question to a vectorstore or web search."
-# #         "Use the vectorstore for questions on concepts related to Retrieval-Augmented Generation."
-# #         "You do not need to be stringent with the keywords in the question related to these topics. Otherwise, use web-search."
-# #     ),
-# #     verbose=True,
-# #     llm=llm,
-# # )
-
-# Retriever_Agent = Agent(
-#     role="Retriever",
-#     goal="Always attempt to answer the user query using the RAG tool (vectorstore) first. "
-#         "If the RAG tool does not provide a relevant or confident answer, "
-#         "then use the web search tool to find the answer. "
-#         "Present the final answer in a clear and structured format, indicating the source.",
-#     backstory=(
-#         "You are a retrieval specialist who prioritizes trusted, internal knowledge. "
-#         "Your primary responsibility is to answer questions using the internal vectorstore (RAG tool). "
-#         "If the knowledge base cannot answer, you seamlessly fall back to web search. "
-#         "You always make sure the user receives the most relevant and up-to-date information, "
-#         "clearly indicating whether the answer comes from the knowledge base or the web."
-#     ),
-#     verbose=True,
-#     llm=llm,
-#     tools=[rag_tool, firecrawl_tool],
-# )
-
-# Grader_agent = Agent(
-#     role='Answer Grader',
-#     goal='Filter out erroneous retrievals',
-#     backstory=(
-#         "You are a grader assessing relevance of a retrieved document to a user question."
-#         "If the document contains keywords related to the user question, grade it as relevant."
-#         "It does not need to be a stringent test. You have to make sure that the answer is relevant to the question."
-#     ),
-#     verbose=True,
-#     allow_delegation=False,
-#     llm=llm,
-# )
-
-# hallucination_grader = Agent(
-#     role="Hallucination Grader",
-#     goal="Filter out hallucination",
-#     backstory=(
-#         "You are a hallucination grader assessing whether an answer is grounded in / supported by a set of facts."
-#         "Make sure you meticulously review the answer and check if the response provided is in alignment with the question asked"
-#     ),
-#     verbose=True,
-#     allow_delegation=False,
-#     llm=llm,
-# )
-
-# answer_grader = Agent(
-#     role="Answer Grader",
-#     goal="Filter out hallucination from the answer.",
-#     backstory=(
-#         "You are a grader assessing whether an answer is useful to resolve a question."
-#         "Make sure you meticulously review the answer and check if it makes sense for the question asked."
-#         "If the answer is relevant generate a clear and concise response."
-#         "If the answer generated is not relevant then perform a websearch using 'FireCrawlWebSearchTool'."
-#     ),
-#     verbose=True,
-#     allow_delegation=False,
-#     llm=llm,
-#     tools=[firecrawl_tool],
-# )
-
-
 from crewai import Agent, LLM
-from .tools import FireCrawlWebSearchTool
-
+from .tools import FireCrawlWebSearchTool, FallbackAgriTool
+gemini_api_key = "AIzaSyCzS2rkrIU-qed90akvU4sjT43W8UANA5A"
 
 firecrawl_tool = FireCrawlWebSearchTool(api_key="fc-3042e1475cda4e51b0ce4fdd6ea58578")
 
@@ -96,33 +10,41 @@ llm = LLM(
     temperature=0.0
 )
 
+fallback_tool = FallbackAgriTool(
+    google_api_key=gemini_api_key,
+    model="gemini-2.5-flash",
+    websearch_tool=firecrawl_tool
+)
 
 Retriever_Agent = Agent(
-    role="Retriever",
+    role="Retriever Agent",
     goal=(
-        "Always attempt to answer the user query using the RAG tool (vectorstore) first. "
-        "If the RAG tool does not provide a relevant or confident answer, "
-        "then use the web search tool to find the answer. "
-        "Present the final answer in a clear and structured format, indicating the source."
+        "Route the user's question to the appropriate tool."
+        "Use the RAG tool first to answer agricultural queries. "
+        "If the RAG tool returns '__FALLBACK__' or cannot answer confidently, "
+        "then invoke the fallback tool (LLM plus web search). "
+        "For non-agricultural queries, the tools will respond politely declining."
     ),
     backstory=(
-        "You are a retrieval specialist who prioritizes trusted, internal knowledge. "
-        "Your primary responsibility is to answer questions using the internal vectorstore (RAG tool). "
-        "If the knowledge base cannot answer, you seamlessly fall back to web search. "
-        "You always make sure the user receives the most relevant and up-to-date information, "
-        "clearly indicating whether the answer comes from the knowledge base or the web."
+        "You do not answer questions yourself. Instead, you decide which tool to call based on the user's query and the tool's responses. "
+        "You prioritize using trusted internal knowledge (RAG tool) before falling back to external web search aided responses."
     ),
     verbose=True,
     llm=llm,
-    tools=[],  
+    tools=[],
 )
+# def retriever_response(question: str) -> str:
+#     rag_response = rag_tool._run(question)
+#     if rag_response == "__FALLBACK__":
+#         return fallback_tool._run(question)
+#     return rag_response
 
 Grader_agent = Agent(
     role='Answer Grader',
     goal='Filter out erroneous retrievals',
     backstory=(
-        "You are a grader assessing relevance of a retrieved document to a user question. "
-        "If the document contains keywords related to the user question, grade it as relevant. "
+        "You are a grader assessing relevance of a retrieved document to a user question."
+        "If the document contains keywords related to the user question, grade it as relevant."
         "It does not need to be a stringent test. You have to make sure that the answer is relevant to the question."
     ),
     verbose=True,
@@ -134,8 +56,8 @@ hallucination_grader = Agent(
     role="Hallucination Grader",
     goal="Filter out hallucination",
     backstory=(
-        "You are a hallucination grader assessing whether an answer is grounded in / supported by a set of facts. "
-        "Make sure you meticulously review the answer and check if the response provided is in alignment with the question asked."
+        "You are a hallucination grader assessing whether an answer is grounded in / supported by a set of facts."
+        "Make sure you meticulously review the answer and check if the response provided is in alignment with the question asked"
     ),
     verbose=True,
     allow_delegation=False,
@@ -146,17 +68,17 @@ answer_grader = Agent(
     role="Answer Grader",
     goal="Filter out hallucination from the answer.",
     backstory=(
-        "You are a grader assessing whether an answer is useful to resolve a question. "
-        "Make sure you meticulously review the answer and check if it makes sense for the question asked. "
-        "If the answer is relevant generate a clear and concise response. "
-        "If the answer generated is not relevant then perform a websearch using 'FireCrawlWebSearchTool'."
+        "You are a grader assessing whether an answer is useful to resolve a question."
+        "Make sure you meticulously review the answer and check if it makes sense for the question asked."
+        "If the answer is relevant generate a clear and concise response."
+        "If the answer generated is not relevant then perform a websearch using 'fallback_tool'."
     ),
     verbose=True,
     allow_delegation=False,
     llm=llm,
-    tools=[firecrawl_tool],
+    tools=[fallback_tool],
 )
 
-def set_tools(rag_tool):
-    Retriever_Agent.tools = [rag_tool, firecrawl_tool]
+def set_tools(rag_tool,):
+    Retriever_Agent.tools = [rag_tool, fallback_tool]
     print("[crew_agents.py] Tools injected into Retriever_Agent.")
