@@ -1,47 +1,44 @@
-from crewai import Agent
-from tools import FireCrawlWebSearchTool, RAGTool
-
-
+from tools import FireCrawlWebSearchTool, RAGTool, FallbackAgriTool
 
 firecrawl_tool = FireCrawlWebSearchTool(api_key="fc-3042e1475cda4e51b0ce4fdd6ea58578")
-rag_tool = RAGTool(chroma_path=r"C:\Users\amank\Gemini_based_processing\chromaDb", gemini_api_key="AIzaSyCzS2rkrIU-qed90akvU4sjT43W8UANA5A")
+gemini_api_key = "AIzaSyCzS2rkrIU-qed90akvU4sjT43W8UANA5A"
+rag_tool = RAGTool(chroma_path=r"C:\Users\amank\Gemini_based_processing\chromaDb", gemini_api_key=gemini_api_key)
 
-from crewai import LLM
+from crewai import LLM, Agent
 llm = LLM(
     model='gemini/gemini-2.5-flash',
-    api_key='AIzaSyCzS2rkrIU-qed90akvU4sjT43W8UANA5A',
+    api_key=gemini_api_key,
     temperature=0.0
 )
 
-# Router_Agent = Agent(
-#     role='Router',
-#     goal='Route user question to a vectorstore or web search',
-#     backstory=(
-#         "You are an expert at routing a user question to a vectorstore or web search."
-#         "Use the vectorstore for questions on concepts related to Retrieval-Augmented Generation."
-#         "You do not need to be stringent with the keywords in the question related to these topics. Otherwise, use web-search."
-#     ),
-#     verbose=True,
-#     llm=llm,
-# )
+fallback_tool = FallbackAgriTool(
+    google_api_key=gemini_api_key,
+    model="gemini-2.5-flash",
+    websearch_tool=firecrawl_tool
+)
 
 Retriever_Agent = Agent(
-    role="Retriever",
-    goal="Always attempt to answer the user query using the RAG tool (vectorstore) first. "
-        "If the RAG tool does not provide a relevant or confident answer, "
-        "then use the web search tool to find the answer. "
-        "Present the final answer in a clear and structured format, indicating the source.",
+    role="Retriever Agent",
+    goal=(
+        "Route the user's question to the appropriate tool."
+        "Use the RAG tool first to answer agricultural queries. "
+        "If the RAG tool returns '__FALLBACK__' or cannot answer confidently, "
+        "then invoke the fallback tool (LLM plus web search). "
+        "For non-agricultural queries, the tools will respond politely declining."
+    ),
     backstory=(
-        "You are a retrieval specialist who prioritizes trusted, internal knowledge. "
-        "Your primary responsibility is to answer questions using the internal vectorstore (RAG tool). "
-        "If the knowledge base cannot answer, you seamlessly fall back to web search. "
-        "You always make sure the user receives the most relevant and up-to-date information, "
-        "clearly indicating whether the answer comes from the knowledge base or the web."
+        "You do not answer questions yourself. Instead, you decide which tool to call based on the user's query and the tool's responses. "
+        "You prioritize using trusted internal knowledge (RAG tool) before falling back to external web search aided responses."
     ),
     verbose=True,
     llm=llm,
-    tools=[rag_tool, firecrawl_tool],
+    tools=[rag_tool, fallback_tool],
 )
+def retriever_response(question: str) -> str:
+    rag_response = rag_tool._run(question)
+    if rag_response == "__FALLBACK__":
+        return fallback_tool._run(question)
+    return rag_response
 
 Grader_agent = Agent(
     role='Answer Grader',
@@ -75,12 +72,11 @@ answer_grader = Agent(
         "You are a grader assessing whether an answer is useful to resolve a question."
         "Make sure you meticulously review the answer and check if it makes sense for the question asked."
         "If the answer is relevant generate a clear and concise response."
-        "If the answer generated is not relevant then perform a websearch using 'FireCrawlWebSearchTool'."
+        "If the answer generated is not relevant then perform a websearch using 'fallback_tool'."
     ),
     verbose=True,
     allow_delegation=False,
     llm=llm,
-    tools=[firecrawl_tool],
+    tools=[fallback_tool],
 )
-
 

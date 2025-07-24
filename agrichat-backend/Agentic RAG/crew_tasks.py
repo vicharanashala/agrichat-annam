@@ -1,62 +1,65 @@
-from crewai import Task, Agent, Crew, Process
-from crew_agents import (
-    Retriever_Agent, Grader_agent,
-    hallucination_grader, answer_grader
-)
-from tools import FireCrawlWebSearchTool, RAGTool
-firecrawl_tool = FireCrawlWebSearchTool(api_key="fc-3042e1475cda4e51b0ce4fdd6ea58578")
-rag_tool = RAGTool(chroma_path=r"C:\Users\amank\Gemini_based_processing\chromaDb", gemini_api_key="AIzaSyCzS2rkrIU-qed90akvU4sjT43W8UANA5A")
+from crewai import Task
+from crew_agents import Retriever_Agent, Grader_agent, hallucination_grader, answer_grader
+from tools import RAGTool, FallbackAgriTool, FireCrawlWebSearchTool
 
+# Task: Retrieve answer from vectorstore (RAG tool) or fallback LLM+WebSearch
 retriever_task = Task(
     description=(
-        "For the question {question}, always attempt to answer using the RAG tool (vectorstore) only."
-        "Present the final answer in a clear and structured format, clearly indicating the source."
+        "For the question {question}, always attempt to answer using the RAG tool (vectorstore) first. "
+        "If the RAG tool does not provide a relevant or confident answer (signals fallback), then use the fallback tool (LLM + web search) to find the answer. "
+        "Present the final answer clearly and specify the source."
     ),
     expected_output=(
-        "A clear and concise answer to the question."
+        "Present the final answer in a clear and structured format, clearly indicating the source (e.g., 'Source: RAG Database' or 'Source: LLM knowledge & Web Search')."
     ),
     agent=Retriever_Agent
 )
 
+# Task: Grade whether the document retrieved is relevant to the question
 grader_task = Task(
     description=(
         "Based on the response from the retriever task for the question {question}, evaluate whether the retrieved content is relevant to the question."
     ),
     expected_output=(
-        "Binary score 'yes' or 'no' to indicate whether the document is relevant to the question. "
-        "You must answer 'yes' if the response from the 'retriever_task' is in alignment with the question asked. "
-        "You must answer 'no' if the response from the 'retriever_task' is not in alignment with the question asked. "
-        "Do not provide any preamble or explanations except for 'yes' or 'no'."
+        "Binary score 'yes' or 'no' to indicate if the retrieved answer is relevant to the question. "
+        "Answer 'yes' only if it meaningfully addresses the question. "
+        "Answer 'no' if irrelevant or off-topic. "
+        "Reply only 'yes' or 'no' without any explanation or preamble."
     ),
     agent=Grader_agent,
     context=[retriever_task],
 )
 
+# Task: Grade whether the answer is grounded, factual, and not hallucinated
 hallucination_task = Task(
     description=(
-        "Based on the response from the grader task for the question {question}, evaluate whether the answer is grounded in/supported by a set of facts."
+        "Based on the graded response for the question {question}, assess if the answer is grounded in facts and supported by evidence."
     ),
     expected_output=(
-        "Binary score 'yes' or 'no' to indicate whether the answer is in sync with the question asked. "
-        "Respond 'yes' if the answer is useful and contains facts about the question asked. "
-        "Respond 'no' if the answer is not useful and does not contain facts about the question asked. "
-        "Do not provide any preamble or explanations except for 'yes' or 'no'."
+        "Binary score 'yes' or 'no' to indicate if the answer is factually sound and aligned with the question. "
+        "Answer 'yes' if the answer is useful and factually supported; 'no' otherwise. "
+        "Reply only 'yes' or 'no' without any explanation."
     ),
     agent=hallucination_grader,
     context=[grader_task],
 )
 
+# Task: Final answer generation or fallback web search based on hallucination grading
 answer_task = Task(
     description=(
-        "Based on the response from the hallucination task for the question {question}, evaluate whether the answer is useful to resolve the question. "
-        "If the answer is 'yes' return a clear and concise answer. "
-        "If the answer is 'no' then perform a 'websearch' and return the response."
+        "Based on the hallucination grading for the question {question}, decide whether to return the answer or perform a fallback web search."
+        "If grading is 'yes', return a clear, concise answer. "
+        "If grading is 'no', perform a web search (using the fallback tool) and return the retrieved information. "
+        "If unable to produce a valid answer, respond with 'Sorry! unable to find a valid response'."
     ),
     expected_output=(
-        "Return a clear and concise response if the response from 'hallucination_task' is 'yes'. "
-        "Perform a web search using 'web_search_tool' and return a clear and concise response only if the response from 'hallucination_task' is 'no'. "
-        "Otherwise respond as 'Sorry! unable to find a valid response'."
+        "Return a clear and concise answer if hallucination task graded 'yes'. "
+        "If 'no', invoke the fallback tool's web search and return the answer. "
+        "Otherwise, respond with 'Sorry! unable to find a valid response'."
     ),
-    context=[hallucination_task],
     agent=answer_grader,
+    context=[hallucination_task],
 )
+
+
+
