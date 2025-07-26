@@ -79,6 +79,6 @@ answer_grader = Agent(
     tools=[fallback_tool],
 )
 
-def set_tools(rag_tool,):
+def set_tools(rag_tool):
     Retriever_Agent.tools = [rag_tool, fallback_tool]
     print("[crew_agents.py] Tools injected into Retriever_Agent.")
