@@ -4,6 +4,25 @@ from crewai.tools import BaseTool
 import google.generativeai as genai
 from chroma_query_handler import ChromaQueryHandler
 from typing import ClassVar
+import os
+import csv
+from datetime import datetime
+
+
+def log_fallback_to_csv(question: str, answer: str, csv_file: str = "fallback_queries.csv"):
+    """Log fallback queries and answers to a CSV file."""
+    file_exists = os.path.isfile(csv_file)
+    
+    with open(csv_file, 'a', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        
+        # Write header if file doesn't exist
+        if not file_exists:
+            writer.writerow(['timestamp', 'question', 'answer', 'fallback_reason'])
+        
+        # Write the fallback data
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        writer.writerow([timestamp, question, answer, 'FallbackAgriTool_called'])
 
 
 # 1. Firecrawl web search tool
@@ -79,6 +98,8 @@ You are an expert agricultural assistant. Use your own expert knowledge and also
         # self._classifier = llm_classifier
 
     def _run(self, question: str) -> str:
+        print(f"[DEBUG] FallbackAgriTool called with question: {question}")
+        
         # if not self._classifier.is_agriculture_query(question):
         #     return "This tool only answers agricultural queries. Your question does not seem to be about agriculture."
         web_results = self._websearch_tool._run(question, limit=2)
@@ -91,6 +112,13 @@ You are an expert agricultural assistant. Use your own expert knowledge and also
                 max_output_tokens=1024,
             )
         )
-        return "Source: LLM knowledge & Web Search\n\n" + response.text.strip()
+        
+        final_answer = "Source: LLM knowledge & Web Search\n\n" + response.text.strip()
+        
+        # Log this fallback call to CSV
+        log_fallback_to_csv(question, final_answer)
+        print(f"[DEBUG] Logged fallback call to CSV")
+        
+        return final_answer
 
 

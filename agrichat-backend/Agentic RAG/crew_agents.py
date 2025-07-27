@@ -11,14 +11,14 @@ rag_tool = RAGTool(chroma_path=r"agrichat-annam/agrichat-backend/Agentic RAG/chr
 
 from crewai import LLM, Agent
 llm = LLM(
-    model='gemini/gemini-2.5-flash',
+    model='gemini/gemini-1.5-flash',  # Fixed: changed from gemini-2.5-flash
     api_key=gemini_api_key,
     temperature=0.0
 )
 
 fallback_tool = FallbackAgriTool(
     google_api_key=gemini_api_key,
-    model="gemini-2.5-flash",
+    model="gemini-1.5-flash",  # Fixed: changed from gemini-2.5-flash
     websearch_tool=firecrawl_tool
 )
 
@@ -39,10 +39,16 @@ Retriever_Agent = Agent(
     llm=llm,
     tools=[rag_tool, fallback_tool],
 )
+
 def retriever_response(question: str) -> str:
+    print(f"[DEBUG] Processing question: {question}")
     rag_response = rag_tool._run(question)
+    print(f"[DEBUG] RAG response: {rag_response[:100]}..." if len(rag_response) > 100 else f"[DEBUG] RAG response: {rag_response}")
+    
     if rag_response == "__FALLBACK__":
-        return fallback_tool._run(question)
+        print("[DEBUG] RAG returned __FALLBACK__, calling fallback tool...")
+        fallback_response = fallback_tool._run(question)
+        return fallback_response
     return rag_response
 
 Grader_agent = Agent(
