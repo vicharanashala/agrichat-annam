@@ -24,7 +24,7 @@ def get_answer(question):
 
 if __name__ == "__main__":
     while True:
-        question = input("Ask your agricultural question or type 'exit' to quit: ")
+        question = input("Ask your question or type 'exit' to quit: ")
         if question.strip().lower() == "exit":
             break
         answer = get_answer(question)

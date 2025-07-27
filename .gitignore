@@ -1,7 +1,27 @@
-.env
-agrichat-backend/Agentic RAG/__pycache__/tools.cpython-313.pyc
-agrichat-backend/Agentic RAG/chromaDb/chroma.sqlite3
-agrichat-backend/Agentic RAG/chromaDb/ba7ba9ba-1fcc-4c37-aa03-5051eab682ab/data_level0.bin
-agrichat-backend/Agentic RAG/chromaDb/ba7ba9ba-1fcc-4c37-aa03-5051eab682ab/header.bin
-agrichat-backend/Agentic RAG/chromaDb/ba7ba9ba-1fcc-4c37-aa03-5051eab682ab/length.bin
-agrichat-backend/Agentic RAG/chromaDb/ba7ba9ba-1fcc-4c37-aa03-5051eab682ab/link_lists.bin
+# Environment variables
+agrichat-backend/Agentic RAG/.env
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE files
+.vscode/
+.idea/
+
+# ChromaDB data
+chromaDb/
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
