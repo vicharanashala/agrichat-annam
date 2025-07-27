@@ -1,6 +1,13 @@
 # Environment variables
 agrichat-backend/Agentic RAG/.env
 
+agri_text_classification.ipynb
+bad_text_classifier.ipynb
+bad_words.txt 
+State_wise_data_cleaning_last_step.ipynb
+Final-agritext-classifier.ipynb
+
+
 # Python cache
 __pycache__/
 *.pyc
