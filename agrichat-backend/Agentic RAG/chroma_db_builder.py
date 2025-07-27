@@ -5,14 +5,35 @@ import pandas as pd
 import os
 import shutil
 
+# Try to load .env file if python-dotenv is available
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # If python-dotenv is not installed, continue without it
+    # The API key can still be set via environment variables
+    pass
+
+
 class ChromaDBBuilder:
     def __init__(self, csv_path, persist_dir):
         self.csv_path = csv_path
         self.persist_dir = persist_dir
+        
+        # Get API key from environment variable
+        api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            raise ValueError(
+                "API key not found. Please set GOOGLE_API_KEY or GEMINI_API_KEY environment variable."
+            )
+        
+        # Initialize the embedding function with API key from environment
         self.embedding_function = GoogleGenerativeAIEmbeddings(
-            model="models/text-embedding-004"
+            model="models/text-embedding-004",
+            google_api_key=api_key
         )
         self.documents = []
+        
 
     def load_csv_to_documents(self):
         df = pd.read_csv(self.csv_path)
@@ -51,7 +72,7 @@ class ChromaDBBuilder:
             print(content)
             docs.append(Document(page_content=content, metadata=metadata))
         self.documents = docs
-        print(f"[INFO] Prepared {len(docs)} documents")
+        print(f"[INFO] Prepared {len(docs)} docs")
 
     def store_documents_to_chroma(self):
         if not self.documents:
@@ -66,18 +87,19 @@ class ChromaDBBuilder:
         print(f"[SUCCESS] Stored {len(self.documents)} agricultural Q/A pairs in ChromaDB at: {self.persist_dir}")
 
 if __name__ == "__main__":
-    data_folder = r"C:\Users\amank\Gemini_based_processing\data"
-    completed_folder = r"C:\Users\amank\Gemini_based_processing\data_completed"
-    storage_dir = r"C:\Users\amank\Gemini_based_processing\chromaDb"
-    os.makedirs(completed_folder, exist_ok=True)
-    os.environ["GOOGLE_API_KEY"] = "AIzaSyCzS2rkrIU-qed90akvU4sjT43W8UANA5A"
+    csv_file = r"agrichat-annam/agrichat-backend/Agentic RAG/data/sample_data.csv"
+    storage_dir = r"agrichat-annam/agrichat-backend/Agentic RAG/chromaDb"
 
-    for filename in os.listdir(data_folder):
-        if filename.lower().endswith(".csv"):
-            csv_file = os.path.join(data_folder, filename)
-            builder = ChromaDBBuilder(csv_path=csv_file, persist_dir=storage_dir)
-            builder.load_csv_to_documents()
-            builder.store_documents_to_chroma()
-            shutil.move(csv_file, os.path.join(completed_folder, filename))
-            print(f"[INFO] Moved {filename} to {completed_folder}")
-
+    try:
+        builder = ChromaDBBuilder(csv_path=csv_file, persist_dir=storage_dir)
+        print(f"[INFO] Processing {csv_file}")
+        builder.load_csv_to_documents()
+        builder.store_documents_to_chroma()
+    except ValueError as e:
+        print(f"[ERROR] {e}")
+        print("Please set your API key using one of these methods:")
+        print("1. Export in terminal: export GOOGLE_API_KEY='your-api-key-here'")
+        print("2. Create a .env file with: GOOGLE_API_KEY=your-api-key-here")
+        print("3. Set it in your shell profile (~/.zshrc or ~/.bashrc)")
+        exit(1)
+    
