@@ -6,7 +6,8 @@ from uuid import uuid4
 from datetime import datetime
 from bs4 import BeautifulSoup
 #from {// main.py path} import ChromaQueryHandler
-from Agentic_RAG.chroma_query_handler import ChromaQueryHandler
+# from Agentic_RAG.chroma_query_handler import ChromaQueryHandler
+from Agentic_RAG.main import initialize_handler
 import markdown
 import csv
 from io import StringIO
@@ -20,24 +21,37 @@ from dotenv import load_dotenv
 from pathlib import Path
 load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
 from fastapi import Body
+import requests
+from fastapi import UploadFile, File
+import logging
 
+
+query_handler = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global query_handler
-    chroma_path = "./RAGpipelinev3/Gemini_based_processing/chromaDb"
-
-    if not os.path.exists(chroma_path):
-        print(f"[Warning] chroma_path '{chroma_path}' does not exist!")
-
-    query_handler = ChromaQueryHandler(
-        chroma_path=chroma_path,
-        gemini_api_key=os.getenv("GEMINI_API_KEY")
-    )
+    query_handler = initialize_handler()
     print("[Startup] QueryHandler initialized.")
-
     yield
+    print("[Shutdown] Cleanup complete.")
+    
+# @asynccontextmanager
+# async def lifespan(app: FastAPI):
+#     global query_handler
+#     chroma_path = "./RAGpipelinev3/Gemini_based_processing/chromaDb"
 
-    print("[Shutdown] App shutting down...")
+#     if not os.path.exists(chroma_path):
+#         print(f"[Warning] chroma_path '{chroma_path}' does not exist!")
+
+#     query_handler = ChromaQueryHandler(
+#         chroma_path=chroma_path,
+#         gemini_api_key=os.getenv("GEMINI_API_KEY")
+#     )
+#     print("[Startup] QueryHandler initialized.")
+
+#     yield
+
+#     print("[Shutdown] App shutting down...")
 app = FastAPI(lifespan=lifespan)
 
 origins = ["https://agrichat-annam.vercel.app"]
@@ -86,7 +100,8 @@ async def list_sessions(request: Request):
 async def new_session(question: str = Form(...), device_id: str = Form(...), state: str = Form(...), language: str = Form(...)):
     session_id = str(uuid4())
     try:
-        raw_answer = query_handler.get_answer(question)
+        raw_answer = query_handler(question)
+        # raw_answer = query_handler.get_answer(question)
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": "LLM processing failed."})
 
@@ -125,8 +140,9 @@ async def continue_session(session_id: str, question: str = Form(...), device_id
     session = sessions_collection.find_one({"session_id": session_id})
     if not session or session.get("status") == "archived" or session.get("device_id") != device_id:
         return JSONResponse(status_code=403, content={"error": "Session is archived, missing or unauthorized"})
-
-    raw_answer = query_handler.get_answer(question)
+    
+    raw_answer = query_handler(question)
+    # raw_answer = query_handler.get_answer(question)
     answer_only = raw_answer.split("</think>")[-1].strip()
     html_answer = markdown.markdown(answer_only, extensions=["extra", "nl2br"])
 
@@ -223,3 +239,50 @@ async def update_language(data: dict = Body(...)):
         {"$set": {"state": state, "language": language}}
     )
     return {"status": "success", "matched": result.matched_count, "updated": result.modified_count}
+
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+HF_API_URL = "https://api-inference.huggingface.co/models/openai/whisper-large-v3"
+HF_API_TOKEN = os.getenv("HF_API_TOKEN")  
+
+@app.post("/api/transcribe-audio")
+async def transcribe_audio(file: UploadFile = File(...)):
+    try:
+        logger.info(f"Received file: {file.filename}")
+        
+        contents = await file.read()
+        logger.info(f"File size: {len(contents)} bytes")
+
+        headers = {
+            "Authorization": f"Bearer {HF_API_TOKEN}",
+            "Content-Type": file.content_type,
+        }
+
+        response = requests.post(HF_API_URL, headers=headers, data=contents)
+
+        logger.info(f"HF Status: {response.status_code}")
+        logger.info(f"HF Raw response: {response.text}")
+
+        if response.status_code != 200:
+            return JSONResponse(
+                status_code=502,
+                content={"error": f"Hugging Face API error: {response.text}"}
+            )
+
+        result = response.json()
+
+        transcript = result.get("text") or result.get("generated_text")
+        if not transcript:
+            return JSONResponse(
+                status_code=500,
+                content={"error": "Transcription not found in response", "raw": result}
+            )
+
+        return {"transcript": transcript}
+
+    except Exception as e:
+        logger.exception("Transcription failed")
+        return JSONResponse(status_code=500, content={"error": str(e)})
