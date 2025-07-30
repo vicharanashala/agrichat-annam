@@ -275,8 +275,26 @@ function appendMessage(sender, text, index = null, rating = null) {
   `;
 }
 
+  // document.getElementById("chatWindow").appendChild(div);
 
-  document.getElementById("chatWindow").appendChild(div);
+    const chatWindow = document.getElementById("chatWindow");
+
+    // Check if user is near bottom BEFORE appending new message
+    const isNearBottom = chatWindow.scrollHeight - chatWindow.scrollTop - chatWindow.clientHeight < 50;
+
+    // Append the new message
+    chatWindow.appendChild(div);
+
+    // Use a short timeout to allow DOM to update before scrolling
+    if (isNearBottom) {
+      setTimeout(() => {
+        // chatWindow.scrollTop = chatWindow.scrollHeight;
+        
+        // or smooth scrolling:
+        chatWindow.scrollTo({ top: chatWindow.scrollHeight, behavior: "smooth" });
+      }, 10);  // 10 ms delay to let DOM update
+    }
+
 }
 
 

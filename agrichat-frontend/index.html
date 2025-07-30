@@ -294,6 +294,13 @@
   <script>
     const sidebar = document.getElementById('sidebar');
     const toggleBtn = document.getElementById('sidebarToggle');
+
+    const locationInfo = document.querySelector('.location-info');
+
+    toggleBtn.addEventListener('click', () => {
+      locationInfo.classList.toggle('shifted-left');
+    });
+
     const closeBtn = document.getElementById('sidebarCloseBtn');
     const backdrop = document.getElementById('backdrop');
     const body = document.body;
@@ -421,7 +428,7 @@
       const inner = document.createElement('div');
       outer.appendChild(inner);
 
-      // Calculate the width difference between outer and inner
+      // Calculate the width difference between side and inner
       const scrollbarWidth = outer.offsetWidth - inner.offsetWidth;
 
       // Remove temporary divs
