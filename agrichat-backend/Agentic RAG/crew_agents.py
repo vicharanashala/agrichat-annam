@@ -1,19 +1,24 @@
 from tools import FireCrawlWebSearchTool, RAGTool, FallbackAgriTool
+import os
+from dotenv import load_dotenv
 
-firecrawl_tool = FireCrawlWebSearchTool(api_key="fc-3042e1475cda4e51b0ce4fdd6ea58578")
-gemini_api_key = "AIzaSyCzS2rkrIU-qed90akvU4sjT43W8UANA5A"
-rag_tool = RAGTool(chroma_path=r"C:\Users\amank\Gemini_based_processing\chromaDb", gemini_api_key=gemini_api_key)
+# Load environment variables
+load_dotenv()
+
+firecrawl_tool = FireCrawlWebSearchTool(api_key=os.getenv("FIRECRAWL_API_KEY"))
+gemini_api_key = os.getenv("GOOGLE_API_KEY")
+rag_tool = RAGTool(chroma_path=r"agrichat-annam/agrichat-backend/Agentic RAG/chromaDb", gemini_api_key=gemini_api_key)
 
 from crewai import LLM, Agent
 llm = LLM(
-    model='gemini/gemini-2.5-flash',
+    model='gemini/gemini-1.5-flash',  # Fixed: changed from gemini-2.5-flash
     api_key=gemini_api_key,
     temperature=0.0
 )
 
 fallback_tool = FallbackAgriTool(
     google_api_key=gemini_api_key,
-    model="gemini-2.5-flash",
+    model="gemini-1.5-flash",  # Fixed: changed from gemini-2.5-flash
     websearch_tool=firecrawl_tool
 )
 
@@ -34,10 +39,16 @@ Retriever_Agent = Agent(
     llm=llm,
     tools=[rag_tool, fallback_tool],
 )
+
 def retriever_response(question: str) -> str:
+    print(f"[DEBUG] Processing question: {question}")
     rag_response = rag_tool._run(question)
+    print(f"[DEBUG] RAG response: {rag_response[:100]}..." if len(rag_response) > 100 else f"[DEBUG] RAG response: {rag_response}")
+    
     if rag_response == "__FALLBACK__":
-        return fallback_tool._run(question)
+        print("[DEBUG] RAG returned __FALLBACK__, calling fallback tool...")
+        fallback_response = fallback_tool._run(question)
+        return fallback_response
     return rag_response
 
 Grader_agent = Agent(
