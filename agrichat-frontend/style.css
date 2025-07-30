@@ -362,11 +362,10 @@ body.sidebar-collapsed {
 
 .chat-window {
   max-width: 55%;
-  margin: 0 auto;
+  margin: 10px auto 20px auto;
   flex: 1;
   overflow-y: auto;
   padding: 20px;
-  margin-bottom: 20px;
   border-radius: 16px;
   padding-bottom: 90px;
   /* background: var(--white);
@@ -479,7 +478,7 @@ body.sidebar-collapsed {
 .chat-form textarea:focus {
   outline: none;
   border-color: var(--accent-green);
-  box-shadow: 0 0 0 3px rgba(123, 185, 123, 0.1);
+  box-shadow: 0 0 7px 3px rgba(95, 150, 95, 0.1);
 }
 
 .chat-form .feature-button {
@@ -805,11 +804,24 @@ body.sidebar-collapsed {
   }
 }
 
+/* Color of chat form within chat */
+#chat-form textarea {
+  background-color: #ffffff;
+  border: 2px solid #bae4ba;
+}
+
 /* Media Queries */
+
+/* Desktop and larger screens */
 @media (min-width: 1279px) {
   #chat-form textarea {
-    margin: 0px 10px 0 35% !important;
-    padding: 15px;
+    /* width: 60% !important;
+    margin: 0px 10px 0 35% !important; */
+    display: block !important;
+    max-width: 900px !important;
+    margin: 0px 10px 0 30% !important;
+    padding: 15px 30px 15px 15px !important;
+    box-sizing: border-box;
   }
   
   #user-input {
@@ -1086,7 +1098,6 @@ select option:checked {
 
   .chat-window {
     max-width: 75%;
-    height: 400px;         /* or a fixed height */
     overflow-y: auto;      /* enable vertical scrolling */
   }
 
@@ -1224,6 +1235,10 @@ select option:checked {
 
   #chat-form textarea {
     max-width: auto;
+  }
+
+  #chat-form {
+    margin-top: 10px !important;
   }
 }
 
