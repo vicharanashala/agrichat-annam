@@ -407,6 +407,29 @@
       }
     });
 
+
+    // Scrollbar width detection
+    function getScrollbarWidth() {
+      // Create a temporary div container and append it into the body
+      const outer = document.createElement('div');
+      outer.style.visibility = 'hidden';
+      outer.style.overflow = 'scroll'; // Force scrollbars
+      outer.style.msOverflowStyle = 'scrollbar'; // Needed for IE
+      document.body.appendChild(outer);
+
+      // Create an inner div and place it in the container
+      const inner = document.createElement('div');
+      outer.appendChild(inner);
+
+      // Calculate the width difference between outer and inner
+      const scrollbarWidth = outer.offsetWidth - inner.offsetWidth;
+
+      // Remove temporary divs
+      document.body.removeChild(outer);
+
+      return scrollbarWidth;
+    }
+
     // For scrollbar visibility
     function updateChatFormPadding() {
       const chatForm = document.getElementById('chat-form');
