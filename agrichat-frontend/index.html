@@ -37,20 +37,20 @@
     </div>
   </aside>
 
-  <!-- Login/Register Form -->
+  <!-- Start of Login/Register Form -->
 
   <!-- LOGIN/REGISTER DOUBLE SECTIONED POPUP -->
-    <div id="loginOverlay" style="
+    <!-- <div id="loginOverlay" style="
   position: fixed; inset: 0; background: rgba(255, 255, 255, 0.664);
   display: flex; align-items: center; justify-content: center; z-index: 9999;">
   
   <div style="
     background: white; border-radius: 12px; box-shadow: 0 8px 36px rgba(0,0,0,0.2);
     width: 700px; max-width: 90vw; height: 400px;
-    display: flex;">
+    display: flex;"> -->
 
     <!-- Login Panel -->
-    <div style="
+    <!-- <div style="
       flex: 1; padding: 2em; border-right: 1px solid #eee; display: flex; flex-direction: column; justify-content: center;">
       <h2 style="color: #248241; padding-bottom: 1rem;">Login</h2>
       <small style="margin-bottom:10px; color:#666;">For existing members</small>
@@ -59,10 +59,10 @@
         <input type="password" placeholder="Password" required style="padding: 0.7em; border: 1px solid #ccc; border-radius: 6px;">
         <button type="submit" style="background: #118650; color: white; padding: 0.7em; border:none; border-radius: 6px; cursor: pointer;">Login</button>
       </form>
-    </div>
+    </div> -->
 
     <!-- Register Panel -->
-    <div style="
+    <!-- <div style="
       flex: 1; padding: 2em; display: flex; flex-direction: column; justify-content: center; background: rgb(55, 148, 51); border-top-right-radius: 6px; border-bottom-right-radius: 6px;">
       <h2 style="color: #f1f7f3; padding-bottom: 1rem; margin-top: 1.4rem;">Register</h2>
       <small style="margin-bottom:10px; color:#ffffff;">For new members</small>
@@ -87,10 +87,10 @@
       </div>
 
         <button type="submit" style="background: #15570c; color: white; padding: 0.7em; border:none; border-radius: 6px; cursor: pointer;">Sign Up</button>
-      </form>
+      </form> -->
 
       <!-- For Guests -->
-      <button 
+      <!-- <button 
       id="guestBtnRegister" 
       type="button"
       style="
@@ -107,7 +107,7 @@
     
     </div>
   </div>
-</div>  
+</div>   -->
   <!-- End of Login/Register Form -->
 
   <main class="main-container">
@@ -298,6 +298,8 @@
     const backdrop = document.getElementById('backdrop');
     const body = document.body;
 
+    // LOGIN-REGISTER FUNCTIONS:
+
     // TEMPORARY FIX: Click 'Guest text' to close login overlay
     document.getElementById('guestBtnRegister').addEventListener('click', function() {
       const overlay = document.getElementById('loginOverlay');
@@ -336,6 +338,8 @@
       }
       input.value = parts.join(' ');
     }
+
+    // END OF LOGIN-REGISTER FUNCTIONS
 
     // Make 'Enter' key submit the form
     // For start form textarea
