@@ -301,43 +301,43 @@
     // LOGIN-REGISTER FUNCTIONS:
 
     // TEMPORARY FIX: Click 'Guest text' to close login overlay
-    document.getElementById('guestBtnRegister').addEventListener('click', function() {
-      const overlay = document.getElementById('loginOverlay');
-      if (overlay) {
-        overlay.style.display = 'none';
-      }
-    });
+    // document.getElementById('guestBtnRegister').addEventListener('click', function() {
+    //   const overlay = document.getElementById('loginOverlay');
+    //   if (overlay) {
+    //     overlay.style.display = 'none';
+    //   }
+    // });
 
     // Format Indian phone number with spaces for readability
-    function formatIndianPhone(input) {
-      let val = input.value.replace(/\D/g, '').slice(0, 10); // max 10 digits
-      if(val.length > 5) {
-          input.value = val.slice(0,5) + ' ' + val.slice(5);
-      } else {
-          input.value = val;
-      }
-    }
+    // function formatIndianPhone(input) {
+    //   let val = input.value.replace(/\D/g, '').slice(0, 10); // max 10 digits
+    //   if(val.length > 5) {
+    //       input.value = val.slice(0,5) + ' ' + val.slice(5);
+    //   } else {
+    //       input.value = val;
+    //   }
+    // }
 
     // To submit Indian phone number with country code, without spaces
-    function getFullPhone() {
-      const code = "+91";  // hardcoded since dropdown with other country code options was removed
-      const phone = document.getElementById('phoneInput').value.replace(/\s/g, '');
-      return code + phone;
-    }
+    // function getFullPhone() {
+    //   const code = "+91";  // hardcoded since dropdown with other country code options was removed
+    //   const phone = document.getElementById('phoneInput').value.replace(/\s/g, '');
+    //   return code + phone;
+    // }
 
     // Format Aadhar input with spaces after every 4 digits for readability
-    function formatAadhaar(input) {
-      // Remove all non-digits
-      let val = input.value.replace(/\D/g, '');
-      // Only keep first 12 digits
-      val = val.substring(0, 12);
-      // Format as '1234 5678 9012'
-      let parts = [];
-      for(let i = 0; i < val.length; i += 4) {
-        parts.push(val.substring(i, i + 4));
-      }
-      input.value = parts.join(' ');
-    }
+    // function formatAadhaar(input) {
+    //   // Remove all non-digits
+    //   let val = input.value.replace(/\D/g, '');
+    //   // Only keep first 12 digits
+    //   val = val.substring(0, 12);
+    //   // Format as '1234 5678 9012'
+    //   let parts = [];
+    //   for(let i = 0; i < val.length; i += 4) {
+    //     parts.push(val.substring(i, i + 4));
+    //   }
+    //   input.value = parts.join(' ');
+    // }
 
     // END OF LOGIN-REGISTER FUNCTIONS
 
