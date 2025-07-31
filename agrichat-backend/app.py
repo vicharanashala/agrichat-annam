@@ -84,7 +84,7 @@ def clean_session(s):
     s["_id"] = str(s["_id"])
     return s
 
-MAX_SESSIONS = 17
+MAX_SESSIONS = 25
 
 @app.get("/api/sessions")
 async def list_sessions(request: Request):
