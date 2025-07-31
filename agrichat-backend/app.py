@@ -84,6 +84,8 @@ def clean_session(s):
     s["_id"] = str(s["_id"])
     return s
 
+MAX_SESSIONS = 17
+
 @app.get("/api/sessions")
 async def list_sessions(request: Request):
     device_id = request.query_params.get("device_id")
@@ -94,10 +96,19 @@ async def list_sessions(request: Request):
     .sort("timestamp", -1)
     .limit(20)
     )
+    # active_sessions = list(sessions_collection.find({"device_id": device_id, "status": "active"}))
+    # isFull = len(active_sessions) >= MAX_SESSIONS
     return {"sessions": [clean_session(s) for s in sessions]}
 
 @app.post("/api/query")
 async def new_session(question: str = Form(...), device_id: str = Form(...), state: str = Form(...), language: str = Form(...)):
+    active_count = sessions_collection.count_documents({"device_id":device_id, "status":"active"})
+    if active_count >= MAX_SESSIONS:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Maximum active sessions reached. Please archive or delete an old session to start a new one."}
+        )
+    
     session_id = str(uuid4())
     try:
         raw_answer = query_handler(question)

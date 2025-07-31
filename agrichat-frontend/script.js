@@ -135,6 +135,10 @@ async function loadSessions() {
   }
 });
   document.getElementById("noSessions").style.display = (activeCount + archivedCount === 0) ? "block" : "none";
+
+  // if (isFull){
+  //   alert("You have reached the maximum limit for active sessions. To continue new sessions, you have to delete old ones.");
+  // }
 }
 
 function toggleView() {
@@ -215,10 +219,10 @@ async function rateAnswer(index, rating, btn) {
 function copyToClipboard(button) {
   const answer = button.closest(".message").querySelector(".bot-answer").innerText;
   navigator.clipboard.writeText(answer).then(() => {
-    // Add the selected class to flash grey
+    
     button.classList.add('selected');
 
-    // Swap icon for checkmark SVG (optional, but users like feedback)
+    
     button.innerHTML = `
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 512 512">
         <path fill="currentColor" d="M504.5 75.5c-10-10-26.2-10-36.2 0L184 359.8l-140.3-140.3
@@ -230,7 +234,7 @@ function copyToClipboard(button) {
     setTimeout(() => {
       button.classList.remove('selected');
       
-      // Restore the Copy svg icon
+      
       button.innerHTML = `
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 448 512">
           <path fill="currentColor" d="M320 448v40c0 13.255-10.745 24-24 24H24c-13.255 0-24-10.745-24-24V120c0-13.255
@@ -240,7 +244,7 @@ function copyToClipboard(button) {
           24 0 0 0-7.029-16.97z"/>
         </svg>
       `;
-    }, 800); // stays grey for 0.8 seconds
+    }, 800); 
   });
 }
 
@@ -384,6 +388,13 @@ window.addEventListener("DOMContentLoaded", () => {
       method: "POST",
       body: formData,
     });
+
+    if (!res.ok) {
+      const errorData = await res.json();
+      alert(errorData.error || "Failed to start session.");
+      hideLoader();
+      return;
+    }
 
     const data = await res.json();
     console.log('API response:', data); // new line to log data
