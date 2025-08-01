@@ -4,10 +4,10 @@ const config = {
         API_BASE: "https://localhost:8443/api"
     },
     production: {
-        // ngrok HTTPS URL for your local backend (forwarding to HTTP backend)
-        API_BASE: "https://4020811e2f92.ngrok-free.app/api"
-        // Previous URLs:
-        // API_BASE: "https://05d5a0c84535.ngrok-free.app/api"
+        // ngrok HTTP URL - temporary fix for SSL certificate issues
+        API_BASE: "http://4020811e2f92.ngrok-free.app/api"
+        // HTTPS URL with SSL issues:
+        // API_BASE: "https://4020811e2f92.ngrok-free.app/api"
     }
 };
 
