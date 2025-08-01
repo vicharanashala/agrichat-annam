@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>NgrokTest - AgriChat Backend Connection</title>
+</head>
+
+<body>
+    <h1>Testing AgriChat Backend via ngrok</h1>
+    <p><strong>Current ngrok URL:</strong> https://4020811e2f92.ngrok-free.app</p>
+
+    <button onclick="testBackend()">Test Backend Connection</button>
+    <div id="results" style="margin-top: 20px;"></div>
+
+    <script>
+        async function testBackend() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<p>Testing...</p>';
+
+            const baseUrl = 'https://4020811e2f92.ngrok-free.app';
+
+            try {
+                // Test 1: Docs endpoint
+                results.innerHTML += '<p>Testing /docs endpoint...</p>';
+                const docsResponse = await fetch(`${baseUrl}/docs`);
+                results.innerHTML += `<p style="color: ${docsResponse.ok ? 'green' : 'red'};">
+                    /docs: ${docsResponse.status} ${docsResponse.statusText}
+                </p>`;
+
+                // Test 2: API endpoint
+                results.innerHTML += '<p>Testing /api/ endpoint...</p>';
+                const apiResponse = await fetch(`${baseUrl}/api/`, {
+                    headers: {
+                        'ngrok-skip-browser-warning': 'true'
+                    }
+                });
+                results.innerHTML += `<p style="color: ${apiResponse.ok ? 'green' : 'red'};">
+                    /api/: ${apiResponse.status} ${apiResponse.statusText}
+                </p>`;
+
+                results.innerHTML += '<p><strong>✅ Connection test complete!</strong></p>';
+
+            } catch (error) {
+                results.innerHTML += `<p style="color: red;">❌ Error: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+
+</html>

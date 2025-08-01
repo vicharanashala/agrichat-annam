@@ -1,27 +1,45 @@
-version: '3.8'
-
 services:
+  mongodb:
+    image: mongo:latest
+    container_name: agrichat-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - agrichat-net
+    restart: unless-stopped
+
   backend:
     build:
       context: ./agrichat-backend
     container_name: agrichat-backend
     ports:
-      - "8000:8000"
+      - "8000:8000"   # HTTP
+      - "8443:8443"   # HTTPS
     env_file:
       - .env
-    networks:
-      - agrichat-net
-
-  frontend:
-    build:
-      context: ./agrichat-frontend
-    container_name: agrichat-frontend
-    ports:
-      - "3000:80"
     depends_on:
-      - backend
+      - mongodb
     networks:
       - agrichat-net
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/agrichat
+      - USE_HTTPS=${USE_HTTPS:-false}
+    # Add restart policy for production
+    restart: unless-stopped
+    # Override CMD for HTTPS when USE_HTTPS=true
+    command: >
+      sh -c "
+        if [ \"$$USE_HTTPS\" = \"true\" ]; then
+          uvicorn app:app --host 0.0.0.0 --port 8443 --ssl-keyfile=ssl/private.key --ssl-certfile=ssl/certificate.crt
+        else
+          uvicorn app:app --host 0.0.0.0 --port 8000
+        fi
+      "
 
 networks:
   agrichat-net:
+
+volumes:
+  mongodb_data:
