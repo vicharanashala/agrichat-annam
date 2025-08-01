@@ -26,8 +26,8 @@ agentic_rag_path = os.path.join(current_dir, "Agentic_RAG")
 sys.path.insert(0, agentic_rag_path)
 load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
 
-# Import new get_answer
-from Agentic_RAG.main import get_answer
+# Import the direct tool function instead of CrewAI get_answer
+from Agentic_RAG.crew_agents import retriever_response
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -98,7 +98,7 @@ async def list_sessions(request: Request):
 async def new_session(question: str = Form(...), device_id: str = Form(...), state: str = Form(...), language: str = Form(...)):
     session_id = str(uuid4())
     try:
-        raw_answer = get_answer(question)
+        raw_answer = retriever_response(question)
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": "LLM processing failed."})
 
@@ -137,7 +137,7 @@ async def continue_session(session_id: str, question: str = Form(...), device_id
         return JSONResponse(status_code=403, content={"error": "Session is archived, missing or unauthorized"})
 
     try:
-        raw_answer = get_answer(question)
+        raw_answer = retriever_response(question)
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": "LLM processing failed."})
 
