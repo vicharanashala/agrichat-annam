@@ -1,5 +1,19 @@
-const API_BASE = "https://agrichat-annam.onrender.com/api";
-// const API_BASE = "http://localhost:8000/api";
+// API_BASE is now defined in config.js and automatically loaded
+
+// Helper function for API calls with ngrok support
+async function apiCall(url, options = {}) {
+  const headers = options.headers || {};
+
+  // Add ngrok bypass header if using ngrok
+  if (API_BASE.includes('ngrok')) {
+    headers["ngrok-skip-browser-warning"] = "true";
+  }
+
+  return fetch(url, {
+    ...options,
+    headers: headers
+  });
+}
 
 const stateLanguageMap = {
   "Andhra Pradesh": "Telugu",
@@ -36,8 +50,8 @@ const stateLanguageMap = {
 };
 const allIndianLanguages = [
   "Assamese", "Bengali", "Bodo", "Dogri", "Gujarati", "Hindi", "Kannada",
-  "Kashmiri", "Konkani", "Maithili", "Malayalam", "Manipuri", "Marathi", 
-  "Nepali", "Odia", "Punjabi", "Sanskrit", "Santali", "Sindhi", "Tamil", 
+  "Kashmiri", "Konkani", "Maithili", "Malayalam", "Manipuri", "Marathi",
+  "Nepali", "Odia", "Punjabi", "Sanskrit", "Santali", "Sindhi", "Tamil",
   "Telugu", "Urdu", "English"
 ];
 
@@ -80,7 +94,7 @@ let currentSession = null;
 let showingArchived = false;
 
 async function loadSessions() {
-  const res = await fetch(`${API_BASE}/sessions?device_id=${deviceId}`);
+  const res = await apiCall(`${API_BASE}/sessions?device_id=${deviceId}`);
   const { sessions } = await res.json();
 
   const activeDiv = document.getElementById("activeSessions");
@@ -93,10 +107,10 @@ async function loadSessions() {
 
   sessions.forEach((s) => {
 
-  const isActiveSession = currentSession?.session_id === s.session_id;
-  const container = document.createElement("div");
-  container.className = `session-entry  ${s.status === 'archived' ? 'archived' : ''} ${isActiveSession ? 'active' : ''}`;
-  container.innerHTML = `
+    const isActiveSession = currentSession?.session_id === s.session_id;
+    const container = document.createElement("div");
+    container.className = `session-entry  ${s.status === 'archived' ? 'archived' : ''} ${isActiveSession ? 'active' : ''}`;
+    container.innerHTML = `
     <a href="#" class="session-link">
       <div class="session-date">
         <i class="fas fa-calendar"></i> ${new Date(s.timestamp).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}
@@ -118,22 +132,22 @@ async function loadSessions() {
     </div>
   `;
 
-  container.querySelector(".session-link").addEventListener("click", async () => {
-    const resp = await fetch(`${API_BASE}/session/${s.session_id}`);
-    const { session } = await resp.json();
-    currentSession = session;
-    loadChat(currentSession);
-    loadSessions();
-  });
+    container.querySelector(".session-link").addEventListener("click", async () => {
+      const resp = await fetch(`${API_BASE}/session/${s.session_id}`);
+      const { session } = await resp.json();
+      currentSession = session;
+      loadChat(currentSession);
+      loadSessions();
+    });
 
-  if (s.status === "archived") {
-    archivedDiv.appendChild(container);
-    archivedCount++;
-  } else {
-    activeDiv.appendChild(container);
-    activeCount++;
-  }
-});
+    if (s.status === "archived") {
+      archivedDiv.appendChild(container);
+      archivedCount++;
+    } else {
+      activeDiv.appendChild(container);
+      activeCount++;
+    }
+  });
   document.getElementById("noSessions").style.display = (activeCount + archivedCount === 0) ? "block" : "none";
 }
 
@@ -150,33 +164,33 @@ async function toggleSessionStatus(session_id, currentStatus) {
   if (!confirmed) return;
   await fetch(`${API_BASE}/toggle-status/${session_id}/${currentStatus}`, { method: "POST" });
   currentStatus = currentStatus === "archived" ? "active" : "archived";
-    if (currentStatus === "archived") {
-      currentSession = null;
-      document.getElementById("chatWindow").style.display = "none";
-      document.getElementById("chat-form").style.display = "none";
-      document.getElementById("archivedNotice").style.display = "none";
-      document.getElementById("exportBtn").style.display = "none";
-      document.getElementById("startScreen").style.display = "block";
-    } else {
-      const resp = await fetch(`${API_BASE}/session/${session_id}`);
+  if (currentStatus === "archived") {
+    currentSession = null;
+    document.getElementById("chatWindow").style.display = "none";
+    document.getElementById("chat-form").style.display = "none";
+    document.getElementById("archivedNotice").style.display = "none";
+    document.getElementById("exportBtn").style.display = "none";
+    document.getElementById("startScreen").style.display = "block";
+  } else {
+    const resp = await fetch(`${API_BASE}/session/${session_id}`);
     const { session } = await resp.json();
     currentSession = session;
     document.getElementById("viewToggleText").textContent = "Active";
-  document.getElementById("activeSessions").style.display = "block";
-  document.getElementById("archivedSessions").style.display = "none";
+    document.getElementById("activeSessions").style.display = "block";
+    document.getElementById("archivedSessions").style.display = "none";
     loadChat(currentSession);
-    }
+  }
   loadSessions();
 }
 
-async function deleteSession(session_id){
+async function deleteSession(session_id) {
   const confirmed = confirm("Are you sure you want to delete this session?");
   if (!confirmed) return;
-  await fetch(`${API_BASE}/delete-session/${session_id}`,{
-    method:"DELETE"
+  await fetch(`${API_BASE}/delete-session/${session_id}`, {
+    method: "DELETE"
   });
-  if(currentSession?.session_id === session_id){
-    currentSession=null;
+  if (currentSession?.session_id === session_id) {
+    currentSession = null;
     document.getElementById("chatWindow").style.display = "none";
     document.getElementById("chat-form").style.display = "none";
     document.getElementById("archivedNotice").style.display = "none";
@@ -229,7 +243,7 @@ function copyToClipboard(button) {
 
     setTimeout(() => {
       button.classList.remove('selected');
-      
+
       // Restore the Copy svg icon
       button.innerHTML = `
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 448 512">
@@ -251,9 +265,9 @@ function appendMessage(sender, text, index = null, rating = null) {
   div.className = `message ${sender}`;
 
   if (sender === "user") {
-  div.innerHTML = ` ${text}`;
-} else {
-  div.innerHTML = `
+    div.innerHTML = ` ${text}`;
+  } else {
+    div.innerHTML = `
     <div class="bot-answer">${text}</div>
     <div class="message-actions">
       <button class="copy-btn" onclick="copyToClipboard(this)" title="Copy">
@@ -273,7 +287,7 @@ function appendMessage(sender, text, index = null, rating = null) {
       </button>
     </div>
   `;
-}
+  }
 
 
   document.getElementById("chatWindow").appendChild(div);
@@ -340,21 +354,21 @@ window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("start-form").addEventListener("submit", async (e) => {
     e.preventDefault();
 
-//     const textarea = document.getElementById("start-input");
-//     // const textarea = e.target.querySelector("textarea");
-//     const question = textarea.value.trim();
-//     // const state = document.getElementById("stateSelect").value;
+    //     const textarea = document.getElementById("start-input");
+    //     // const textarea = e.target.querySelector("textarea");
+    //     const question = textarea.value.trim();
+    //     // const state = document.getElementById("stateSelect").value;
 
-//     const stateSelect = document.getElementById("stateSelect");
-//     const state = stateSelect ? stateSelect.value : "none"; // or "" as default
+    //     const stateSelect = document.getElementById("stateSelect");
+    //     const state = stateSelect ? stateSelect.value : "none"; // or "" as default
 
-//     // if (!state) {
-//     //   alert("Please select your state.");
-//     //   return;
-//     // }
-//     localStorage.setItem("agrichat_user_state", state); 
+    //     // if (!state) {
+    //     //   alert("Please select your state.");
+    //     //   return;
+    //     // }
+    //     localStorage.setItem("agrichat_user_state", state); 
 
-    
+
     console.log("Start form found:", document.getElementById("start-form"));
 
     const textarea = e.target.querySelector("textarea");
@@ -369,7 +383,7 @@ window.addEventListener("DOMContentLoaded", () => {
     localStorage.setItem("agrichat_user_state", state);
     localStorage.setItem("agrichat_user_language", lang);
     showLoader();
-    await updateLanguageInBackend(state, lang); 
+    await updateLanguageInBackend(state, lang);
 
     if (!question) return;
 
@@ -391,7 +405,7 @@ window.addEventListener("DOMContentLoaded", () => {
     loadChat(currentSession);
     hideLoader();
     loadSessions();
-    textarea.value="";
+    textarea.value = "";
   });
 
   document.getElementById("chat-form").addEventListener("submit", async (e) => {
@@ -420,10 +434,10 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   document.getElementById("restoreBtn").addEventListener("click", async () => {
-  if (currentSession) {
-    toggleSessionStatus(currentSession.session_id, "archived");
-  }
-});
+    if (currentSession) {
+      toggleSessionStatus(currentSession.session_id, "archived");
+    }
+  });
 
 
   document.getElementById("exportBtn").addEventListener("click", () => {
@@ -453,14 +467,14 @@ async function detectLocationAndLanguage(updateBackend = false) {
     console.log("Reverse geocoded data:", data);
     const state = data.address.state || data.address.county || "Unknown";
     const language = stateLanguageMap[state] || "English";
-     console.log("Detected:", state, language);
+    console.log("Detected:", state, language);
     localStorage.setItem("agrichat_user_state", state);
     localStorage.setItem("agrichat_user_language", language);
 
     updateLocationUI(state, language);
 
     if (updateBackend) {
-      await updateLanguageInBackend(state, language);  
+      await updateLanguageInBackend(state, language);
     }
   });
 }
@@ -478,15 +492,34 @@ function updateLocationUI(state, language) {
 
 
 async function updateLanguageInBackend(state, language) {
-  await fetch(`${API_BASE}/update-language`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      device_id: deviceId,
-      state: state,
-      language: language
-    })
-  });
+  try {
+    const headers = {
+      "Content-Type": "application/json"
+    };
+
+    // Add ngrok bypass header if using ngrok
+    if (API_BASE.includes('ngrok')) {
+      headers["ngrok-skip-browser-warning"] = "true";
+    }
+
+    const response = await fetch(`${API_BASE}/update-language`, {
+      method: "POST",
+      headers: headers,
+      body: JSON.stringify({
+        device_id: deviceId,
+        state: state,
+        language: language
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    console.log("Language updated successfully");
+  } catch (error) {
+    console.error("Error updating language:", error);
+  }
 }
 
 
@@ -515,6 +548,6 @@ document.getElementById("manualLanguageSelect").addEventListener("change", async
 
 document.getElementById("resetLocationBtn").addEventListener("click", async () => {
   await detectLocationAndLanguage(true);
-  document.getElementById("locationEdit").style.display = "none"; 
+  document.getElementById("locationEdit").style.display = "none";
 });
 
