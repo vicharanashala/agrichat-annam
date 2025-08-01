@@ -26,31 +26,31 @@ agentic_rag_path = os.path.join(current_dir, "Agentic_RAG")
 sys.path.insert(0, agentic_rag_path)
 load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
 
-# Import tools directly for the get_answer function
-from Agentic_RAG.tools import FireCrawlWebSearchTool, RAGTool, FallbackAgriTool
-
-# Initialize tools (same as in main.py)
-firecrawl_tool = FireCrawlWebSearchTool(api_key=os.getenv("FIRECRAWL_API_KEY"))
-gemini_api_key = os.getenv("GOOGLE_API_KEY")
-rag_tool = RAGTool(chroma_path=os.path.join(current_dir, "Agentic_RAG", "chromaDb"), gemini_api_key=gemini_api_key)
-
-fallback_tool = FallbackAgriTool(
-    google_api_key=gemini_api_key,
-    model="gemini-2.5-flash",
-    websearch_tool=firecrawl_tool
+# Import CrewAI components exactly like main.py
+from crewai import Crew
+from Agentic_RAG.crew_agents import (
+    Retriever_Agent, Grader_agent,
+    hallucination_grader, answer_grader
+)
+from Agentic_RAG.crew_tasks import (
+    retriever_task, grader_task,
+    hallucination_task, answer_task
 )
 
-# Define get_answer function (same as in main.py)
+# Define get_answer function exactly like main.py
 def get_answer(question):
-    print(f"[DEBUG] Processing question: {question}")
-    rag_response = rag_tool._run(question)
-    print(f"[DEBUG] RAG response: {rag_response[:100]}..." if len(rag_response) > 100 else f"[DEBUG] RAG response: {rag_response}")
-    
-    if rag_response == "__FALLBACK__":
-        print("[DEBUG] RAG returned __FALLBACK__, calling fallback tool...")
-        fallback_response = fallback_tool._run(question)
-        return fallback_response
-    return rag_response
+    rag_crew = Crew(
+        agents=[
+            Retriever_Agent
+        ],
+        tasks=[
+            retriever_task
+        ],
+        verbose=True,
+    )
+    inputs = {"question": question}
+    result = rag_crew.kickoff(inputs=inputs)
+    return result
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
