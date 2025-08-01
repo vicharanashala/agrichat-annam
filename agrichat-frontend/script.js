@@ -133,7 +133,7 @@ async function loadSessions() {
   `;
 
     container.querySelector(".session-link").addEventListener("click", async () => {
-      const resp = await fetch(`${API_BASE}/session/${s.session_id}`);
+      const resp = await apiCall(`${API_BASE}/session/${s.session_id}`);
       const { session } = await resp.json();
       currentSession = session;
       loadChat(currentSession);
@@ -162,7 +162,7 @@ async function toggleSessionStatus(session_id, currentStatus) {
   const action = currentStatus === "archived" ? "restore" : "archive";
   const confirmed = confirm(`Are you sure you want to ${action} this session?`);
   if (!confirmed) return;
-  await fetch(`${API_BASE}/toggle-status/${session_id}/${currentStatus}`, { method: "POST" });
+  await apiCall(`${API_BASE}/toggle-status/${session_id}/${currentStatus}`, { method: "POST" });
   currentStatus = currentStatus === "archived" ? "active" : "archived";
   if (currentStatus === "archived") {
     currentSession = null;
