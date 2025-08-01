@@ -345,6 +345,27 @@
     });
 
     // For scrollbar visibility
+    function getScrollbarWidth() {
+      // Create a temporary div with scrollbar
+      const outer = document.createElement('div');
+      outer.style.visibility = 'hidden';
+      outer.style.overflow = 'scroll';
+      outer.style.msOverflowStyle = 'scrollbar'; // needed for WinJS apps
+      document.body.appendChild(outer);
+
+      // Create an inner div and append it to the outer div
+      const inner = document.createElement('div');
+      outer.appendChild(inner);
+
+      // Calculate the difference between the outer and inner width
+      const scrollbarWidth = outer.offsetWidth - inner.offsetWidth;
+
+      // Remove the temporary elements
+      outer.parentNode.removeChild(outer);
+
+      return scrollbarWidth;
+    }
+
     function updateChatFormPadding() {
       const chatForm = document.getElementById('chat-form');
       if (!chatForm) return;
