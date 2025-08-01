@@ -7,7 +7,7 @@ load_dotenv()
 
 firecrawl_tool = FireCrawlWebSearchTool(api_key=os.getenv("FIRECRAWL_API_KEY"))
 gemini_api_key = os.getenv("GOOGLE_API_KEY")
-rag_tool = RAGTool(chroma_path=r"C:\Users\dledlab\agrichat-annam\agrichat-backend\Agentic RAG\chromaDb", gemini_api_key=gemini_api_key)
+rag_tool = RAGTool(chroma_path=r"C:\Users\dledlab\agrichat-annam\agrichat-backend\Agentic_RAG\chromaDb", gemini_api_key=gemini_api_key)
 
 from crewai import LLM, Agent
 llm = LLM(
