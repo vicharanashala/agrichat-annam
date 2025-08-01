@@ -15,5 +15,5 @@ const config = {
 const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 const currentConfig = isDevelopment ? config.development : config.production;
 
-// Add cache busting to prevent cached API calls
-const API_BASE = currentConfig.API_BASE + (currentConfig.API_BASE.includes('?') ? '&' : '?') + 't=' + Date.now();
+// Clean API base without cache busting (cache busting will be added per request)
+const API_BASE = currentConfig.API_BASE;
