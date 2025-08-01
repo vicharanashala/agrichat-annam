@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -8,6 +9,7 @@
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
   <link rel="stylesheet" href="./style.css" />
 </head>
+
 <body class="sidebar-collapsed">
   <aside class="sidebar collapsed" id="sidebar">
     <div class="sidebar-header">
@@ -39,37 +41,37 @@
 
   <main class="main-container">
     <header class="main-header">
-  <div class="header-left">
-    <button class="sidebar-toggle" id="sidebarToggle">
-      <i class="fas fa-bars" id="sidebarIcon"></i>
-    </button>
-    <h1 class="main-title">
-      <i class="fas fa-seedling"></i>
-      AgriChat
-    </h1>
-  </div>
-
-  <div class="location-info-bar">
-    <div class="location-info" id="locationInfo">
-      <i class="fas fa-map-marker-alt"></i>
-      <span id="locationState">Detecting...</span>,
-      <span id="locationLanguage">Detecting...</span>
-      <button id="editLocationBtn" class="edit-icon-btn" title="Edit">
-        <i class="fas fa-pencil-alt"></i>
-      </button>
-    </div>
-
-    <div class="location-dropdown" id="locationEdit" style="display: none;">
-      <div class="dropdown-group">
-        <label for="manualStateSelect">State</label>
-        <select id="manualStateSelect"></select>
+      <div class="header-left">
+        <button class="sidebar-toggle" id="sidebarToggle">
+          <i class="fas fa-bars" id="sidebarIcon"></i>
+        </button>
+        <h1 class="main-title">
+          <i class="fas fa-seedling"></i>
+          AgriChat
+        </h1>
       </div>
-      <div class="dropdown-group">
-        <label for="manualLanguageSelect">Language</label>
-        <select id="manualLanguageSelect"></select>
-      </div>
-      
-       <!-- <select id="stateSelect" required style="margin-bottom: 10px; padding: 10px; border-radius: 8px; border: 1px solid #ccc;">
+
+      <div class="location-info-bar">
+        <div class="location-info" id="locationInfo">
+          <i class="fas fa-map-marker-alt"></i>
+          <span id="locationState">Detecting...</span>,
+          <span id="locationLanguage">Detecting...</span>
+          <button id="editLocationBtn" class="edit-icon-btn" title="Edit">
+            <i class="fas fa-pencil-alt"></i>
+          </button>
+        </div>
+
+        <div class="location-dropdown" id="locationEdit" style="display: none;">
+          <div class="dropdown-group">
+            <label for="manualStateSelect">State</label>
+            <select id="manualStateSelect"></select>
+          </div>
+          <div class="dropdown-group">
+            <label for="manualLanguageSelect">Language</label>
+            <select id="manualLanguageSelect"></select>
+          </div>
+
+          <!-- <select id="stateSelect" required style="margin-bottom: 10px; padding: 10px; border-radius: 8px; border: 1px solid #ccc;">
     <option value="">-- Select your State / UT --</option>
     <option value="Andhra Pradesh">Andhra Pradesh</option>
     <option value="Arunachal Pradesh">Arunachal Pradesh</option>
@@ -108,16 +110,16 @@
     <option value="Lakshadweep">Lakshadweep</option>
     <option value="Puducherry">Puducherry</option>
   </select> -->
-      <button id="resetLocationBtn" class="reset-location-btn"><i class="fas fa-sync-alt"></i> Reset</button>
-    </div>
-  </div>
+          <button id="resetLocationBtn" class="reset-location-btn"><i class="fas fa-sync-alt"></i> Reset</button>
+        </div>
+      </div>
 
-  <a class="export-button" id="exportBtn" style="display: none;">
-    <i class="fas fa-download"></i>
-    Export CSV
-  </a>
-</header>
-    
+      <a class="export-button" id="exportBtn" style="display: none;">
+        <i class="fas fa-download"></i>
+        Export CSV
+      </a>
+    </header>
+
     <div class="chat-area">
       <div class="archived-notice" id="archivedNotice" style="display: none;">
         <div class="icon"><i class="fas fa-archive"></i></div>
@@ -130,13 +132,14 @@
 
 
       <!-- In-chat form (outside start screen, fixed at bottom, hidden by default) -->
-       <form id="chat-form" class="chat-form" style="display: none;">
+      <form id="chat-form" class="chat-form" style="display: none;">
         <textarea id="user-input" placeholder="Ask your agricultural question here..." required rows="3"></textarea>
-        
+
         <div class="chat-form-actions">
           <button type="submit" class="send-button" aria-label="Send">
             <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 28 28">
-            <path fill="currentColor" d="M3.79 2.625c-.963-.46-2.021.42-1.746 1.451l2.016 7.533a1 1 0 0 0 .824.732l9.884 1.412c.286.04.286.454 0 .495l-9.883 1.411a1 1 0 0 0-.824.732l-2.017 7.537c-.275 1.03.783 1.91 1.746 1.451L25.288 15.13c.949-.452.949-1.804 0-2.257L3.79 2.626Z"/>
+              <path fill="currentColor"
+                d="M3.79 2.625c-.963-.46-2.021.42-1.746 1.451l2.016 7.533a1 1 0 0 0 .824.732l9.884 1.412c.286.04.286.454 0 .495l-9.883 1.411a1 1 0 0 0-.824.732l-2.017 7.537c-.275 1.03.783 1.91 1.746 1.451L25.288 15.13c.949-.452.949-1.804 0-2.257L3.79 2.626Z" />
             </svg>
           </button>
           <div class="button-row">
@@ -145,21 +148,24 @@
             <div class="tooltip-container">
               <button type="button" class="feature-button inactive" aria-label="Attach file or image">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m18.375 12.739l-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13"/>
-              </svg>
+                  <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+                    stroke-width="1.5"
+                    d="m18.375 12.739l-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13" />
+                </svg>
               </button>
               <span class="tooltip-text">Beta feature</span>
             </div>
-            
+
             <!-- Mic -->
             <div class="tooltip-container">
               <button type="button" class="feature-button inactive" aria-label="Start voice input">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <g>
-                  <path d="M5 3a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0V3z"/>
-                  <path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/>
-                </g>
-              </svg>
+                  <g>
+                    <path d="M5 3a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0V3z" />
+                    <path
+                      d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z" />
+                  </g>
+                </svg>
               </button>
               <span class="tooltip-text">Beta feature</span>
             </div>
@@ -203,60 +209,67 @@
       </form> -->
 
 
-       <div class="start-screen" id="startScreen">
+      <div class="start-screen" id="startScreen">
         <div class="icon"><i class="fas fa-seedling"></i></div>
         <h2>Welcome to AgriChat</h2>
 
         <div class="subheading-container">
-        <p>Your intelligent farming assistant is here to help you with <br> agricultural queries, crop management, and farming best practices.</p>
+          <p>Your intelligent farming assistant is here to help you with <br> agricultural queries, crop management, and
+            farming best practices.</p>
         </div>
 
         <!-- Welcome Screen chat-form floating in page-->
         <form id="start-form" class="chat-form" style="max-width: 600px; margin: 0 auto;">
-        <textarea id="start-input" name="question" placeholder="Ask me anything about farming, crops, soil, weather, or agricultural practices..." required rows="3"></textarea>
+          <textarea id="start-input" name="question"
+            placeholder="Ask me anything about farming, crops, soil, weather, or agricultural practices..." required
+            rows="3"></textarea>
 
-        <!-- <form id="start-form" class="chat-form" style="max-width: 600px; margin: 0 auto;">
+          <!-- <form id="start-form" class="chat-form" style="max-width: 600px; margin: 0 auto;">
           <textarea name="question" placeholder="Ask me anything about farming, crops, soil, weather, or agricultural practices..." required rows="3"></textarea> -->
 
           <div class="button-row">
 
-          <div class="tooltip-container">
-            <button type="button" class="feature-button inactive" aria-label="Attach file or image">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m18.375 12.739l-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13"/>
-              </svg>
-            </button>
-            <span class="tooltip-text">Beta feature</span>
-          </div>
+            <div class="tooltip-container">
+              <button type="button" class="feature-button inactive" aria-label="Attach file or image">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+                    stroke-width="1.5"
+                    d="m18.375 12.739l-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13" />
+                </svg>
+              </button>
+              <span class="tooltip-text">Beta feature</span>
+            </div>
 
-          <div class="tooltip-container">
-            <button type="button" class="feature-button inactive" aria-label="Start voice input">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-              <g>
-                <path d="M5 3a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0V3z"/>
-                <path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/>
-              </g>
-            </svg>
-          </button>
-          <span class="tooltip-text">Beta feature</span>
-          </div>
+            <div class="tooltip-container">
+              <button type="button" class="feature-button inactive" aria-label="Start voice input">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                  <g>
+                    <path d="M5 3a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0V3z" />
+                    <path
+                      d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z" />
+                  </g>
+                </svg>
+              </button>
+              <span class="tooltip-text">Beta feature</span>
+            </div>
 
-          <div class="tooltip-container">
-            <button type="submit" class="start-chat-button">
-              <i class="fas fa-seedling"></i> Start Chat
-            </button>
-          </div>
+            <div class="tooltip-container">
+              <button type="submit" class="start-chat-button">
+                <i class="fas fa-seedling"></i> Start Chat
+              </button>
+            </div>
         </form>
       </div>
     </div>
   </main>
 
 
-<div id="loadingOverlay" class="loading-overlay" style="display: none;">
-  <div class="spinner"></div>
-</div>
-<div id="backdrop" class="backdrop"></div>
-<script src="./script.js"></script>
+  <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+    <div class="spinner"></div>
+  </div>
+  <div id="backdrop" class="backdrop"></div>
+  <script src="./config.js"></script>
+  <script src="./script.js"></script>
   <script>
     const sidebar = document.getElementById('sidebar');
     const toggleBtn = document.getElementById('sidebarToggle');
@@ -264,10 +277,10 @@
     const backdrop = document.getElementById('backdrop');
     const body = document.body;
 
-    
+
     // Make 'Enter' key submit the form
     // For start form textarea
-    document.getElementById('start-input')?.addEventListener('keydown', function(e) {
+    document.getElementById('start-input')?.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault(); // Stop newline
         this.form.requestSubmit(); // Submit the form
@@ -275,7 +288,7 @@
     });
 
     // For chat form textarea
-    document.getElementById('user-input')?.addEventListener('keydown', function(e) {
+    document.getElementById('user-input')?.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         this.form.requestSubmit();
@@ -352,5 +365,5 @@
   </script>
 
 </body>
-</html>
 
+</html>
