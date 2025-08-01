@@ -31,3 +31,18 @@ Leaf blight in potatoes refers to several diseases, most notably early blight an
 2025-07-27 15:12:51,What is cheesecake?,"Source: LLM knowledge & Web Search
 
 This tool only answers agricultural queries. Your question does not seem to be about agriculture.",FallbackAgriTool_called
+2025-08-01 16:36:01,Please help,"Source: LLM knowledge & Web Search
+
+This tool only answers agricultural queries. Your question does not seem to be about agriculture.",FallbackAgriTool_called
+2025-08-01 16:37:09,How to store potatoes,"Source: LLM knowledge & Web Search
+
+To properly store potatoes and extend their shelf life, follow these guidelines:
+
+### Potato Storage Guidelines
+
+*   **Choose a Cool, Dark Place:** Store potatoes in an area that is cool, dry, and dark. Ideal temperatures are around 50°F (10°C), similar to a pantry cabinet or a cool basement. Avoid storing them on countertops where they are exposed to light (food52.com).
+*   **Ensure Good Airflow:** Potatoes need ventilation to prevent moisture buildup, which can lead to spoilage.
+    *   Transfer potatoes from their original plastic packaging to a paper bag, mesh bag, or a well-ventilated container (food52.com).
+    *   If keeping them in the original plastic bag, ensure it is perforated and not tightly sealed (food52.com).
+*   **Avoid Sunlight:** Direct sunlight can cause potatoes to turn green, wrinkle, and rot due to photosynthesis. Keep them in a drawer, basket, closet, or paper bag (food52.com). Green potatoes can develop a bitter flavor and may be irritating to the digestive system (food52.com).
+*   **Do Not Refrigerate:** Storing potatoes in the refrigerator is not recommended. Cold temperatures cause the starch to convert into sugars, leading to a sweeter taste and an unappetizing brown color when cooked (food52.com, citing Harold McGee in *On Food and Cooking*",FallbackAgriTool_called
