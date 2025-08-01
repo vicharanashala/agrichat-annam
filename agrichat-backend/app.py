@@ -42,7 +42,7 @@ origins = [
     "https://agrichat-annam.vercel.app",
     "https://192.168.1.17:8000/api",
     "https://agri-annam.vercel.app",
-    "https://5ac42644badb.ngrok-free.app",
+    " https://6b9e45219847.ngrok-free.app",
     "https://localhost:3000",
     "https://127.0.0.1:3000"
 ]
