@@ -5,7 +5,7 @@ const config = {
     },
     production: {
         // Use HTTPS with ngrok - browsers will show warning but allow override
-        API_BASE: "https://5ac42644badb.ngrok-free.app"
+        API_BASE: "https://6b9e45219847.ngrok-free.app/api"
         // Fallback HTTP (will cause mixed content warnings):
         // API_BASE: "http://YOUR_NEW_NGROK_URL.ngrok-free.app/api"
     }
