@@ -4,8 +4,8 @@ const config = {
         API_BASE: "https://localhost:8443/api"
     },
     production: {
-        // ngrok HTTP URL - temporary fix for SSL certificate issues
-        API_BASE: "http://4020811e2f92.ngrok-free.app/api"
+        // Force HTTP to avoid SSL certificate issues - with cache busting
+        API_BASE: "http://4020811e2f92.ngrok-free.app/api?v=" + Date.now()
         // HTTPS URL with SSL issues:
         // API_BASE: "https://4020811e2f92.ngrok-free.app/api"
     }
