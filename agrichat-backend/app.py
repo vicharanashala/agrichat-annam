@@ -26,8 +26,31 @@ agentic_rag_path = os.path.join(current_dir, "Agentic_RAG")
 sys.path.insert(0, agentic_rag_path)
 load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
 
-# Import the direct tool function instead of CrewAI get_answer
-from Agentic_RAG.crew_agents import retriever_response
+# Import tools directly for the get_answer function
+from Agentic_RAG.tools import FireCrawlWebSearchTool, RAGTool, FallbackAgriTool
+
+# Initialize tools (same as in main.py)
+firecrawl_tool = FireCrawlWebSearchTool(api_key=os.getenv("FIRECRAWL_API_KEY"))
+gemini_api_key = os.getenv("GOOGLE_API_KEY")
+rag_tool = RAGTool(chroma_path=os.path.join(current_dir, "Agentic_RAG", "chromaDb"), gemini_api_key=gemini_api_key)
+
+fallback_tool = FallbackAgriTool(
+    google_api_key=gemini_api_key,
+    model="gemini-2.5-flash",
+    websearch_tool=firecrawl_tool
+)
+
+# Define get_answer function (same as in main.py)
+def get_answer(question):
+    print(f"[DEBUG] Processing question: {question}")
+    rag_response = rag_tool._run(question)
+    print(f"[DEBUG] RAG response: {rag_response[:100]}..." if len(rag_response) > 100 else f"[DEBUG] RAG response: {rag_response}")
+    
+    if rag_response == "__FALLBACK__":
+        print("[DEBUG] RAG returned __FALLBACK__, calling fallback tool...")
+        fallback_response = fallback_tool._run(question)
+        return fallback_response
+    return rag_response
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -98,7 +121,7 @@ async def list_sessions(request: Request):
 async def new_session(question: str = Form(...), device_id: str = Form(...), state: str = Form(...), language: str = Form(...)):
     session_id = str(uuid4())
     try:
-        raw_answer = retriever_response(question)
+        raw_answer = get_answer(question)
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": "LLM processing failed."})
 
@@ -137,7 +160,7 @@ async def continue_session(session_id: str, question: str = Form(...), device_id
         return JSONResponse(status_code=403, content={"error": "Session is archived, missing or unauthorized"})
 
     try:
-        raw_answer = retriever_response(question)
+        raw_answer = get_answer(question)
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": "LLM processing failed."})
 
