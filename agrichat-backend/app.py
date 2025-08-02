@@ -16,6 +16,11 @@ import pytz
 from dateutil import parser
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Timezone
 IST = pytz.timezone("Asia/Kolkata")
@@ -62,12 +67,12 @@ app = FastAPI(lifespan=lifespan)
 
 # CORS Setup
 origins = [
-    "https://agrichat-annam.vercel.app",
-    "https://192.168.1.17:8000/api",
     "https://agri-annam.vercel.app",
-    " https://6b9e45219847.ngrok-free.app",
+    "https://d99db68eff93.ngrok-free.app",
     "https://localhost:3000",
-    "https://127.0.0.1:3000"
+    "https://127.0.0.1:3000",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000"
 ]
 
 app.add_middleware(
@@ -122,11 +127,19 @@ async def new_session(question: str = Form(...), device_id: str = Form(...), sta
     session_id = str(uuid4())
     try:
         raw_answer = get_answer(question)
+        logger.info(f"[DEBUG] Raw answer: {raw_answer}")
+        logger.info(f"[DEBUG] Raw answer type: {type(raw_answer)}")
+        
+        # Convert result to string like main.py does - NO POST PROCESSING
+        answer_only = str(raw_answer).strip()
+        
     except Exception as e:
+        logger.error(f"[DEBUG] Error in get_answer: {e}")
         return JSONResponse(status_code=500, content={"error": "LLM processing failed."})
 
-    answer_only = raw_answer.split("</think>")[-1].strip() if "</think>" in raw_answer else raw_answer.strip()
+    logger.info(f"[DEBUG] Answer after processing: {answer_only}")
     html_answer = markdown.markdown(answer_only, extensions=["extra", "nl2br"])
+    logger.info(f"[DEBUG] HTML answer: {html_answer}")
 
     session = {
         "session_id": session_id,
@@ -164,7 +177,7 @@ async def continue_session(session_id: str, question: str = Form(...), device_id
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": "LLM processing failed."})
 
-    answer_only = raw_answer.split("</think>")[-1].strip()
+    answer_only = str(raw_answer).strip()  # NO POST PROCESSING
     html_answer = markdown.markdown(answer_only, extensions=["extra", "nl2br"])
 
     crop = session.get("crop", "unknown")
