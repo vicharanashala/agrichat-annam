@@ -31,7 +31,7 @@ agentic_rag_path = os.path.join(current_dir, "Agentic_RAG")
 sys.path.insert(0, agentic_rag_path)
 load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
 
-# Import CrewAI components exactly like main.py
+# Import CrewAI components and direct tools
 from crewai import Crew
 from Agentic_RAG.crew_agents import (
     Retriever_Agent, Grader_agent,
@@ -41,21 +41,40 @@ from Agentic_RAG.crew_tasks import (
     retriever_task, grader_task,
     hallucination_task, answer_task
 )
+from Agentic_RAG.tools import RAGTool, FallbackAgriTool, FireCrawlWebSearchTool
 
-# Define get_answer function exactly like main.py
+# Initialize tools for direct RAG-first approach
+firecrawl_tool = FireCrawlWebSearchTool(api_key=os.getenv("FIRECRAWL_API_KEY"))
+gemini_api_key = os.getenv("GOOGLE_API_KEY")
+rag_tool = RAGTool(chroma_path=os.path.join(agentic_rag_path, "chromaDb"), gemini_api_key=gemini_api_key)
+fallback_tool = FallbackAgriTool(
+    google_api_key=gemini_api_key,
+    model="gemini-2.5-pro",
+    websearch_tool=firecrawl_tool
+)
+
+# Define get_answer function with proper RAG-first workflow
 def get_answer(question):
-    rag_crew = Crew(
-        agents=[
-            Retriever_Agent
-        ],
-        tasks=[
-            retriever_task
-        ],
-        verbose=True,
-    )
-    inputs = {"question": question}
-    result = rag_crew.kickoff(inputs=inputs)
-    return result
+    """
+    RAG-first approach: Try RAG database first, fallback to LLM+WebSearch if needed
+    This matches exactly how main.py works locally
+    """
+    logger.info(f"[DEBUG] Processing question: {question}")
+    
+    # Step 1: Try RAG tool first
+    rag_response = rag_tool._run(question)
+    logger.info(f"[DEBUG] RAG response: {rag_response[:100]}..." if len(rag_response) > 100 else f"[DEBUG] RAG response: {rag_response}")
+    
+    # Step 2: Check if RAG returned fallback signal
+    if rag_response == "__FALLBACK__":
+        logger.info("[DEBUG] RAG returned __FALLBACK__, calling fallback tool...")
+        fallback_response = fallback_tool._run(question)
+        logger.info(f"[DEBUG] Fallback response: {fallback_response[:100]}..." if len(fallback_response) > 100 else f"[DEBUG] Fallback response: {fallback_response}")
+        return fallback_response
+    
+    # Step 3: RAG had an answer, return it
+    logger.info("[DEBUG] RAG provided answer, returning RAG response")
+    return rag_response
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

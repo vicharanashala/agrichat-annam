@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>🔒 AgriChat SSL Certificate Fix Guide</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 40px auto;
+            max-width: 800px;
+            line-height: 1.6;
+        }
+
+        .step {
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+
+        .success {
+            background: #d4edda;
+            border-left-color: #28a745;
+            color: #155724;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border-left-color: #ffc107;
+            color: #856404;
+        }
+
+        .error {
+            background: #f8d7da;
+            border-left-color: #dc3545;
+            color: #721c24;
+        }
+
+        .ngrok-url {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 16px;
+            word-break: break-all;
+        }
+
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        .test-result {
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🔒 AgriChat SSL Certificate Fix Guide</h1>
+
+    <div class="warning step">
+        <h2>⚠️ Current Issue</h2>
+        <p>Your browser is blocking requests to the ngrok URL because it doesn't trust the SSL certificate. This is
+            normal for ngrok free tier.</p>
+        <p><strong>Error:</strong> <code>net::ERR_CERT_AUTHORITY_INVALID</code></p>
+    </div>
+
+    <div class="step">
+        <h2>🎯 Solution: Certificate Bypass</h2>
+        <p><strong>Step 1:</strong> Click the link below to visit your ngrok backend directly:</p>
+        <div class="ngrok-url">
+            <a href="https://d99db68eff93.ngrok-free.app" target="_blank" id="ngrok-link">
+                https://d99db68eff93.ngrok-free.app
+            </a>
+        </div>
+
+        <p><strong>Step 2:</strong> When you see the security warning:</p>
+        <ol>
+            <li>Click <strong>"Advanced"</strong> (Chrome) or <strong>"Advanced..."</strong> (Edge/Firefox)</li>
+            <li>Click <strong>"Proceed to d99db68eff93.ngrok-free.app (unsafe)"</strong></li>
+            <li>You should see: <code>{"message":"AgriChat backend is running."}</code></li>
+        </ol>
+    </div>
+
+    <div class="step">
+        <h2>🧪 Test Your Connection</h2>
+        <button onclick="testConnection()">🔄 Test Backend Connection</button>
+        <button onclick="testAPI()">🔗 Test API Endpoint</button>
+        <button onclick="testWebApp()">🌐 Open AgriChat Web App</button>
+
+        <div id="test-results"></div>
+    </div>
+
+    <div class="success step" style="display: none;" id="success-message">
+        <h2>✅ Success!</h2>
+        <p>Your SSL certificate has been bypassed successfully. Your AgriChat web app should now work perfectly!</p>
+        <p><strong>Next:</strong> Visit <a href="https://agri-annam.vercel.app"
+                target="_blank">https://agri-annam.vercel.app</a> and try asking an agricultural question.</p>
+    </div>
+
+    <script>
+        const NGROK_URL = 'https://d99db68eff93.ngrok-free.app';
+        const VERCEL_URL = 'https://agri-annam.vercel.app';
+
+        function showResult(message, type = 'info') {
+            const resultsDiv = document.getElementById('test-results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${type}`;
+            resultDiv.innerHTML = message;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        function clearResults() {
+            document.getElementById('test-results').innerHTML = '';
+        }
+
+        async function testConnection() {
+            clearResults();
+            showResult('🔄 Testing connection to ngrok backend...', 'info');
+
+            try {
+                const response = await fetch(NGROK_URL + '/', {
+                    method: 'GET',
+                    headers: {
+                        'ngrok-skip-browser-warning': 'true'
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    showResult(`✅ <strong>Backend Connection Successful!</strong><br>
+                               Response: ${JSON.stringify(data)}<br>
+                               Status: ${response.status} ${response.statusText}`, 'success');
+                    document.getElementById('success-message').style.display = 'block';
+                } else {
+                    showResult(`❌ <strong>Connection Failed</strong><br>
+                               Status: ${response.status} ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                showResult(`❌ <strong>Connection Error</strong><br>
+                           Error: ${error.message}<br>
+                           <strong>Solution:</strong> Please click the ngrok link above and bypass the certificate warning first.`, 'error');
+            }
+        }
+
+        async function testAPI() {
+            clearResults();
+            showResult('🧪 Testing API endpoint...', 'info');
+
+            try {
+                const response = await fetch(NGROK_URL + '/api/sessions?device_id=test123', {
+                    method: 'GET',
+                    headers: {
+                        'ngrok-skip-browser-warning': 'true'
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    showResult(`✅ <strong>API Test Successful!</strong><br>
+                               Sessions endpoint working perfectly<br>
+                               Status: ${response.status} ${response.statusText}`, 'success');
+                } else {
+                    showResult(`❌ <strong>API Test Failed</strong><br>
+                               Status: ${response.status} ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                showResult(`❌ <strong>API Test Error</strong><br>
+                           Error: ${error.message}<br>
+                           <strong>Solution:</strong> Please bypass the certificate warning first.`, 'error');
+            }
+        }
+
+        function testWebApp() {
+            showResult('🌐 Opening AgriChat web application...', 'info');
+            window.open(VERCEL_URL, '_blank');
+            showResult(`✅ <strong>Web App Opened</strong><br>
+                       If you've bypassed the certificate warning, the app should work perfectly!<br>
+                       Try asking: "What are the best crops for Punjab?"`, 'success');
+        }
+
+        // Auto-test connection on page load
+        window.addEventListener('load', () => {
+            setTimeout(testConnection, 1000);
+        });
+    </script>
+</body>
+
+</html>
