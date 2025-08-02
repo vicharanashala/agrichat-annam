@@ -11,14 +11,14 @@ rag_tool = RAGTool(chroma_path=r"C:\Users\dledlab\agrichat-annam\agrichat-backen
 
 from crewai import LLM, Agent
 llm = LLM(
-    model='gemini/gemini-2.5-flash',  # Fixed: changed from gemini-2.5-flash
+    model='gemini/gemini-2.5-pro',  # Updated to gemini-2.5-pro
     api_key=gemini_api_key,
     temperature=0.0
 )
 
 fallback_tool = FallbackAgriTool(
     google_api_key=gemini_api_key,
-    model="gemini-2.5-flash",  # Fixed: changed from gemini-2.5-flash
+    model="gemini-2.5-pro",  # Updated to gemini-2.5-pro
     websearch_tool=firecrawl_tool
 )
 
