@@ -18,3 +18,5 @@ google.generativeai
 certifi
 pytz
 python-dateutil
+crewai
+firecrawl-py

@@ -2,20 +2,23 @@ from crewai import Task
 from crew_agents import Retriever_Agent, Grader_agent, hallucination_grader, answer_grader
 from tools import RAGTool, FallbackAgriTool, FireCrawlWebSearchTool
 
-# Task: Retrieve answer from vectorstore (RAG tool) or fallback LLM+WebSearch
 retriever_task = Task(
     description=(
-        "For the question {question}, always attempt to answer using the RAG tool (vectorstore) first. "
-        "If the RAG tool does not provide a relevant or confident answer (signals fallback), then use the fallback tool (LLM + web search) to find the answer. "
-        "Present the final answer clearly and specify the source."
+        "For the question {question}, you MUST follow this exact sequence:\n"
+        "1. FIRST: Always call the RAG tool to search the vectorstore database\n"
+        "2. ONLY IF the RAG tool returns '__FALLBACK__' or 'I don't have enough information': then call the fallback tool\n"
+        "3. Return the answer with the correct source label\n"
+        "CRITICAL: You must attempt the RAG tool first before any other tool. Do not skip this step."
     ),
     expected_output=(
-        "Present the final answer in a clear and structured format, clearly indicating the source (e.g., 'Source: RAG Database' or 'Source: LLM knowledge & Web Search')."
+        "The answer from either:\n"
+        "- 'Source: RAG Database' if RAG tool provided an answer\n"
+        "- 'Source: LLM knowledge & Web Search' if RAG tool failed and fallback was used\n"
+        "Keep the response concise and structured like the RAG database responses."
     ),
     agent=Retriever_Agent
 )
 
-# Task: Grade whether the document retrieved is relevant to the question
 grader_task = Task(
     description=(
         "Based on the response from the retriever task for the question {question}, evaluate whether the retrieved content is relevant to the question."
@@ -30,7 +33,6 @@ grader_task = Task(
     context=[retriever_task],
 )
 
-# Task: Grade whether the answer is grounded, factual, and not hallucinated
 hallucination_task = Task(
     description=(
         "Based on the graded response for the question {question}, assess if the answer is grounded in facts and supported by evidence."
@@ -44,7 +46,6 @@ hallucination_task = Task(
     context=[grader_task],
 )
 
-# Task: Final answer generation or fallback web search based on hallucination grading
 answer_task = Task(
     description=(
         "Based on the hallucination grading for the question {question}, decide whether to return the answer or perform a fallback web search."

@@ -1,24 +1,30 @@
 from tools import FireCrawlWebSearchTool, RAGTool, FallbackAgriTool
 import os
 from dotenv import load_dotenv
-
-# Load environment variables
+from crewai import LLM, Agent
 load_dotenv()
 
 firecrawl_tool = FireCrawlWebSearchTool(api_key=os.getenv("FIRECRAWL_API_KEY"))
 gemini_api_key = os.getenv("GOOGLE_API_KEY")
-rag_tool = RAGTool(chroma_path=r"C:\Users\dledlab\agrichat-annam\agrichat-backend\Agentic_RAG\chromaDb", gemini_api_key=gemini_api_key)
+
+import os
+current_dir = os.path.dirname(os.path.abspath(__file__))
+chroma_path = os.path.join(current_dir, "chromaDb")
+print(f"[DEBUG] Using ChromaDB path: {chroma_path}")
+print(f"[DEBUG] ChromaDB path exists: {os.path.exists(chroma_path)}")
+
+rag_tool = RAGTool(chroma_path=chroma_path, gemini_api_key=gemini_api_key)
 
 from crewai import LLM, Agent
 llm = LLM(
-    model='gemini/gemini-2.5-pro',  # Updated to gemini-2.5-pro
+    model='gemini/gemini-2.5-flash',
     api_key=gemini_api_key,
     temperature=0.0
 )
 
 fallback_tool = FallbackAgriTool(
     google_api_key=gemini_api_key,
-    model="gemini-2.5-pro",  # Updated to gemini-2.5-pro
+    model="gemini-2.5-flash",
     websearch_tool=firecrawl_tool
 )
 
@@ -30,6 +36,7 @@ Retriever_Agent = Agent(
         "If the RAG tool returns '__FALLBACK__' or cannot answer confidently, "
         "then invoke the fallback tool (LLM plus web search). "
         "For non-agricultural queries, the tools will respond politely declining."
+        " For normal greetings or salutations (e.g., “hello,” “how are you?”, “good morning”), respond gently and politely with a soft, appropriate answer."
     ),
     backstory=(
         "You do not answer questions yourself. Instead, you decide which tool to call based on the user's query and the tool's responses. "
@@ -41,14 +48,9 @@ Retriever_Agent = Agent(
 )
 
 def retriever_response(question: str) -> str:
-    print(f"[DEBUG] Processing question: {question}")
     rag_response = rag_tool._run(question)
-    print(f"[DEBUG] RAG response: {rag_response[:100]}..." if len(rag_response) > 100 else f"[DEBUG] RAG response: {rag_response}")
-    
     if rag_response == "__FALLBACK__":
-        print("[DEBUG] RAG returned __FALLBACK__, calling fallback tool...")
-        fallback_response = fallback_tool._run(question)
-        return fallback_response
+        return fallback_tool._run(question)
     return rag_response
 
 Grader_agent = Agent(
@@ -90,4 +92,3 @@ answer_grader = Agent(
     llm=llm,
     tools=[fallback_tool],
 )
-
