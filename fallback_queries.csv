@@ -1,0 +1,10 @@
+timestamp,question,answer,fallback_reason
+2025-08-02 15:53:59,How to treat leaf blight in potatoes?,"Source: LLM knowledge & Web Search
+
+To treat leaf blight in potatoes, follow these steps for non-chemical control and focus on preventative measures, as chemical treatments are generally not available for gardeners.
+
+### Understanding Potato Blight
+Potato blight, also known as late blight, is a serious disease caused by the fungus-like organism *Phytophthora infestans*. It attacks the foliage and tubers of potatoes, leading to rapid decay, especially in warm, wet, or humid conditions. The spores spread easily by wind and can be washed into the soil to infect tubers [1, 2].
+
+### Identifying Symptoms
+Look for the following signs of potato blight:",FallbackAgriTool_called

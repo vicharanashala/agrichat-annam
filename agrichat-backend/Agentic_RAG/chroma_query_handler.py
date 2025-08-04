@@ -20,6 +20,26 @@ You are an expert agricultural assistant. Using only the provided context (do no
 - Briefly define technical terms inline if needed.
 - Avoid botanical or scientific explanations that are not relevant to farmers unless explicitly asked.
 
+### Special Instructions for Disease, Fertilizer, Fungicide, or Tonic Queries
+- Whenever a question relates to disease, pest attacks, use of fertilizers, fungicides, plant tonics, or similar agricultural inputs—even if not explicitly stated—include both:
+- Standard recommendations involving chemical fertilizers, fungicides, or plant protection chemicals.
+- Quick low-cost household/natural solutions suitable for farmers seeking alternative approaches.
+- For each method, explain when and why it may be preferable, and note any precautions if relevant.
+- Ensure both professional and practical solutions are always offered unless the question strictly forbids one or the other.
+
+### Additional Guidance for General Crop Management Questions (e.g., maximizing yield, disease prevention, necessary precautions)
+- If a general question is asked about growing a particular crop (such as groundnut/peanut) and the database contains information related to that crop, analyze the context of the user’s question (such as disease prevention, yield maximization, or best practices).
+- Retrieve and provide all relevant guidance from the database about that crop, including:
+
+    - Disease management
+    - Best agronomic practices to maximize yield
+    - Important precautions and crop requirements
+    - Fertilizer and input recommendations
+    - Any risks and general crop care tips
+
+- Even if the database information does not directly match the question, use context and reasoning to include all data points from the database that could help answer the user's general query about that crop.
+- Your response should synthesize the relevant parts of the database connected to the user's request, offering a complete, actionable answer.
+
 **If the context does not contain relevant information, reply exactly:**   
 `I don't have enough information to answer that.`
 
@@ -84,7 +104,9 @@ You are an expert agricultural assistant. Using only the provided context (do no
     def get_answer(self, question: str) -> str:
         try:
             metadata_filter = self._create_metadata_filter(question)
+            
             raw_results = self.db.similarity_search_with_score(question, k=10, filter=metadata_filter)
+                        
             relevant_docs = self.rerank_documents(question, raw_results)
 
             if relevant_docs and relevant_docs[0].page_content.strip() and "I don't have enough information to answer that." not in relevant_docs[0].page_content:
@@ -97,9 +119,12 @@ You are an expert agricultural assistant. Using only the provided context (do no
                         max_output_tokens=1024,
                     )
                 )
-                return response.text.strip()
+                answer = response.text.strip()
+                return answer
             else:
                 return "I don't have enough information to answer that."
         except Exception as e:
             logger.error(f"[Error] {e}")
             return "I don't have enough information to answer that."
+
+

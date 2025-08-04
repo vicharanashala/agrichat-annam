@@ -18,63 +18,40 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 import logging
 
-# Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Timezone
 IST = pytz.timezone("Asia/Kolkata")
 
-# Paths and .env
 current_dir = os.path.dirname(os.path.abspath(__file__))
 agentic_rag_path = os.path.join(current_dir, "Agentic_RAG")
 sys.path.insert(0, agentic_rag_path)
 load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
 
-# Import CrewAI components and direct tools
-from crewai import Crew
-from Agentic_RAG.crew_agents import (
-    Retriever_Agent, Grader_agent,
-    hallucination_grader, answer_grader
-)
-from Agentic_RAG.crew_tasks import (
-    retriever_task, grader_task,
-    hallucination_task, answer_task
-)
-from Agentic_RAG.tools import RAGTool, FallbackAgriTool, FireCrawlWebSearchTool
+from Agentic_RAG.crew_agents import retriever_response
 
-# Initialize tools for direct RAG-first approach
-firecrawl_tool = FireCrawlWebSearchTool(api_key=os.getenv("FIRECRAWL_API_KEY"))
-gemini_api_key = os.getenv("GOOGLE_API_KEY")
-rag_tool = RAGTool(chroma_path=os.path.join(agentic_rag_path, "chromaDb"), gemini_api_key=gemini_api_key)
-fallback_tool = FallbackAgriTool(
-    google_api_key=gemini_api_key,
-    model="gemini-2.5-pro",
-    websearch_tool=firecrawl_tool
-)
+chroma_db_path = os.path.join(current_dir, "Agentic_RAG", "chromaDb")
+logger.info(f"[DEBUG] ChromaDB path: {chroma_db_path}")
+logger.info(f"[DEBUG] ChromaDB path exists: {os.path.exists(chroma_db_path)}")
 
-# Define get_answer function with proper RAG-first workflow
-def get_answer(question):
+def get_answer(question: str) -> str:
     """
-    RAG-first approach: Try RAG database first, fallback to LLM+WebSearch if needed
-    This matches exactly how main.py works locally
+    Use the same logic as main.py - direct retriever_response function:
+    1. Try RAG tool first
+    2. If RAG returns __FALLBACK__, use fallback tool
     """
-    logger.info(f"[DEBUG] Processing question: {question}")
+    logger.info(f"[DEBUG] Processing question with retriever_response approach: {question}")
     
-    # Step 1: Try RAG tool first
-    rag_response = rag_tool._run(question)
-    logger.info(f"[DEBUG] RAG response: {rag_response[:100]}..." if len(rag_response) > 100 else f"[DEBUG] RAG response: {rag_response}")
-    
-    # Step 2: Check if RAG returned fallback signal
-    if rag_response == "__FALLBACK__":
-        logger.info("[DEBUG] RAG returned __FALLBACK__, calling fallback tool...")
-        fallback_response = fallback_tool._run(question)
-        logger.info(f"[DEBUG] Fallback response: {fallback_response[:100]}..." if len(fallback_response) > 100 else f"[DEBUG] Fallback response: {fallback_response}")
-        return fallback_response
-    
-    # Step 3: RAG had an answer, return it
-    logger.info("[DEBUG] RAG provided answer, returning RAG response")
-    return rag_response
+    try:
+        response = retriever_response(question)
+        logger.info(f"[DEBUG] Retriever response: {response}")
+        return response
+            
+    except Exception as e:
+        logger.error(f"[DEBUG] Error in retriever_response: {e}")
+        return "I apologize, but I'm experiencing technical difficulties. Please try again later."
+
+logger.info(f"[DEBUG] Using retriever_response function same as main.py approach")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -84,10 +61,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# CORS Setup
 origins = [
     "https://agri-annam.vercel.app",
-    "https://d99db68eff93.ngrok-free.app",
+    "https://002451cc276c.ngrok-free.app",
     "https://localhost:3000",
     "https://127.0.0.1:3000",
     "http://localhost:3000",
@@ -96,34 +72,29 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Temporarily allow all for testing
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
     expose_headers=["*"]
 )
 
-# Add middleware to handle ngrok browser warning bypass
 @app.middleware("http")
 async def add_ngrok_headers(request: Request, call_next):
     response = await call_next(request)
-    # Add headers to bypass ngrok browser warning
     response.headers["ngrok-skip-browser-warning"] = "true"
     return response
 
-# MongoDB setup
 MONGO_URI = os.getenv("MONGO_URI")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 client = MongoClient(MONGO_URI) if ENVIRONMENT == "development" else MongoClient(MONGO_URI, tlsCAFile=certifi.where())
 db = client["agrichat"]
 sessions_collection = db["sessions"]
 
-# Utility
 def clean_session(s):
     s["_id"] = str(s["_id"])
     return s
 
-# Routes
 @app.get("/")
 async def root():
     return {"message": "AgriChat backend is running."}
@@ -149,7 +120,6 @@ async def new_session(question: str = Form(...), device_id: str = Form(...), sta
         logger.info(f"[DEBUG] Raw answer: {raw_answer}")
         logger.info(f"[DEBUG] Raw answer type: {type(raw_answer)}")
         
-        # Convert result to string like main.py does - NO POST PROCESSING
         answer_only = str(raw_answer).strip()
         
     except Exception as e:
@@ -196,7 +166,7 @@ async def continue_session(session_id: str, question: str = Form(...), device_id
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": "LLM processing failed."})
 
-    answer_only = str(raw_answer).strip()  # NO POST PROCESSING
+    answer_only = str(raw_answer).strip()
     html_answer = markdown.markdown(answer_only, extensions=["extra", "nl2br"])
 
     crop = session.get("crop", "unknown")
