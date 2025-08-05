@@ -3,7 +3,7 @@ from pydantic import PrivateAttr
 from crewai.tools import BaseTool
 import google.generativeai as genai
 from chroma_query_handler import ChromaQueryHandler
-from typing import ClassVar
+from typing import ClassVar, List, Dict, Optional
 import os
 import csv
 from datetime import datetime
@@ -48,8 +48,18 @@ class RAGTool(BaseTool):
         )
         self._handler = ChromaQueryHandler(chroma_path, gemini_api_key)
 
-    def _run(self, question: str) -> str:
-        answer = self._handler.get_answer(question)
+    def _run(self, question: str, conversation_history: Optional[List[Dict]] = None) -> str:
+        """
+        Run RAG tool with optional conversation history for context-aware responses
+        
+        Args:
+            question: Current user question
+            conversation_history: List of previous Q&A pairs for context
+            
+        Returns:
+            Generated response with appropriate source attribution
+        """
+        answer = self._handler.get_answer(question, conversation_history)
         if answer.strip() == "I don't have enough information to answer that.":
             return "__FALLBACK__"
         
@@ -57,6 +67,12 @@ class RAGTool(BaseTool):
             return answer.replace("__NO_SOURCE__", "")
         
         return "Source: RAG Database\n\n" + answer
+    
+    def run_with_context(self, question: str, conversation_history: List[Dict]) -> str:
+        """
+        Helper method to explicitly run with conversation context
+        """
+        return self._run(question, conversation_history)
 
 class FallbackAgriTool(BaseTool):
     _llm_model: any = PrivateAttr()

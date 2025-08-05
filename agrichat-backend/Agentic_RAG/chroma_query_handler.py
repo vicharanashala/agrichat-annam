@@ -4,6 +4,8 @@ import google.generativeai as genai
 import numpy as np
 from numpy.linalg import norm
 import logging
+from typing import List, Dict, Optional
+from context_manager import ConversationContext
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -99,6 +101,13 @@ Generate a polite, respectful message to inform the user that you can only answe
             persist_directory=chroma_path,
             embedding_function=self.embedding_function,
         )
+        
+        # Initialize conversation context manager
+        self.context_manager = ConversationContext(
+            max_context_pairs=3,  # Keep last 3 Q&A pairs
+            max_context_tokens=500  # Roughly 500 tokens for context
+        )
+        
         col = self.db._collection.get()["metadatas"]
         self.meta_index = {
             field: {m[field] for m in col if field in m and m[field]}
@@ -174,9 +183,29 @@ Generate a polite, respectful message to inform the user that you can only answe
             logger.error(f"[Dynamic Response Error] {e}")
             return "Sorry, I can only help with agriculture-related questions."
 
-    def get_answer(self, question: str) -> str:
+    def get_answer(self, question: str, conversation_history: Optional[List[Dict]] = None) -> str:
+        """
+        Get answer with optional conversation context for follow-up queries
+        
+        Args:
+            question: Current user question
+            conversation_history: List of previous Q&A pairs for context
+            
+        Returns:
+            Generated response
+        """
         try:
-            category = self.classify_query(question)
+            # Use contextual query if this is a follow-up
+            processing_query = question
+            context_used = False
+            
+            if conversation_history:
+                if self.context_manager.should_use_context(question, conversation_history):
+                    processing_query = self.context_manager.build_contextual_query(question, conversation_history)
+                    context_used = True
+                    logger.info(f"[Context] Using context for follow-up query. Original: {question[:100]}...")
+                    
+            category = self.classify_query(processing_query)
 
             if category == "GREETING":
                 response = self.generate_dynamic_response(question, mode="GREETING")
@@ -186,13 +215,17 @@ Generate a polite, respectful message to inform the user that you can only answe
                 response = self.generate_dynamic_response(question, mode="NON_AGRI")
                 return f"__NO_SOURCE__{response}"
 
-            metadata_filter = self._create_metadata_filter(question)
-            raw_results = self.db.similarity_search_with_score(question, k=10, filter=metadata_filter)
-            relevant_docs = self.rerank_documents(question, raw_results)
+            metadata_filter = self._create_metadata_filter(processing_query)
+            raw_results = self.db.similarity_search_with_score(processing_query, k=10, filter=metadata_filter)
+            relevant_docs = self.rerank_documents(processing_query, raw_results)
 
             if relevant_docs and relevant_docs[0].page_content.strip() and "I don't have enough information to answer that." not in relevant_docs[0].page_content:
                 context = relevant_docs[0].page_content
-                prompt = self.construct_structured_prompt(context, question)
+                
+                # For contextual queries, use the original question in the prompt but search with contextual query
+                final_question = question if context_used else processing_query
+                prompt = self.construct_structured_prompt(context, final_question)
+                
                 response = self.genai_model.generate_content(
                     contents=prompt,
                     generation_config=genai.GenerationConfig(
@@ -200,9 +233,22 @@ Generate a polite, respectful message to inform the user that you can only answe
                         max_output_tokens=1024,
                     )
                 )
-                return response.text.strip()
+                
+                generated_response = response.text.strip()
+                
+                # Add context indicator for debugging (optional, can be removed in production)
+                if context_used:
+                    logger.info(f"[Context] Response generated with conversation context")
+                    
+                return generated_response
             else:
                 return "I don't have enough information to answer that."
         except Exception as e:
             logger.error(f"[Error] {e}")
             return "I don't have enough information to answer that."
+
+    def get_context_summary(self, conversation_history: List[Dict]) -> Optional[str]:
+        """
+        Get a brief summary of conversation context for debugging
+        """
+        return self.context_manager.get_context_summary(conversation_history)

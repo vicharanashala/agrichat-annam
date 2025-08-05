@@ -17,6 +17,7 @@ from dateutil import parser
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 import logging
+from typing import Optional, List, Dict
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -34,16 +35,22 @@ chroma_db_path = os.path.join(current_dir, "Agentic_RAG", "chromaDb")
 logger.info(f"[DEBUG] ChromaDB path: {chroma_db_path}")
 logger.info(f"[DEBUG] ChromaDB path exists: {os.path.exists(chroma_db_path)}")
 
-def get_answer(question: str) -> str:
+def get_answer(question: str, conversation_history: Optional[List[Dict]] = None) -> str:
     """
     Use the same logic as main.py - direct retriever_response function:
-    1. Try RAG tool first
+    1. Try RAG tool first with optional conversation context
     2. If RAG returns __FALLBACK__, use fallback tool
+    
+    Args:
+        question: Current user question
+        conversation_history: List of previous Q&A pairs for context
     """
     logger.info(f"[DEBUG] Processing question with retriever_response approach: {question}")
+    if conversation_history:
+        logger.info(f"[DEBUG] Using conversation context with {len(conversation_history)} previous interactions")
     
     try:
-        response = retriever_response(question)
+        response = retriever_response(question, conversation_history)
         logger.info(f"[DEBUG] Retriever response: {response}")
         return response
             
@@ -116,7 +123,8 @@ async def list_sessions(request: Request):
 async def new_session(question: str = Form(...), device_id: str = Form(...), state: str = Form(...), language: str = Form(...)):
     session_id = str(uuid4())
     try:
-        raw_answer = get_answer(question)
+        # No conversation history for new sessions
+        raw_answer = get_answer(question, conversation_history=None)
         logger.info(f"[DEBUG] Raw answer: {raw_answer}")
         logger.info(f"[DEBUG] Raw answer type: {type(raw_answer)}")
         
@@ -162,8 +170,26 @@ async def continue_session(session_id: str, question: str = Form(...), device_id
         return JSONResponse(status_code=403, content={"error": "Session is archived, missing or unauthorized"})
 
     try:
-        raw_answer = get_answer(question)
+        # Extract conversation history for context-aware responses
+        conversation_history = []
+        messages = session.get("messages", [])
+        
+        # Convert stored messages to context format (limit to last 5 for efficiency)
+        for msg in messages[-5:]:  # Keep last 5 interactions
+            if "question" in msg and "answer" in msg:
+                # Remove HTML tags from answer for cleaner context
+                from bs4 import BeautifulSoup
+                clean_answer = BeautifulSoup(msg["answer"], "html.parser").get_text()
+                conversation_history.append({
+                    "question": msg["question"],
+                    "answer": clean_answer
+                })
+        
+        logger.info(f"[DEBUG] Using conversation context: {len(conversation_history)} previous interactions")
+        
+        raw_answer = get_answer(question, conversation_history=conversation_history)
     except Exception as e:
+        logger.error(f"[DEBUG] Error in get_answer: {e}")
         return JSONResponse(status_code=500, content={"error": "LLM processing failed."})
 
     answer_only = str(raw_answer).strip()
