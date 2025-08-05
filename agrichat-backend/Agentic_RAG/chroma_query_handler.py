@@ -102,10 +102,9 @@ Generate a polite, respectful message to inform the user that you can only answe
             embedding_function=self.embedding_function,
         )
         
-        # Initialize conversation context manager
         self.context_manager = ConversationContext(
-            max_context_pairs=3,  # Keep last 3 Q&A pairs
-            max_context_tokens=500  # Roughly 500 tokens for context
+            max_context_pairs=3,
+            max_context_tokens=500
         )
         
         col = self.db._collection.get()["metadatas"]
@@ -118,13 +117,25 @@ Generate a polite, respectful message to inform the user that you can only answe
         }
 
     def _create_metadata_filter(self, question):
+        """
+        Create metadata filter from question, but avoid overly restrictive filters
+        that might cause ChromaDB query errors
+        """
         q = question.lower()
         filt = {}
-        for field, vals in self.meta_index.items():
-            for val in vals:
-                if str(val).lower() in q:
-                    filt[field] = val
-                    break
+        
+        safe_fields = ["Crop", "District", "State", "Season"]
+        
+        for field in safe_fields:
+            if field in self.meta_index:
+                for val in self.meta_index[field]:
+                    if str(val).lower() in q and str(val).lower() != "other" and str(val).lower() != "-":
+                        filt[field] = val
+                        break
+        
+        if len(filt) > 2:
+            filt = dict(list(filt.items())[:2])
+            
         return filt or None
 
     def cosine_sim(self, a, b):
@@ -134,7 +145,14 @@ Generate a polite, respectful message to inform the user that you can only answe
         query_embedding = self.embedding_function.embed_query(question)
         scored = []
         for doc, _ in results:
-            d_emb = self.embedding_function.embed_query(doc.page_content)
+            content = doc.page_content.strip()
+            if (content.lower().count('others') > 3 or 
+                'Question: Others' in content or 
+                'Answer: Others' in content or
+                content.count('Others') > 5):
+                continue
+                
+            d_emb = self.embedding_function.embed_query(content)
             score = self.cosine_sim(query_embedding, d_emb)
             scored.append((doc, score))
         scored.sort(key=lambda x: x[1], reverse=True)
@@ -195,7 +213,6 @@ Generate a polite, respectful message to inform the user that you can only answe
             Generated response
         """
         try:
-            # Use contextual query if this is a follow-up
             processing_query = question
             context_used = False
             
@@ -204,45 +221,96 @@ Generate a polite, respectful message to inform the user that you can only answe
                     processing_query = self.context_manager.build_contextual_query(question, conversation_history)
                     context_used = True
                     logger.info(f"[Context] Using context for follow-up query. Original: {question[:100]}...")
-                    
-            category = self.classify_query(processing_query)
-
-            if category == "GREETING":
+            
+            if question.lower().strip() in ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening', 'howdy', 'greetings']:
                 response = self.generate_dynamic_response(question, mode="GREETING")
                 return f"__NO_SOURCE__{response}"
 
+            try:
+                metadata_filter = self._create_metadata_filter(processing_query)
+                raw_results = self.db.similarity_search_with_score(processing_query, k=10, filter=metadata_filter)
+            except Exception as filter_error:
+                logger.warning(f"[ChromaDB Filter Error] {filter_error}. Retrying without filter.")
+                raw_results = self.db.similarity_search_with_score(processing_query, k=10, filter=None)
+                
+            relevant_docs = self.rerank_documents(processing_query, raw_results)
+
+            if relevant_docs and relevant_docs[0].page_content.strip():
+                content = relevant_docs[0].page_content.strip()
+                
+                if (content.lower().count('others') > 3 or 
+                    'Question: Others' in content or 
+                    'Answer: Others' in content or
+                    len(content) < 50):
+                    
+                    if context_used:
+                        logger.info(f"[Context] No good RAG content found, but providing contextual response")
+                        return "I understand you're asking about the topic we were discussing, but I don't have specific information in my database to provide a detailed answer. Could you please be more specific about what you'd like to know?"
+                    else:
+                        logger.info(f"[RAG] No useful content found, checking classification")
+                        relevant_docs = [] 
+                
+                if relevant_docs:  
+                    similarity_score = None
+                    for doc, score in raw_results:
+                        if doc.page_content.strip() == content:
+                            similarity_score = score
+                            break
+                    
+                    if context_used:
+                        should_use_rag = True
+                        logger.info(f"[Context] Using RAG content for contextual query (score: {similarity_score})")
+                    else:
+                        score_threshold = 0.4  
+                        should_use_rag = similarity_score is None or similarity_score <= score_threshold
+                    
+                    if should_use_rag:
+                        final_question = question if context_used else processing_query
+                        prompt = self.construct_structured_prompt(content, final_question)
+                        
+                        response = self.genai_model.generate_content(
+                            contents=prompt,
+                            generation_config=genai.GenerationConfig(
+                                temperature=0.3,
+                                max_output_tokens=1024,
+                            )
+                        )
+                        
+                        generated_response = response.text.strip()
+                        
+                        if context_used:
+                            logger.info(f"[Context] Response generated with conversation context")
+                        else:
+                            logger.info(f"[RAG] Response generated from RAG database (score: {similarity_score})")
+                            
+                        return generated_response
+            
+            if context_used:
+                if relevant_docs and relevant_docs[0].page_content.strip():
+                    context = relevant_docs[0].page_content
+                    final_question = question
+                    prompt = self.construct_structured_prompt(context, final_question)
+                    
+                    response = self.genai_model.generate_content(
+                        contents=prompt,
+                        generation_config=genai.GenerationConfig(
+                            temperature=0.3,
+                            max_output_tokens=1024,
+                        )
+                    )
+                    
+                    generated_response = response.text.strip()
+                    logger.info(f"[Context] Used marginal RAG content for contextual query")
+                    return generated_response
+            
+            category = self.classify_query(question)
+            
             if category == "NON_AGRI":
                 response = self.generate_dynamic_response(question, mode="NON_AGRI")
                 return f"__NO_SOURCE__{response}"
-
-            metadata_filter = self._create_metadata_filter(processing_query)
-            raw_results = self.db.similarity_search_with_score(processing_query, k=10, filter=metadata_filter)
-            relevant_docs = self.rerank_documents(processing_query, raw_results)
-
-            if relevant_docs and relevant_docs[0].page_content.strip() and "I don't have enough information to answer that." not in relevant_docs[0].page_content:
-                context = relevant_docs[0].page_content
-                
-                # For contextual queries, use the original question in the prompt but search with contextual query
-                final_question = question if context_used else processing_query
-                prompt = self.construct_structured_prompt(context, final_question)
-                
-                response = self.genai_model.generate_content(
-                    contents=prompt,
-                    generation_config=genai.GenerationConfig(
-                        temperature=0.3,
-                        max_output_tokens=1024,
-                    )
-                )
-                
-                generated_response = response.text.strip()
-                
-                # Add context indicator for debugging (optional, can be removed in production)
-                if context_used:
-                    logger.info(f"[Context] Response generated with conversation context")
-                    
-                return generated_response
-            else:
-                return "I don't have enough information to answer that."
+            
+            return "I don't have enough information to answer that."
+            
         except Exception as e:
             logger.error(f"[Error] {e}")
             return "I don't have enough information to answer that."
