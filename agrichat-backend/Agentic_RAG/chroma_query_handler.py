@@ -5,7 +5,6 @@ import numpy as np
 from numpy.linalg import norm
 import logging
 
-
 logger = logging.getLogger("uvicorn.error")
 
 
@@ -61,6 +60,36 @@ You are an expert agricultural assistant. Using only the provided context (do no
 ### Your Answer:
 """
 
+    CLASSIFIER_PROMPT = """
+You are a smart classifier assistant. Categorize the user query strictly into one of the following categories:
+
+- AGRICULTURE: if the question is related to farming, crops, fertilizers, pests, soil, irrigation, harvest, agronomy, etc.
+- GREETING: if it is a greeting, salutation, or polite conversational opening like "hi", "hello", "good morning", etc.
+- NON_AGRI: if the question is not agriculture-related or contains inappropriate, offensive, or irrelevant content.
+
+Respond with only one of these words: AGRICULTURE, GREETING, or NON_AGRI.
+
+### User Query:
+{question}
+### Category:
+"""
+
+    GREETING_RESPONSE_PROMPT = """
+You are a friendly assistant. The user has sent the following message:
+
+"{question}"
+
+Generate a short, warm, and polite greeting or salutation in response, encouraging the user to ask their farming or agricultural question.
+"""
+
+    NON_AGRI_RESPONSE_PROMPT = """
+You are an agriculture assistant. The user has sent the following message:
+
+"{question}"
+
+Generate a polite, respectful message to inform the user that you can only answer agriculture-related queries. Do not be rude. If the question is inappropriate or offensive, gently warn them to stay respectful.
+"""
+
     def __init__(self, chroma_path: str, gemini_api_key: str, embedding_model: str = "models/text-embedding-004", chat_model: str = "gemma-3-27b-it"):
         self.embedding_function = GoogleGenerativeAIEmbeddings(
             model=embedding_model,
@@ -76,8 +105,8 @@ You are an expert agricultural assistant. Using only the provided context (do no
         self.meta_index = {
             field: {m[field] for m in col if field in m and m[field]}
             for field in [
-                "Year","Month","Day",
-                "Crop","District","Season","Sector","State"
+                "Year", "Month", "Day",
+                "Crop", "District", "Season", "Sector", "State"
             ]
         }
 
@@ -110,12 +139,57 @@ You are an expert agricultural assistant. Using only the provided context (do no
             question=question
         )
 
+    def classify_query(self, question: str) -> str:
+        prompt = self.CLASSIFIER_PROMPT.format(question=question)
+        try:
+            response = self.genai_model.generate_content(
+                contents=prompt,
+                generation_config=genai.GenerationConfig(
+                    temperature=0,
+                    max_output_tokens=20,
+                )
+            )
+            category = response.text.strip().upper()
+            if category in {"AGRICULTURE", "GREETING", "NON_AGRI"}:
+                return category
+            else:
+                return "NON_AGRI"
+        except Exception as e:
+            logger.error(f"[Classifier Error] {e}")
+            return "NON_AGRI"
+
+    def generate_dynamic_response(self, question: str, mode: str) -> str:
+        if mode == "GREETING":
+            prompt = self.GREETING_RESPONSE_PROMPT.format(question=question)
+        else:
+            prompt = self.NON_AGRI_RESPONSE_PROMPT.format(question=question)
+
+        try:
+            response = self.genai_model.generate_content(
+                contents=prompt,
+                generation_config=genai.GenerationConfig(
+                    temperature=0.5,
+                    max_output_tokens=100,
+                )
+            )
+            return response.text.strip()
+        except Exception as e:
+            logger.error(f"[Dynamic Response Error] {e}")
+            return "Sorry, I can only help with agriculture-related questions."
+
     def get_answer(self, question: str) -> str:
         try:
+            category = self.classify_query(question)
+
+            if category == "GREETING":
+                return self.generate_dynamic_response(question, mode="GREETING")
+
+            if category == "NON_AGRI":
+                return self.generate_dynamic_response(question, mode="NON_AGRI")
+
+            # If category is AGRICULTURE
             metadata_filter = self._create_metadata_filter(question)
-            
             raw_results = self.db.similarity_search_with_score(question, k=10, filter=metadata_filter)
-                        
             relevant_docs = self.rerank_documents(question, raw_results)
 
             if relevant_docs and relevant_docs[0].page_content.strip() and "I don't have enough information to answer that." not in relevant_docs[0].page_content:
@@ -128,12 +202,9 @@ You are an expert agricultural assistant. Using only the provided context (do no
                         max_output_tokens=1024,
                     )
                 )
-                answer = response.text.strip()
-                return answer
+                return response.text.strip()
             else:
                 return "I don't have enough information to answer that."
         except Exception as e:
             logger.error(f"[Error] {e}")
             return "I don't have enough information to answer that."
-
-
