@@ -2,6 +2,7 @@ from tools import FireCrawlWebSearchTool, RAGTool, FallbackAgriTool
 import os
 from dotenv import load_dotenv
 from crewai import LLM, Agent
+from typing import List, Dict, Optional
 load_dotenv()
 
 firecrawl_tool = FireCrawlWebSearchTool(api_key=os.getenv("FIRECRAWL_API_KEY"))
@@ -47,8 +48,18 @@ Retriever_Agent = Agent(
     tools=[rag_tool, fallback_tool],
 )
 
-def retriever_response(question: str) -> str:
-    rag_response = rag_tool._run(question)
+def retriever_response(question: str, conversation_history: Optional[List[Dict]] = None) -> str:
+    """
+    Process question with optional conversation context for follow-up queries
+    
+    Args:
+        question: Current user question
+        conversation_history: List of previous Q&A pairs for context-aware responses
+        
+    Returns:
+        Generated response
+    """
+    rag_response = rag_tool._run(question, conversation_history)
     if rag_response == "__FALLBACK__":
         return fallback_tool._run(question)
     return rag_response
