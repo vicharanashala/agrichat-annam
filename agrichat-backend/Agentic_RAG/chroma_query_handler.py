@@ -7,7 +7,6 @@ import logging
 
 logger = logging.getLogger("uvicorn.error")
 
-
 class ChromaQueryHandler:
     STRUCTURED_PROMPT = """
 You are an expert agricultural assistant. Using only the provided context (do not mention or reveal any metadata such as date, district, state, or season unless the user asks for it), answer the user's question in a detailed and structured manner. Stay strictly within the scope of the user's question and do not introduce unrelated information.
@@ -37,7 +36,6 @@ You are an expert agricultural assistant. Using only the provided context (do no
     - Any risks and general crop care tips
 
 ### To keep responses concise and focused, the answer should:
-
     - Only address the specific question asked, using clear bullet points, tables, or short sub-headings as needed.
     - Make sure explanations are actionable, practical, and relevant for farmers—avoiding lengthy background or scientific context unless requested.
     - For questions about diseases, fertilizers, fungicides, or tonics:
@@ -163,7 +161,6 @@ Generate a polite, respectful message to inform the user that you can only answe
             prompt = self.GREETING_RESPONSE_PROMPT.format(question=question)
         else:
             prompt = self.NON_AGRI_RESPONSE_PROMPT.format(question=question)
-
         try:
             response = self.genai_model.generate_content(
                 contents=prompt,
@@ -182,12 +179,13 @@ Generate a polite, respectful message to inform the user that you can only answe
             category = self.classify_query(question)
 
             if category == "GREETING":
-                return self.generate_dynamic_response(question, mode="GREETING")
+                response = self.generate_dynamic_response(question, mode="GREETING")
+                return f"__NO_SOURCE__{response}"
 
             if category == "NON_AGRI":
-                return self.generate_dynamic_response(question, mode="NON_AGRI")
+                response = self.generate_dynamic_response(question, mode="NON_AGRI")
+                return f"__NO_SOURCE__{response}"
 
-            # If category is AGRICULTURE
             metadata_filter = self._create_metadata_filter(question)
             raw_results = self.db.similarity_search_with_score(question, k=10, filter=metadata_filter)
             relevant_docs = self.rerank_documents(question, raw_results)

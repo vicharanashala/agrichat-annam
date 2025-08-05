@@ -52,6 +52,10 @@ class RAGTool(BaseTool):
         answer = self._handler.get_answer(question)
         if answer.strip() == "I don't have enough information to answer that.":
             return "__FALLBACK__"
+        
+        if answer.startswith("__NO_SOURCE__"):
+            return answer.replace("__NO_SOURCE__", "")
+        
         return "Source: RAG Database\n\n" + answer
 
 class FallbackAgriTool(BaseTool):
