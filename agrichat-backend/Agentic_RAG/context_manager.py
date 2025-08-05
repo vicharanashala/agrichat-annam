@@ -45,13 +45,19 @@ class ConversationContext:
             r'\b(explain|elaborate|expand)\b',
             r'^\s*(and|but|however|though|although)\b',
             r'\?.*\?',
+            r'\b(more about|tell me more|can you explain|explain more)\b',
+            r'\b(what else|anything else|other|another)\b',
+            r'^\s*(why|how|when|where|who)\b.*\?',
         ]
         
-        current_lower = current_query.lower()
+        current_lower = current_query.lower().strip()
         
         for pattern in followup_patterns:
             if re.search(pattern, current_lower):
                 return True
+        
+        if len(current_lower.split()) <= 4 and re.search(r'\b(it|this|that|them|they)\b', current_lower):
+            return True
                 
         if len(previous_messages) > 0:
             last_qa = previous_messages[-1]
