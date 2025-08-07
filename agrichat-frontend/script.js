@@ -1,19 +1,5 @@
-// API_BASE is now defined in config.js and automatically loaded
-
-// Helper function for API calls with ngrok support
-async function apiCall(url, options = {}) {
-  const headers = options.headers || {};
-
-  // Add ngrok bypass header if using ngrok
-  if (API_BASE.includes('ngrok')) {
-    headers["ngrok-skip-browser-warning"] = "true";
-  }
-
-  return fetch(url, {
-    ...options,
-    headers: headers
-  });
-}
+// const API_BASE = "https://agrichat-annam.onrender.com/api";
+const API_BASE = "http://localhost:8000/api";
 
 const stateLanguageMap = {
   "Andhra Pradesh": "Telugu",
@@ -50,8 +36,8 @@ const stateLanguageMap = {
 };
 const allIndianLanguages = [
   "Assamese", "Bengali", "Bodo", "Dogri", "Gujarati", "Hindi", "Kannada",
-  "Kashmiri", "Konkani", "Maithili", "Malayalam", "Manipuri", "Marathi",
-  "Nepali", "Odia", "Punjabi", "Sanskrit", "Santali", "Sindhi", "Tamil",
+  "Kashmiri", "Konkani", "Maithili", "Malayalam", "Manipuri", "Marathi", 
+  "Nepali", "Odia", "Punjabi", "Sanskrit", "Santali", "Sindhi", "Tamil", 
   "Telugu", "Urdu", "English"
 ];
 
@@ -94,7 +80,7 @@ let currentSession = null;
 let showingArchived = false;
 
 async function loadSessions() {
-  const res = await apiCall(`${API_BASE}/sessions?device_id=${deviceId}`);
+  const res = await fetch(`${API_BASE}/sessions?device_id=${deviceId}`);
   const { sessions } = await res.json();
 
   const activeDiv = document.getElementById("activeSessions");
@@ -107,10 +93,10 @@ async function loadSessions() {
 
   sessions.forEach((s) => {
 
-    const isActiveSession = currentSession?.session_id === s.session_id;
-    const container = document.createElement("div");
-    container.className = `session-entry  ${s.status === 'archived' ? 'archived' : ''} ${isActiveSession ? 'active' : ''}`;
-    container.innerHTML = `
+  const isActiveSession = currentSession?.session_id === s.session_id;
+  const container = document.createElement("div");
+  container.className = `session-entry  ${s.status === 'archived' ? 'archived' : ''} ${isActiveSession ? 'active' : ''}`;
+  container.innerHTML = `
     <a href="#" class="session-link">
       <div class="session-date">
         <i class="fas fa-calendar"></i> ${new Date(s.timestamp).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}
@@ -132,23 +118,27 @@ async function loadSessions() {
     </div>
   `;
 
-    container.querySelector(".session-link").addEventListener("click", async () => {
-      const resp = await apiCall(`${API_BASE}/session/${s.session_id}`);
-      const { session } = await resp.json();
-      currentSession = session;
-      loadChat(currentSession);
-      loadSessions();
-    });
-
-    if (s.status === "archived") {
-      archivedDiv.appendChild(container);
-      archivedCount++;
-    } else {
-      activeDiv.appendChild(container);
-      activeCount++;
-    }
+  container.querySelector(".session-link").addEventListener("click", async () => {
+    const resp = await fetch(`${API_BASE}/session/${s.session_id}`);
+    const { session } = await resp.json();
+    currentSession = session;
+    loadChat(currentSession);
+    loadSessions();
   });
+
+  if (s.status === "archived") {
+    archivedDiv.appendChild(container);
+    archivedCount++;
+  } else {
+    activeDiv.appendChild(container);
+    activeCount++;
+  }
+});
   document.getElementById("noSessions").style.display = (activeCount + archivedCount === 0) ? "block" : "none";
+
+  // if (isFull){
+  //   alert("You have reached the maximum limit for active sessions. To continue new sessions, you have to delete old ones.");
+  // }
 }
 
 function toggleView() {
@@ -162,35 +152,35 @@ async function toggleSessionStatus(session_id, currentStatus) {
   const action = currentStatus === "archived" ? "restore" : "archive";
   const confirmed = confirm(`Are you sure you want to ${action} this session?`);
   if (!confirmed) return;
-  await apiCall(`${API_BASE}/toggle-status/${session_id}/${currentStatus}`, { method: "POST" });
+  await fetch(`${API_BASE}/toggle-status/${session_id}/${currentStatus}`, { method: "POST" });
   currentStatus = currentStatus === "archived" ? "active" : "archived";
-  if (currentStatus === "archived") {
-    currentSession = null;
-    document.getElementById("chatWindow").style.display = "none";
-    document.getElementById("chat-form").style.display = "none";
-    document.getElementById("archivedNotice").style.display = "none";
-    document.getElementById("exportBtn").style.display = "none";
-    document.getElementById("startScreen").style.display = "block";
-  } else {
-    const resp = await fetch(`${API_BASE}/session/${session_id}`);
+    if (currentStatus === "archived") {
+      currentSession = null;
+      document.getElementById("chatWindow").style.display = "none";
+      document.getElementById("chat-form").style.display = "none";
+      document.getElementById("archivedNotice").style.display = "none";
+      document.getElementById("exportBtn").style.display = "none";
+      document.getElementById("startScreen").style.display = "block";
+    } else {
+      const resp = await fetch(`${API_BASE}/session/${session_id}`);
     const { session } = await resp.json();
     currentSession = session;
     document.getElementById("viewToggleText").textContent = "Active";
-    document.getElementById("activeSessions").style.display = "block";
-    document.getElementById("archivedSessions").style.display = "none";
+  document.getElementById("activeSessions").style.display = "block";
+  document.getElementById("archivedSessions").style.display = "none";
     loadChat(currentSession);
-  }
+    }
   loadSessions();
 }
 
-async function deleteSession(session_id) {
+async function deleteSession(session_id){
   const confirmed = confirm("Are you sure you want to delete this session?");
   if (!confirmed) return;
-  await fetch(`${API_BASE}/delete-session/${session_id}`, {
-    method: "DELETE"
+  await fetch(`${API_BASE}/delete-session/${session_id}`,{
+    method:"DELETE"
   });
-  if (currentSession?.session_id === session_id) {
-    currentSession = null;
+  if(currentSession?.session_id === session_id){
+    currentSession=null;
     document.getElementById("chatWindow").style.display = "none";
     document.getElementById("chat-form").style.display = "none";
     document.getElementById("archivedNotice").style.display = "none";
@@ -229,10 +219,10 @@ async function rateAnswer(index, rating, btn) {
 function copyToClipboard(button) {
   const answer = button.closest(".message").querySelector(".bot-answer").innerText;
   navigator.clipboard.writeText(answer).then(() => {
-    // Add the selected class to flash grey
+    
     button.classList.add('selected');
 
-    // Swap icon for checkmark SVG (optional, but users like feedback)
+    
     button.innerHTML = `
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 512 512">
         <path fill="currentColor" d="M504.5 75.5c-10-10-26.2-10-36.2 0L184 359.8l-140.3-140.3
@@ -243,8 +233,8 @@ function copyToClipboard(button) {
 
     setTimeout(() => {
       button.classList.remove('selected');
-
-      // Restore the Copy svg icon
+      
+      
       button.innerHTML = `
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 448 512">
           <path fill="currentColor" d="M320 448v40c0 13.255-10.745 24-24 24H24c-13.255 0-24-10.745-24-24V120c0-13.255
@@ -254,7 +244,7 @@ function copyToClipboard(button) {
           24 0 0 0-7.029-16.97z"/>
         </svg>
       `;
-    }, 800); // stays grey for 0.8 seconds
+    }, 800); 
   });
 }
 
@@ -265,9 +255,9 @@ function appendMessage(sender, text, index = null, rating = null) {
   div.className = `message ${sender}`;
 
   if (sender === "user") {
-    div.innerHTML = ` ${text}`;
-  } else {
-    div.innerHTML = `
+  div.innerHTML = ` ${text}`;
+} else {
+  div.innerHTML = `
     <div class="bot-answer">${text}</div>
     <div class="message-actions">
       <button class="copy-btn" onclick="copyToClipboard(this)" title="Copy">
@@ -287,7 +277,7 @@ function appendMessage(sender, text, index = null, rating = null) {
       </button>
     </div>
   `;
-  }
+}
 
 
   document.getElementById("chatWindow").appendChild(div);
@@ -354,21 +344,21 @@ window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("start-form").addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    //     const textarea = document.getElementById("start-input");
-    //     // const textarea = e.target.querySelector("textarea");
-    //     const question = textarea.value.trim();
-    //     // const state = document.getElementById("stateSelect").value;
+//     const textarea = document.getElementById("start-input");
+//     // const textarea = e.target.querySelector("textarea");
+//     const question = textarea.value.trim();
+//     // const state = document.getElementById("stateSelect").value;
 
-    //     const stateSelect = document.getElementById("stateSelect");
-    //     const state = stateSelect ? stateSelect.value : "none"; // or "" as default
+//     const stateSelect = document.getElementById("stateSelect");
+//     const state = stateSelect ? stateSelect.value : "none"; // or "" as default
 
-    //     // if (!state) {
-    //     //   alert("Please select your state.");
-    //     //   return;
-    //     // }
-    //     localStorage.setItem("agrichat_user_state", state); 
+//     // if (!state) {
+//     //   alert("Please select your state.");
+//     //   return;
+//     // }
+//     localStorage.setItem("agrichat_user_state", state); 
 
-
+    
     console.log("Start form found:", document.getElementById("start-form"));
 
     const textarea = e.target.querySelector("textarea");
@@ -383,7 +373,7 @@ window.addEventListener("DOMContentLoaded", () => {
     localStorage.setItem("agrichat_user_state", state);
     localStorage.setItem("agrichat_user_language", lang);
     showLoader();
-    await updateLanguageInBackend(state, lang);
+    await updateLanguageInBackend(state, lang); 
 
     if (!question) return;
 
@@ -399,13 +389,20 @@ window.addEventListener("DOMContentLoaded", () => {
       body: formData,
     });
 
+    if (!res.ok) {
+      const errorData = await res.json();
+      alert(errorData.error || "Failed to start session.");
+      hideLoader();
+      return;
+    }
+
     const data = await res.json();
     console.log('API response:', data); // new line to log data
     currentSession = data.session;
     loadChat(currentSession);
     hideLoader();
     loadSessions();
-    textarea.value = "";
+    textarea.value="";
   });
 
   document.getElementById("chat-form").addEventListener("submit", async (e) => {
@@ -434,10 +431,10 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   document.getElementById("restoreBtn").addEventListener("click", async () => {
-    if (currentSession) {
-      toggleSessionStatus(currentSession.session_id, "archived");
-    }
-  });
+  if (currentSession) {
+    toggleSessionStatus(currentSession.session_id, "archived");
+  }
+});
 
 
   document.getElementById("exportBtn").addEventListener("click", () => {
@@ -467,14 +464,14 @@ async function detectLocationAndLanguage(updateBackend = false) {
     console.log("Reverse geocoded data:", data);
     const state = data.address.state || data.address.county || "Unknown";
     const language = stateLanguageMap[state] || "English";
-    console.log("Detected:", state, language);
+     console.log("Detected:", state, language);
     localStorage.setItem("agrichat_user_state", state);
     localStorage.setItem("agrichat_user_language", language);
 
     updateLocationUI(state, language);
 
     if (updateBackend) {
-      await updateLanguageInBackend(state, language);
+      await updateLanguageInBackend(state, language);  
     }
   });
 }
@@ -492,34 +489,15 @@ function updateLocationUI(state, language) {
 
 
 async function updateLanguageInBackend(state, language) {
-  try {
-    const headers = {
-      "Content-Type": "application/json"
-    };
-
-    // Add ngrok bypass header if using ngrok
-    if (API_BASE.includes('ngrok')) {
-      headers["ngrok-skip-browser-warning"] = "true";
-    }
-
-    const response = await fetch(`${API_BASE}/update-language`, {
-      method: "POST",
-      headers: headers,
-      body: JSON.stringify({
-        device_id: deviceId,
-        state: state,
-        language: language
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    console.log("Language updated successfully");
-  } catch (error) {
-    console.error("Error updating language:", error);
-  }
+  await fetch(`${API_BASE}/update-language`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      device_id: deviceId,
+      state: state,
+      language: language
+    })
+  });
 }
 
 
@@ -548,6 +526,201 @@ document.getElementById("manualLanguageSelect").addEventListener("change", async
 
 document.getElementById("resetLocationBtn").addEventListener("click", async () => {
   await detectLocationAndLanguage(true);
-  document.getElementById("locationEdit").style.display = "none";
+  document.getElementById("locationEdit").style.display = "none"; 
 });
 
+let mediaRecorder;
+let audioChunks = [];
+let isRecording = false;
+
+const startFormVoiceBtn = document.querySelector("#start-form .feature-button[aria-label='Start voice input']");
+const chatFormVoiceBtn = document.querySelector("#chat-form .feature-button[aria-label='Start voice input']");
+
+function initializeVoiceRecording() {
+  if (startFormVoiceBtn) {
+    startFormVoiceBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      handleVoiceInput(document.getElementById("start-input"));
+    });
+  }
+
+  if (chatFormVoiceBtn) {
+    chatFormVoiceBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      handleVoiceInput(document.getElementById("user-input"));
+    });
+  }
+}
+
+async function handleVoiceInput(targetTextarea) {
+  if (!isRecording) {
+    await startRecording(targetTextarea);
+  } else {
+    stopRecording();
+  }
+}
+
+async function startRecording(targetTextarea) {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ 
+      audio: {
+        sampleRate: 16000,
+        channelCount: 1,
+        echoCancellation: true,
+        noiseSuppression: true
+      }
+    });
+
+    mediaRecorder = new MediaRecorder(stream, {
+      mimeType: 'audio/webm;codecs=opus'
+    });
+
+    audioChunks = [];
+    isRecording = true;
+
+    updateVoiceButtonState(true);
+
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        audioChunks.push(event.data);
+      }
+    };
+
+    mediaRecorder.onstop = async () => {
+      isRecording = false;
+      updateVoiceButtonState(false, true); 
+      stream.getTracks().forEach(track => track.stop());
+
+      try {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        
+        const transcript = await transcribeAudio(audioBlob);
+        
+        if (transcript && transcript.trim()) {
+          targetTextarea.value = transcript;
+          
+          if (targetTextarea.id === 'start-input') {
+            document.getElementById('start-form').dispatchEvent(new Event('submit'));
+          }
+        } else {
+          showNotification('No speech detected. Please try again.', 'warning');
+        }
+      } catch (error) {
+        console.error('Transcription error:', error);
+        showNotification('Voice transcription failed. Please try again.', 'error');
+      } finally {
+        updateVoiceButtonState(false);
+      }
+    };
+
+    mediaRecorder.onerror = (event) => {
+      console.error('MediaRecorder error:', event.error);
+      isRecording = false;
+      updateVoiceButtonState(false);
+      showNotification('Recording error. Please try again.', 'error');
+    };
+
+    mediaRecorder.start();
+    showNotification('Recording started. Click the microphone again to stop.', 'info');
+
+  } catch (error) {
+    console.error('Error starting recording:', error);
+    isRecording = false;
+    updateVoiceButtonState(false);
+    
+    if (error.name === 'NotAllowedError') {
+      showNotification('Microphone access denied. Please allow microphone access and try again.', 'error');
+    } else {
+      showNotification('Could not start recording. Please check your microphone.', 'error');
+    }
+  }
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
+    showNotification('Recording stopped. Processing...', 'info');
+  }
+}
+
+async function transcribeAudio(audioBlob) {
+  const formData = new FormData();
+  formData.append('file', audioBlob, 'recording.webm');
+
+  const response = await fetch(`${API_BASE}/transcribe-audio`, {
+    method: 'POST',
+    body: formData
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || 'Transcription failed');
+  }
+
+  const result = await response.json();
+  return result.transcript;
+}
+
+function updateVoiceButtonState(recording, processing = false) {
+  const buttons = [startFormVoiceBtn, chatFormVoiceBtn].filter(Boolean);
+  
+  buttons.forEach(button => {
+    if (recording) {
+      button.classList.add('recording');
+      button.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="6" y="6" width="12" height="12" rx="2"/>
+        </svg>
+      `;
+      button.setAttribute('aria-label', 'Stop recording');
+    } else if (processing) {
+      button.classList.remove('recording');
+      button.classList.add('processing');
+      button.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+        </svg>
+      `;
+      button.setAttribute('aria-label', 'Processing...');
+    } else {
+      button.classList.remove('recording', 'processing');
+      button.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+          <g>
+            <path d="M5 3a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0V3z"/>
+            <path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/>
+          </g>
+        </svg>
+      `;
+      button.setAttribute('aria-label', 'Start voice input');
+    }
+  });
+}
+
+function showNotification(message, type = 'info') {
+ 
+  const notification = document.createElement('div');
+  notification.className = `notification ${type}`;
+  notification.innerHTML = `
+    <div class="notification-content">
+      <span class="notification-message">${message}</span>
+      <button class="notification-close">&times;</button>
+    </div>
+  `;
+
+  document.body.appendChild(notification);
+
+  setTimeout(() => notification.classList.add('show'), 100);
+
+  setTimeout(() => {
+    notification.classList.remove('show');
+    setTimeout(() => notification.remove(), 300);
+  }, 4000);
+
+  notification.querySelector('.notification-close').addEventListener('click', () => {
+    notification.classList.remove('show');
+    setTimeout(() => notification.remove(), 300);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', initializeVoiceRecording);

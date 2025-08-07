@@ -1,7 +1,6 @@
 # Environment variables
-.env
 agrichat-backend/Agentic_RAG/.env
-
+.env
 agri_text_classification.ipynb
 bad_text_classifier.ipynb
 bad_words.txt 
@@ -33,4 +32,3 @@ chromaDb/
 
 # Logs
 *.log
-.vercel

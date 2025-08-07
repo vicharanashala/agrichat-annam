@@ -5,10 +5,13 @@ import pandas as pd
 import os
 import shutil
 
+# Try to load .env file if python-dotenv is available
 try:
     from dotenv import load_dotenv
     load_dotenv()
 except ImportError:
+    # If python-dotenv is not installed, continue without it
+    # The API key can still be set via environment variables
     pass
 
 
@@ -17,12 +20,14 @@ class ChromaDBBuilder:
         self.csv_path = csv_path
         self.persist_dir = persist_dir
         
+        # Get API key from environment variable
         api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
         if not api_key:
             raise ValueError(
                 "API key not found. Please set GOOGLE_API_KEY or GEMINI_API_KEY environment variable."
             )
         
+        # Initialize the embedding function with API key from environment
         self.embedding_function = GoogleGenerativeAIEmbeddings(
             model="models/text-embedding-004",
             google_api_key=api_key
@@ -82,8 +87,8 @@ class ChromaDBBuilder:
         print(f"[SUCCESS] Stored {len(self.documents)} agricultural Q/A pairs in ChromaDB at: {self.persist_dir}")
 
 if __name__ == "__main__":
-    csv_file = r"agrichat-annam/agrichat-backend/Agentic RAG/data/sample_data.csv"
-    storage_dir = r"agrichat-annam/agrichat-backend/Agentic RAG/chromaDb"
+    csv_file = r"agrichat-annam\agrichat-backend\Agentic_RAG\data\sample_data.csv"
+    storage_dir = r"agrichat-annam\agrichat-backend\Agentic_RAG\chromaDb"
 
     try:
         builder = ChromaDBBuilder(csv_path=csv_file, persist_dir=storage_dir)

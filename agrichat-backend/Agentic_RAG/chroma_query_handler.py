@@ -4,10 +4,10 @@ import google.generativeai as genai
 import numpy as np
 from numpy.linalg import norm
 import logging
-from typing import List, Dict, Optional
-from context_manager import ConversationContext
+
 
 logger = logging.getLogger("uvicorn.error")
+
 
 class ChromaQueryHandler:
     STRUCTURED_PROMPT = """
@@ -19,34 +19,6 @@ You are an expert agricultural assistant. Using only the provided context (do no
 - Reference and explain all relevant data points from the context.
 - Briefly define technical terms inline if needed.
 - Avoid botanical or scientific explanations that are not relevant to farmers unless explicitly asked.
-
-### Special Instructions for Disease, Fertilizer, Fungicide, or Tonic Queries
-- Whenever a question relates to disease, pest attacks, use of fertilizers, fungicides, plant tonics, or similar agricultural inputs—even if not explicitly stated—include both:
-- Standard recommendations involving chemical fertilizers, fungicides, or plant protection chemicals.
-- Quick low-cost household/natural solutions suitable for farmers seeking alternative approaches.
-- For each method, explain when and why it may be preferable, and note any precautions if relevant.
-- Ensure both professional and practical solutions are always offered unless the question strictly forbids one or the other.
-
-### Additional Guidance for General Crop Management Questions (e.g., maximizing yield, disease prevention, necessary precautions)
-- If a general question is asked about growing a particular crop (such as groundnut/peanut) and the database contains information related to that crop, analyze the context of the user’s question (such as disease prevention, yield maximization, or best practices).
-- Retrieve and provide all relevant guidance from the database about that crop, including:
-
-    - Disease management
-    - Best agronomic practices to maximize yield
-    - Important precautions and crop requirements
-    - Fertilizer and input recommendations
-    - Any risks and general crop care tips
-
-### To keep responses concise and focused, the answer should:
-    - Only address the specific question asked, using clear bullet points, tables, or short sub-headings as needed.
-    - Make sure explanations are actionable, practical, and relevant for farmers—avoiding lengthy background or scientific context unless requested.
-    - For questions about diseases, fertilizers, fungicides, or tonics:
-    - Briefly provide both standard (chemical) and quick low-cost/natural solutions, each with a very short explanation and clear usage or caution notes.
-    - For broader crop management questions, summarize key data points (disease management, input use, care tips, risks) in a succinct, easy-to-use manner—only including what's relevant to the query.
-    - Never add unrelated information, avoid detailed paragraphs unless multiple issues are asked, and always keep the response direct and farmer-friendly.
-
-- Even if the database information does not directly match the question, use context and reasoning to include all data points from the database that could help answer the user's general query about that crop.
-- Your response should synthesize the relevant parts of the database connected to the user's request, offering a complete, actionable answer.
 
 **If the context does not contain relevant information, reply exactly:**   
 `I don't have enough information to answer that.`
@@ -60,36 +32,6 @@ You are an expert agricultural assistant. Using only the provided context (do no
 ### Your Answer:
 """
 
-    CLASSIFIER_PROMPT = """
-You are a smart classifier assistant. Categorize the user query strictly into one of the following categories:
-
-- AGRICULTURE: if the question is related to farming, crops, fertilizers, pests, soil, irrigation, harvest, agronomy, etc.
-- GREETING: if it is a greeting, salutation, or polite conversational opening like "hi", "hello", "good morning", etc.
-- NON_AGRI: if the question is not agriculture-related or contains inappropriate, offensive, or irrelevant content.
-
-Respond with only one of these words: AGRICULTURE, GREETING, or NON_AGRI.
-
-### User Query:
-{question}
-### Category:
-"""
-
-    GREETING_RESPONSE_PROMPT = """
-You are a friendly assistant. The user has sent the following message:
-
-"{question}"
-
-Generate a short, warm, and polite greeting or salutation in response, encouraging the user to ask their farming or agricultural question.
-"""
-
-    NON_AGRI_RESPONSE_PROMPT = """
-You are an agriculture assistant. The user has sent the following message:
-
-"{question}"
-
-Generate a polite, respectful message to inform the user that you can only answer agriculture-related queries. Do not be rude. If the question is inappropriate or offensive, gently warn them to stay respectful.
-"""
-
     def __init__(self, chroma_path: str, gemini_api_key: str, embedding_model: str = "models/text-embedding-004", chat_model: str = "gemma-3-27b-it"):
         self.embedding_function = GoogleGenerativeAIEmbeddings(
             model=embedding_model,
@@ -101,41 +43,23 @@ Generate a polite, respectful message to inform the user that you can only answe
             persist_directory=chroma_path,
             embedding_function=self.embedding_function,
         )
-        
-        self.context_manager = ConversationContext(
-            max_context_pairs=3,
-            max_context_tokens=500
-        )
-        
         col = self.db._collection.get()["metadatas"]
         self.meta_index = {
             field: {m[field] for m in col if field in m and m[field]}
             for field in [
-                "Year", "Month", "Day",
-                "Crop", "District", "Season", "Sector", "State"
+                "Year","Month","Day",
+                "Crop","District","Season","Sector","State"
             ]
         }
 
     def _create_metadata_filter(self, question):
-        """
-        Create metadata filter from question, but avoid overly restrictive filters
-        that might cause ChromaDB query errors
-        """
         q = question.lower()
         filt = {}
-        
-        safe_fields = ["Crop", "District", "State", "Season"]
-        
-        for field in safe_fields:
-            if field in self.meta_index:
-                for val in self.meta_index[field]:
-                    if str(val).lower() in q and str(val).lower() != "other" and str(val).lower() != "-":
-                        filt[field] = val
-                        break
-        
-        if len(filt) > 2:
-            filt = dict(list(filt.items())[:2])
-            
+        for field, vals in self.meta_index.items():
+            for val in vals:
+                if str(val).lower() in q:
+                    filt[field] = val
+                    break
         return filt or None
 
     def cosine_sim(self, a, b):
@@ -145,14 +69,7 @@ Generate a polite, respectful message to inform the user that you can only answe
         query_embedding = self.embedding_function.embed_query(question)
         scored = []
         for doc, _ in results:
-            content = doc.page_content.strip()
-            if (content.lower().count('others') > 3 or 
-                'Question: Others' in content or 
-                'Answer: Others' in content or
-                content.count('Others') > 5):
-                continue
-                
-            d_emb = self.embedding_function.embed_query(content)
+            d_emb = self.embedding_function.embed_query(doc.page_content)
             score = self.cosine_sim(query_embedding, d_emb)
             scored.append((doc, score))
         scored.sort(key=lambda x: x[1], reverse=True)
@@ -164,159 +81,26 @@ Generate a polite, respectful message to inform the user that you can only answe
             question=question
         )
 
-    def classify_query(self, question: str) -> str:
-        prompt = self.CLASSIFIER_PROMPT.format(question=question)
+    def get_answer(self, question: str) -> str:
         try:
-            response = self.genai_model.generate_content(
-                contents=prompt,
-                generation_config=genai.GenerationConfig(
-                    temperature=0,
-                    max_output_tokens=20,
-                )
-            )
-            category = response.text.strip().upper()
-            if category in {"AGRICULTURE", "GREETING", "NON_AGRI"}:
-                return category
-            else:
-                return "NON_AGRI"
-        except Exception as e:
-            logger.error(f"[Classifier Error] {e}")
-            return "NON_AGRI"
+            metadata_filter = self._create_metadata_filter(question)
+            raw_results = self.db.similarity_search_with_score(question, k=10, filter=metadata_filter)
+            relevant_docs = self.rerank_documents(question, raw_results)
 
-    def generate_dynamic_response(self, question: str, mode: str) -> str:
-        if mode == "GREETING":
-            prompt = self.GREETING_RESPONSE_PROMPT.format(question=question)
-        else:
-            prompt = self.NON_AGRI_RESPONSE_PROMPT.format(question=question)
-        try:
-            response = self.genai_model.generate_content(
-                contents=prompt,
-                generation_config=genai.GenerationConfig(
-                    temperature=0.5,
-                    max_output_tokens=100,
-                )
-            )
-            return response.text.strip()
-        except Exception as e:
-            logger.error(f"[Dynamic Response Error] {e}")
-            return "Sorry, I can only help with agriculture-related questions."
-
-    def get_answer(self, question: str, conversation_history: Optional[List[Dict]] = None) -> str:
-        """
-        Get answer with optional conversation context for follow-up queries
-        
-        Args:
-            question: Current user question
-            conversation_history: List of previous Q&A pairs for context
-            
-        Returns:
-            Generated response
-        """
-        try:
-            processing_query = question
-            context_used = False
-            
-            if conversation_history:
-                if self.context_manager.should_use_context(question, conversation_history):
-                    processing_query = self.context_manager.build_contextual_query(question, conversation_history)
-                    context_used = True
-                    logger.info(f"[Context] Using context for follow-up query. Original: {question[:100]}...")
-            
-            if question.lower().strip() in ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening', 'howdy', 'greetings']:
-                response = self.generate_dynamic_response(question, mode="GREETING")
-                return f"__NO_SOURCE__{response}"
-
-            try:
-                metadata_filter = self._create_metadata_filter(processing_query)
-                raw_results = self.db.similarity_search_with_score(processing_query, k=10, filter=metadata_filter)
-            except Exception as filter_error:
-                logger.warning(f"[ChromaDB Filter Error] {filter_error}. Retrying without filter.")
-                raw_results = self.db.similarity_search_with_score(processing_query, k=10, filter=None)
-                
-            relevant_docs = self.rerank_documents(processing_query, raw_results)
-
-            if relevant_docs and relevant_docs[0].page_content.strip():
-                content = relevant_docs[0].page_content.strip()
-                
-                if (content.lower().count('others') > 3 or 
-                    'Question: Others' in content or 
-                    'Answer: Others' in content or
-                    len(content) < 50):
-                    
-                    if context_used:
-                        logger.info(f"[Context] No good RAG content found, but providing contextual response")
-                        return "I understand you're asking about the topic we were discussing, but I don't have specific information in my database to provide a detailed answer. Could you please be more specific about what you'd like to know?"
-                    else:
-                        logger.info(f"[RAG] No useful content found, checking classification")
-                        relevant_docs = [] 
-                
-                if relevant_docs:  
-                    similarity_score = None
-                    for doc, score in raw_results:
-                        if doc.page_content.strip() == content:
-                            similarity_score = score
-                            break
-                    
-                    if context_used:
-                        should_use_rag = True
-                        logger.info(f"[Context] Using RAG content for contextual query (score: {similarity_score})")
-                    else:
-                        score_threshold = 0.4  
-                        should_use_rag = similarity_score is None or similarity_score <= score_threshold
-                    
-                    if should_use_rag:
-                        final_question = question if context_used else processing_query
-                        prompt = self.construct_structured_prompt(content, final_question)
-                        
-                        response = self.genai_model.generate_content(
-                            contents=prompt,
-                            generation_config=genai.GenerationConfig(
-                                temperature=0.3,
-                                max_output_tokens=1024,
-                            )
-                        )
-                        
-                        generated_response = response.text.strip()
-                        
-                        if context_used:
-                            logger.info(f"[Context] Response generated with conversation context")
-                        else:
-                            logger.info(f"[RAG] Response generated from RAG database (score: {similarity_score})")
-                            
-                        return generated_response
-            
-            if context_used:
-                if relevant_docs and relevant_docs[0].page_content.strip():
-                    context = relevant_docs[0].page_content
-                    final_question = question
-                    prompt = self.construct_structured_prompt(context, final_question)
-                    
-                    response = self.genai_model.generate_content(
-                        contents=prompt,
-                        generation_config=genai.GenerationConfig(
-                            temperature=0.3,
-                            max_output_tokens=1024,
-                        )
+            if relevant_docs and relevant_docs[0].page_content.strip() and "I don't have enough information to answer that." not in relevant_docs[0].page_content:
+                context = relevant_docs[0].page_content
+                prompt = self.construct_structured_prompt(context, question)
+                response = self.genai_model.generate_content(
+                    contents=prompt,
+                    generation_config=genai.GenerationConfig(
+                        temperature=0.3,
+                        max_output_tokens=1024,
                     )
-                    
-                    generated_response = response.text.strip()
-                    logger.info(f"[Context] Used marginal RAG content for contextual query")
-                    return generated_response
-            
-            category = self.classify_query(question)
-            
-            if category == "NON_AGRI":
-                response = self.generate_dynamic_response(question, mode="NON_AGRI")
-                return f"__NO_SOURCE__{response}"
-            
-            return "I don't have enough information to answer that."
-            
+                )
+                return response.text.strip()
+            else:
+                return "I don't have enough information to answer that."
         except Exception as e:
             logger.error(f"[Error] {e}")
             return "I don't have enough information to answer that."
 
-    def get_context_summary(self, conversation_history: List[Dict]) -> Optional[str]:
-        """
-        Get a brief summary of conversation context for debugging
-        """
-        return self.context_manager.get_context_summary(conversation_history)
