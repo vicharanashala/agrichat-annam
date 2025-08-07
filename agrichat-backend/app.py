@@ -90,6 +90,9 @@ app.add_middleware(
 async def add_ngrok_headers(request: Request, call_next):
     response = await call_next(request)
     response.headers["ngrok-skip-browser-warning"] = "true"
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "*"
     return response
 
 MONGO_URI = os.getenv("MONGO_URI")
