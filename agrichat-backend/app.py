@@ -71,7 +71,7 @@ app = FastAPI(lifespan=lifespan)
 
 origins = [
     "https://agri-annam.vercel.app",
-    "https://2baf66710a29.ngrok-free.app",
+    "https://0c9d97e9dff0.ngrok-free.app",
     "https://localhost:3000",
     "https://127.0.0.1:3000",
     "http://localhost:3000",
@@ -293,7 +293,7 @@ async def update_language(data: dict = Body(...)):
     return {"status": "success", "matched": result.matched_count, "updated": result.modified_count}
 
 
-HF_API_URL = "https://api-inference.huggingface.co/models/openai/whisper-large-v3"
+HF_API_URL = "https://api-inference.huggingface.co/models/openai/whisper-large-v2"
 HF_API_TOKEN = os.getenv("HF_API_TOKEN")  
 
 @app.post("/api/transcribe-audio")
@@ -304,9 +304,27 @@ async def transcribe_audio(file: UploadFile = File(...)):
         contents = await file.read()
         logger.info(f"File size: {len(contents)} bytes")
 
+        # Fix content type detection based on file extension
+        content_type = file.content_type
+        if file.filename:
+            if file.filename.lower().endswith('.wav'):
+                content_type = "audio/wav"
+            elif file.filename.lower().endswith('.mp3'):
+                content_type = "audio/mpeg"
+            elif file.filename.lower().endswith('.flac'):
+                content_type = "audio/flac"
+            elif file.filename.lower().endswith('.ogg'):
+                content_type = "audio/ogg"
+            elif file.filename.lower().endswith('.m4a'):
+                content_type = "audio/m4a"
+            elif file.filename.lower().endswith('.webm'):
+                content_type = "audio/webm"
+        
+        logger.info(f"Using content type: {content_type}")
+
         headers = {
             "Authorization": f"Bearer {HF_API_TOKEN}",
-            "Content-Type": file.content_type,
+            "Content-Type": content_type,
         }
 
         response = requests.post(HF_API_URL, headers=headers, data=contents)

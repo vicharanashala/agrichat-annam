@@ -79,7 +79,7 @@ You are a friendly assistant. The user has sent the following message:
 
 "{question}"
 
-Generate a short, warm, and polite greeting or salutation in response, encouraging the user to ask their farming or agricultural question.
+Generate a short, warm, and polite greeting or salutation in response, encouraging the user to ask their farming or agricultural question. Do not use any emojis, emoticons, or special symbols in your response. Keep it professional and text-only.
 """
 
     NON_AGRI_RESPONSE_PROMPT = """
