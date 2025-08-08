@@ -290,3 +290,46 @@ async def update_language(data: dict = Body(...)):
         {"$set": {"state": state, "language": language}}
     )
     return {"status": "success", "matched": result.matched_count, "updated": result.modified_count}
+
+
+HF_API_URL = "https://api-inference.huggingface.co/models/openai/whisper-large-v3"
+HF_API_TOKEN = os.getenv("HF_API_TOKEN")  
+
+@app.post("/api/transcribe-audio")
+async def transcribe_audio(file: UploadFile = File(...)):
+    try:
+        logger.info(f"Received file: {file.filename}")
+
+        contents = await file.read()
+        logger.info(f"File size: {len(contents)} bytes")
+
+        headers = {
+            "Authorization": f"Bearer {HF_API_TOKEN}",
+            "Content-Type": file.content_type,
+        }
+
+        response = requests.post(HF_API_URL, headers=headers, data=contents)
+
+        logger.info(f"HF Status: {response.status_code}")
+        logger.info(f"HF Raw response: {response.text}")
+
+        if response.status_code != 200:
+            return JSONResponse(
+                status_code=502,
+                content={"error": f"Hugging Face API error: {response.text}"}
+            )
+
+        result = response.json()
+
+        transcript = result.get("text") or result.get("generated_text")
+        if not transcript:
+            return JSONResponse(
+                status_code=500,
+                content={"error": "Transcription not found in response", "raw": result}
+            )
+
+        return {"transcript": transcript}
+
+    except Exception as e:
+        logger.exception("Transcription failed")
+        return JSONResponse(status_code=500, content={"error": str(e)})
