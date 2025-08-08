@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Form
+from fastapi import FastAPI, Request, Form, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pymongo import MongoClient
@@ -66,7 +66,8 @@ app.add_middleware(
 
 # client = MongoClient("mongodb://localhost:27017/")
 MONGO_URI = os.getenv("MONGO_URI")
-client = MongoClient(MONGO_URI, tlsCAFile=certifi.where())
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+client = MongoClient(MONGO_URI) if ENVIRONMENT == "development" else MongoClient(MONGO_URI, tlsCAFile=certifi.where())
 db = client["agrichat"]
 sessions_collection = db["sessions"]
 
@@ -101,12 +102,77 @@ async def list_sessions(request: Request):
     return {"sessions": [clean_session(s) for s in sessions]}
 
 @app.post("/api/query")
-async def new_session(question: str = Form(...), device_id: str = Form(...), state: str = Form(...), language: str = Form(...)):
+async def new_session(
+    question: str = Form(None), 
+    device_id: str = Form(...), 
+    state: str = Form(...), 
+    language: str = Form(...),
+    audio_file: UploadFile = File(None)
+):
     active_count = sessions_collection.count_documents({"device_id":device_id, "status":"active"})
     if active_count >= MAX_SESSIONS:
         return JSONResponse(
             status_code=400,
             content={"error": "Maximum active sessions reached. Please archive or delete an old session to start a new one."}
+        )
+    
+    # Handle audio transcription if audio file is provided
+    if audio_file:
+        try:
+            logger.info(f"Processing audio file: {audio_file.filename}")
+            
+            contents = await audio_file.read()
+            logger.info(f"Audio file size: {len(contents)} bytes")
+
+            # Determine content type based on file extension
+            content_type = audio_file.content_type
+            if not content_type or content_type == "application/octet-stream":
+                if audio_file.filename.lower().endswith('.mp3'):
+                    content_type = "audio/mpeg"
+                elif audio_file.filename.lower().endswith('.wav'):
+                    content_type = "audio/wav"
+                elif audio_file.filename.lower().endswith('.flac'):
+                    content_type = "audio/flac"
+                elif audio_file.filename.lower().endswith('.m4a'):
+                    content_type = "audio/m4a"
+                else:
+                    content_type = "audio/mpeg"  # default to mp3
+
+            headers = {
+                "Authorization": f"Bearer {HF_API_TOKEN}",
+                "Content-Type": content_type,
+            }
+
+            response = requests.post(HF_API_URL, headers=headers, data=contents)
+            logger.info(f"HF Status: {response.status_code}")
+
+            if response.status_code != 200:
+                return JSONResponse(
+                    status_code=502,
+                    content={"error": f"Audio transcription failed: {response.text}"}
+                )
+
+            result = response.json()
+            transcribed_text = result.get("text") or result.get("generated_text")
+            
+            if not transcribed_text:
+                return JSONResponse(
+                    status_code=500,
+                    content={"error": "Transcription not found in response", "raw": result}
+                )
+            
+            question = transcribed_text.strip()
+            logger.info(f"Transcribed text: {question}")
+            
+        except Exception as e:
+            logger.exception("Audio transcription failed")
+            return JSONResponse(status_code=500, content={"error": f"Audio transcription failed: {str(e)}"})
+    
+    # Validate that we have a question (either from text or audio)
+    if not question:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Either question text or audio file must be provided"}
         )
     
     session_id = str(uuid4())
@@ -147,10 +213,75 @@ async def get_session(session_id: str):
 
 
 @app.post("/api/session/{session_id}/query")
-async def continue_session(session_id: str, question: str = Form(...), device_id: str = Form(...), state: str = Form("")):
+async def continue_session(
+    session_id: str, 
+    question: str = Form(None), 
+    device_id: str = Form(...), 
+    state: str = Form(""),
+    audio_file: UploadFile = File(None)
+):
     session = sessions_collection.find_one({"session_id": session_id})
     if not session or session.get("status") == "archived" or session.get("device_id") != device_id:
         return JSONResponse(status_code=403, content={"error": "Session is archived, missing or unauthorized"})
+    
+    # Handle audio transcription if audio file is provided
+    if audio_file:
+        try:
+            logger.info(f"Processing audio file for session {session_id}: {audio_file.filename}")
+            
+            contents = await audio_file.read()
+            logger.info(f"Audio file size: {len(contents)} bytes")
+
+            # Determine content type based on file extension
+            content_type = audio_file.content_type
+            if not content_type or content_type == "application/octet-stream":
+                if audio_file.filename.lower().endswith('.mp3'):
+                    content_type = "audio/mpeg"
+                elif audio_file.filename.lower().endswith('.wav'):
+                    content_type = "audio/wav"
+                elif audio_file.filename.lower().endswith('.flac'):
+                    content_type = "audio/flac"
+                elif audio_file.filename.lower().endswith('.m4a'):
+                    content_type = "audio/m4a"
+                else:
+                    content_type = "audio/mpeg"  # default to mp3
+
+            headers = {
+                "Authorization": f"Bearer {HF_API_TOKEN}",
+                "Content-Type": content_type,
+            }
+
+            response = requests.post(HF_API_URL, headers=headers, data=contents)
+            logger.info(f"HF Status: {response.status_code}")
+
+            if response.status_code != 200:
+                return JSONResponse(
+                    status_code=502,
+                    content={"error": f"Audio transcription failed: {response.text}"}
+                )
+
+            result = response.json()
+            transcribed_text = result.get("text") or result.get("generated_text")
+            
+            if not transcribed_text:
+                return JSONResponse(
+                    status_code=500,
+                    content={"error": "Transcription not found in response", "raw": result}
+                )
+            
+            question = transcribed_text.strip()
+            logger.info(f"Transcribed text for session {session_id}: {question}")
+            
+        except Exception as e:
+            logger.exception("Audio transcription failed")
+            return JSONResponse(status_code=500, content={"error": f"Audio transcription failed: {str(e)}"})
+    
+    # Validate that we have a question (either from text or audio)
+    if not question:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Either question text or audio file must be provided"}
+        )
     
     raw_answer = query_handler(question)
     # raw_answer = query_handler.get_answer(question)
@@ -267,9 +398,23 @@ async def transcribe_audio(file: UploadFile = File(...)):
         contents = await file.read()
         logger.info(f"File size: {len(contents)} bytes")
 
+        # Determine content type based on file extension
+        content_type = file.content_type
+        if not content_type or content_type == "application/octet-stream":
+            if file.filename.lower().endswith('.mp3'):
+                content_type = "audio/mpeg"
+            elif file.filename.lower().endswith('.wav'):
+                content_type = "audio/wav"
+            elif file.filename.lower().endswith('.flac'):
+                content_type = "audio/flac"
+            elif file.filename.lower().endswith('.m4a'):
+                content_type = "audio/m4a"
+            else:
+                content_type = "audio/mpeg"  # default to mp3
+        
         headers = {
             "Authorization": f"Bearer {HF_API_TOKEN}",
-            "Content-Type": file.content_type,
+            "Content-Type": content_type,
         }
 
         response = requests.post(HF_API_URL, headers=headers, data=contents)
