@@ -551,3 +551,198 @@ document.getElementById("resetLocationBtn").addEventListener("click", async () =
   document.getElementById("locationEdit").style.display = "none";
 });
 
+let mediaRecorder;
+let audioChunks = [];
+let isRecording = false;
+
+const startFormVoiceBtn = document.querySelector("#start-form .feature-button[aria-label='Start voice input']");
+const chatFormVoiceBtn = document.querySelector("#chat-form .feature-button[aria-label='Start voice input']");
+
+function initializeVoiceRecording() {
+  if (startFormVoiceBtn) {
+    startFormVoiceBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      handleVoiceInput(document.getElementById("start-input"));
+    });
+  }
+
+  if (chatFormVoiceBtn) {
+    chatFormVoiceBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      handleVoiceInput(document.getElementById("user-input"));
+    });
+  }
+}
+
+async function handleVoiceInput(targetTextarea) {
+  if (!isRecording) {
+    await startRecording(targetTextarea);
+  } else {
+    stopRecording();
+  }
+}
+
+async function startRecording(targetTextarea) {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ 
+      audio: {
+        sampleRate: 16000,
+        channelCount: 1,
+        echoCancellation: true,
+        noiseSuppression: true
+      }
+    });
+
+    mediaRecorder = new MediaRecorder(stream, {
+      mimeType: 'audio/webm;codecs=opus'
+    });
+
+    audioChunks = [];
+    isRecording = true;
+
+    updateVoiceButtonState(true);
+
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        audioChunks.push(event.data);
+      }
+    };
+
+    mediaRecorder.onstop = async () => {
+      isRecording = false;
+      updateVoiceButtonState(false, true); 
+      stream.getTracks().forEach(track => track.stop());
+
+      try {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+
+        const transcript = await transcribeAudio(audioBlob);
+
+        if (transcript && transcript.trim()) {
+          targetTextarea.value = transcript;
+
+          if (targetTextarea.id === 'start-input') {
+            document.getElementById('start-form').dispatchEvent(new Event('submit'));
+          }
+        } else {
+          showNotification('No speech detected. Please try again.', 'warning');
+        }
+      } catch (error) {
+        console.error('Transcription error:', error);
+        showNotification('Voice transcription failed. Please try again.', 'error');
+      } finally {
+        updateVoiceButtonState(false);
+      }
+    };
+
+    mediaRecorder.onerror = (event) => {
+      console.error('MediaRecorder error:', event.error);
+      isRecording = false;
+      updateVoiceButtonState(false);
+      showNotification('Recording error. Please try again.', 'error');
+    };
+
+    mediaRecorder.start();
+    showNotification('Recording started. Click the microphone again to stop.', 'info');
+
+  } catch (error) {
+    console.error('Error starting recording:', error);
+    isRecording = false;
+    updateVoiceButtonState(false);
+
+    if (error.name === 'NotAllowedError') {
+      showNotification('Microphone access denied. Please allow microphone access and try again.', 'error');
+    } else {
+      showNotification('Could not start recording. Please check your microphone.', 'error');
+    }
+  }
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
+    showNotification('Recording stopped. Processing...', 'info');
+  }
+}
+
+async function transcribeAudio(audioBlob) {
+  const formData = new FormData();
+  formData.append('file', audioBlob, 'recording.webm');
+
+  const response = await fetch(`${API_BASE}/transcribe-audio`, {
+    method: 'POST',
+    body: formData
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || 'Transcription failed');
+  }
+
+  const result = await response.json();
+  return result.transcript;
+}
+
+function updateVoiceButtonState(recording, processing = false) {
+  const buttons = [startFormVoiceBtn, chatFormVoiceBtn].filter(Boolean);
+
+  buttons.forEach(button => {
+    if (recording) {
+      button.classList.add('recording');
+      button.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="6" y="6" width="12" height="12" rx="2"/>
+        </svg>
+      `;
+      button.setAttribute('aria-label', 'Stop recording');
+    } else if (processing) {
+      button.classList.remove('recording');
+      button.classList.add('processing');
+      button.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+        </svg>
+      `;
+      button.setAttribute('aria-label', 'Processing...');
+    } else {
+      button.classList.remove('recording', 'processing');
+      button.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+          <g>
+            <path d="M5 3a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0V3z"/>
+            <path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/>
+          </g>
+        </svg>
+      `;
+      button.setAttribute('aria-label', 'Start voice input');
+    }
+  });
+}
+
+function showNotification(message, type = 'info') {
+
+  const notification = document.createElement('div');
+  notification.className = `notification ${type}`;
+  notification.innerHTML = `
+    <div class="notification-content">
+      <span class="notification-message">${message}</span>
+      <button class="notification-close">&times;</button>
+    </div>
+  `;
+
+  document.body.appendChild(notification);
+
+  setTimeout(() => notification.classList.add('show'), 100);
+
+  setTimeout(() => {
+    notification.classList.remove('show');
+    setTimeout(() => notification.remove(), 300);
+  }, 4000);
+
+  notification.querySelector('.notification-close').addEventListener('click', () => {
+    notification.classList.remove('show');
+    setTimeout(() => notification.remove(), 300);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', initializeVoiceRecording);
