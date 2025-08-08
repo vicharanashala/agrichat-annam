@@ -89,6 +89,15 @@ app.add_middleware(
 
 @app.middleware("http")
 async def add_ngrok_headers(request: Request, call_next):
+    if request.method == "OPTIONS":
+        response = JSONResponse(content={})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        response.headers["Access-Control-Max-Age"] = "86400"
+        response.headers["ngrok-skip-browser-warning"] = "true"
+        return response
+    
     response = await call_next(request)
     response.headers["ngrok-skip-browser-warning"] = "true"
     response.headers["Access-Control-Allow-Origin"] = "*"
@@ -109,6 +118,18 @@ def clean_session(s):
 @app.get("/")
 async def root():
     return {"message": "AgriChat backend is running."}
+
+@app.options("/{full_path:path}")
+async def options_handler(request: Request):
+    return JSONResponse(
+        content={},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Max-Age": "86400"
+        }
+    )
 
 @app.get("/api/sessions")
 async def list_sessions(request: Request):
@@ -293,7 +314,7 @@ async def update_language(data: dict = Body(...)):
     return {"status": "success", "matched": result.matched_count, "updated": result.modified_count}
 
 
-HF_API_URL = "https://api-inference.huggingface.co/models/openai/whisper-large-v2"
+HF_API_URL = "https://api-inference.huggingface.co/models/openai/whisper-tiny"
 HF_API_TOKEN = os.getenv("HF_API_TOKEN")  
 
 @app.post("/api/transcribe-audio")
@@ -301,10 +322,18 @@ async def transcribe_audio(file: UploadFile = File(...)):
     try:
         logger.info(f"Received file: {file.filename}")
 
+        if not HF_API_TOKEN or HF_API_TOKEN.strip() == "":
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "error": "Audio transcription service is not configured. Please set HF_API_TOKEN environment variable with a valid Hugging Face API token.",
+                    "instructions": "Visit https://huggingface.co/settings/tokens to get your API token"
+                }
+            )
+
         contents = await file.read()
         logger.info(f"File size: {len(contents)} bytes")
 
-        # Fix content type detection based on file extension
         content_type = file.content_type
         if file.filename:
             if file.filename.lower().endswith('.wav'):
@@ -332,7 +361,17 @@ async def transcribe_audio(file: UploadFile = File(...)):
         logger.info(f"HF Status: {response.status_code}")
         logger.info(f"HF Raw response: {response.text}")
 
-        if response.status_code != 200:
+        if response.status_code == 404:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "error": "Audio transcription service is currently unavailable",
+                    "details": "The Hugging Face Whisper API is not responding. This could be due to model maintenance or API changes.",
+                    "instructions": "Please try again later or contact support. You can also try uploading smaller audio files.",
+                    "fallback": "For now, you can type your question directly instead of using voice input."
+                }
+            )
+        elif response.status_code != 200:
             return JSONResponse(
                 status_code=502,
                 content={"error": f"Hugging Face API error: {response.text}"}
