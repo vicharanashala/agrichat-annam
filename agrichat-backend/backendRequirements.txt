@@ -6,10 +6,8 @@ requests
 langchain
 langchain-community
 chromadb
-ollama
 beautifulsoup4
 markdown
-openai
 numpy
 python-multipart
 gunicorn

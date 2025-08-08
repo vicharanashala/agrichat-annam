@@ -116,6 +116,63 @@ Generate a polite, respectful message to inform the user that you can only answe
             ]
         }
 
+    def expand_query(self, query):
+        """
+        Expand query with variations to handle 'twisted' questions better
+        """
+        expanded = [query]
+        
+        try:
+            agri_keywords = self._extract_agricultural_terms(query)
+            
+            if agri_keywords:
+                keyword_query = " ".join(agri_keywords)
+                expanded.append(keyword_query)
+            
+            simplified = self._simplify_query(query)
+            if simplified and simplified != query:
+                expanded.append(simplified)
+            
+            alternative = self._rephrase_query(query)
+            if alternative and alternative not in expanded:
+                expanded.append(alternative)
+            
+        except Exception as e:
+            logger.warning(f"[RAG] Error expanding query: {e}")
+        
+        return expanded[:5]
+    
+    def _extract_agricultural_terms(self, text):
+        """Extract agricultural terms from text"""
+        agricultural_terms = {
+            'crop', 'crops', 'farming', 'agriculture', 'cultivation', 'harvest', 'seeds', 'soil',
+            'fertilizer', 'pesticide', 'irrigation', 'planting', 'sowing', 'yield', 'farm', 'field',
+            'rice', 'wheat', 'corn', 'maize', 'cotton', 'sugarcane', 'vegetables', 'fruits',
+            'organic', 'disease', 'pest', 'insect', 'weed', 'water', 'rain', 'drought', 'season',
+            'growth', 'production', 'farmer', 'agricultural', 'land', 'machinery', 'equipment'
+        }
+        
+        words = text.lower().split()
+        found_terms = [word for word in words if word in agricultural_terms]
+        return found_terms
+    
+    def _simplify_query(self, query):
+        """Create simplified version of query focusing on core terms"""
+        question_words = {'what', 'how', 'when', 'where', 'why', 'which', 'can', 'is', 'are', 'do', 'does', 'did'}
+        words = query.lower().split()
+        content_words = [word for word in words if word not in question_words and len(word) > 2]
+        return " ".join(content_words) if content_words else query
+    
+    def _rephrase_query(self, query):
+        """Create alternative phrasing of the query"""
+        if "how to" in query.lower():
+            return query.lower().replace("how to", "method for").replace("how can", "way to")
+        elif "what is" in query.lower():
+            return query.lower().replace("what is", "information about")
+        elif query.endswith("?"):
+            return query[:-1]
+        return query
+
     def _create_metadata_filter(self, question):
         """
         Create metadata filter from question, but avoid overly restrictive filters
@@ -141,22 +198,41 @@ Generate a polite, respectful message to inform the user that you can only answe
     def cosine_sim(self, a, b):
         return np.dot(a, b) / (norm(a) * norm(b))
 
-    def rerank_documents(self, question: str, results, top_k: int = 10):
+    def rerank_documents(self, question: str, results, top_k: int = 5):
+        """Enhanced reranking with better similarity scoring and multiple strategies"""
         query_embedding = self.embedding_function.embed_query(question)
         scored = []
-        for doc, _ in results:
+        question_lower = question.lower()
+        question_words = set(question_lower.split())
+        
+        for doc, original_score in results:
             content = doc.page_content.strip()
+            
             if (content.lower().count('others') > 3 or 
                 'Question: Others' in content or 
                 'Answer: Others' in content or
                 content.count('Others') > 5):
                 continue
-                
+            
             d_emb = self.embedding_function.embed_query(content)
-            score = self.cosine_sim(query_embedding, d_emb)
-            scored.append((doc, score))
+            cosine_score = self.cosine_sim(query_embedding, d_emb)
+            
+            content_words = set(content.lower().split())
+            keyword_overlap = len(question_words.intersection(content_words)) / len(question_words) if question_words else 0
+            
+            agri_terms = {'crop', 'plant', 'disease', 'pest', 'fertilizer', 'soil', 'water', 'harvest', 'seed', 'growth', 'yield'}
+            question_agri_terms = question_words.intersection(agri_terms)
+            content_agri_terms = content_words.intersection(agri_terms)
+            agri_overlap = len(question_agri_terms.intersection(content_agri_terms)) / max(len(question_agri_terms), 1)
+            
+            combined_score = (cosine_score * 0.6) + (keyword_overlap * 0.25) + (agri_overlap * 0.15)
+            
+            scored.append((doc, combined_score, cosine_score, original_score))
+        
         scored.sort(key=lambda x: x[1], reverse=True)
-        return [doc for doc, score in scored[:top_k] if doc.page_content.strip()]
+        
+        return [doc for doc, combined_score, cosine_score, orig_score in scored[:top_k] 
+                if doc.page_content.strip() and combined_score > 0.1]
 
     def construct_structured_prompt(self, context: str, question: str) -> str:
         return self.STRUCTURED_PROMPT.format(
@@ -227,11 +303,37 @@ Generate a polite, respectful message to inform the user that you can only answe
                 return f"__NO_SOURCE__{response}"
 
             try:
-                metadata_filter = self._create_metadata_filter(processing_query)
-                raw_results = self.db.similarity_search_with_score(processing_query, k=10, filter=metadata_filter)
+                expanded_queries = self.expand_query(processing_query)
+                all_results = []
+                seen_content = set()
+                
+                for query_variant in expanded_queries:
+                    try:
+                        metadata_filter = self._create_metadata_filter(query_variant)
+                        variant_results = self.db.similarity_search_with_score(query_variant, k=10, filter=metadata_filter)
+                        
+                        if len(variant_results) < 3:
+                            variant_results_no_filter = self.db.similarity_search_with_score(query_variant, k=15, filter=None)
+                            variant_results.extend(variant_results_no_filter)
+                        
+                        for doc, score in variant_results:
+                            if doc.page_content not in seen_content:
+                                all_results.append((doc, score))
+                                seen_content.add(doc.page_content)
+                    
+                    except Exception as variant_error:
+                        logger.warning(f"[RAG] Error with query variant '{query_variant}': {variant_error}")
+                        continue
+                
+                raw_results = all_results[:25]
+                
+                if not raw_results:
+                    logger.warning(f"[RAG] No results from expanded queries, falling back to original query")
+                    raw_results = self.db.similarity_search_with_score(processing_query, k=15, filter=None)
+                    
             except Exception as filter_error:
-                logger.warning(f"[ChromaDB Filter Error] {filter_error}. Retrying without filter.")
-                raw_results = self.db.similarity_search_with_score(processing_query, k=10, filter=None)
+                logger.warning(f"[ChromaDB Error] {filter_error}. Using fallback search.")
+                raw_results = self.db.similarity_search_with_score(processing_query, k=15, filter=None)
                 
             relevant_docs = self.rerank_documents(processing_query, raw_results)
 
