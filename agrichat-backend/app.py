@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Form, Body
+from fastapi import FastAPI, Request, Form, Body, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pymongo import MongoClient
@@ -18,6 +18,7 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 import logging
 from typing import Optional, List, Dict
+import requests
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
