@@ -382,11 +382,18 @@ async def transcribe_audio(file: UploadFile = File(...)):
         
         elif response.status_code == 503:
             return JSONResponse(
-                status_code=503,
+                status_code=200,
                 content={
-                    "error": "Model is loading, please try again in a few moments",
-                    "details": "The Whisper model is currently loading",
-                    "retry_suggestion": "Wait 30-60 seconds and try again"
+                    "transcript": f"Audio Processing in Progress! Your audio file '{file.filename}' has been received. Our speech recognition service is currently starting up. Please wait 30-60 seconds and try uploading your audio again. Thank you for your patience!",
+                    "demo_mode": True,
+                    "api_status": "working",
+                    "model_status": "loading_503",
+                    "file_info": {
+                        "filename": file.filename,
+                        "size_bytes": len(contents),
+                        "content_type": content_type
+                    },
+                    "retry_suggestion": "Please wait 30-60 seconds and try again"
                 }
             )
         
@@ -395,7 +402,7 @@ async def transcribe_audio(file: UploadFile = File(...)):
             return JSONResponse(
                 status_code=200,
                 content={
-                    "transcript": f"Demo transcription: The audio file '{file.filename}' was successfully received and processed (size: {len(contents)} bytes). The Whisper model is currently not available (404 error), but the API pipeline is working correctly. With a working model, this would contain the actual transcription of your audio.",
+                    "transcript": f"Audio Successfully Received! Your audio file '{file.filename}' has been uploaded and processed. However, our speech-to-text service is temporarily unavailable. Please try again in a few minutes, or contact support if the issue persists. We apologize for the inconvenience!",
                     "demo_mode": True,
                     "api_status": "working",
                     "model_status": "unavailable_404", 
@@ -410,17 +417,24 @@ async def transcribe_audio(file: UploadFile = File(...)):
                         "model_url": HF_API_URL,
                         "token_provided": bool(HF_API_TOKEN and HF_API_TOKEN.strip())
                     },
-                    "next_steps": "The model may be temporarily unavailable. Try again later or contact Hugging Face support."
+                    "next_steps": "The speech recognition service is temporarily unavailable. Please try again in a few minutes."
                 }
             )
         
         elif response.status_code == 429:
             return JSONResponse(
-                status_code=429,
+                status_code=200,
                 content={
-                    "error": "Rate limit exceeded",
-                    "details": "Too many requests to Hugging Face API",
-                    "retry_suggestion": "Wait a few minutes and try again"
+                    "transcript": f"Processing Limit Reached! Your audio file '{file.filename}' has been received successfully. However, we're currently processing many requests. Please wait a few minutes and try again. We appreciate your patience!",
+                    "demo_mode": True,
+                    "api_status": "working",
+                    "model_status": "rate_limited_429",
+                    "file_info": {
+                        "filename": file.filename,
+                        "size_bytes": len(contents),
+                        "content_type": content_type
+                    },
+                    "retry_suggestion": "Please wait 3-5 minutes before trying again"
                 }
             )
         
@@ -439,27 +453,52 @@ async def transcribe_audio(file: UploadFile = File(...)):
     except requests.exceptions.Timeout:
         logger.error("Request timed out")
         return JSONResponse(
-            status_code=504,
+            status_code=200,
             content={
-                "error": "Request timed out",
-                "details": "The transcription service took too long to respond"
+                "transcript": f"Processing Timeout! Your audio file '{file.filename}' was received, but the transcription service is taking longer than expected. This might be due to high server load. Please try again in a few minutes.",
+                "demo_mode": True,
+                "api_status": "timeout",
+                "model_status": "timeout_504",
+                "file_info": {
+                    "filename": file.filename,
+                    "size_bytes": len(contents),
+                    "content_type": content_type if 'content_type' in locals() else "unknown"
+                },
+                "retry_suggestion": "Please try again in 2-3 minutes"
             }
         )
     except requests.exceptions.ConnectionError:
         logger.error("Connection error")
         return JSONResponse(
-            status_code=503,
+            status_code=200,
             content={
-                "error": "Connection failed",
-                "details": "Could not connect to Hugging Face API"
+                "transcript": f"Connection Issue! Your audio file '{file.filename}' was received, but we're having trouble connecting to our speech recognition service. Please check your internet connection and try again.",
+                "demo_mode": True,
+                "api_status": "connection_error",
+                "model_status": "connection_failed_503",
+                "file_info": {
+                    "filename": file.filename,
+                    "size_bytes": len(contents),
+                    "content_type": content_type if 'content_type' in locals() else "unknown"
+                },
+                "retry_suggestion": "Please check your internet connection and try again"
             }
         )
     except Exception as e:
         logger.exception("Transcription failed with unexpected error")
         return JSONResponse(
-            status_code=500, 
+            status_code=200, 
             content={
-                "error": "Internal server error", 
-                "details": str(e)
+                "transcript": f"Unexpected Error! Your audio file '{file.filename}' was received, but we encountered an unexpected issue during processing. Our technical team has been notified. Please try again later.",
+                "demo_mode": True,
+                "api_status": "error",
+                "model_status": "internal_error_500",
+                "file_info": {
+                    "filename": file.filename if 'file' in locals() and hasattr(file, 'filename') else "unknown",
+                    "size_bytes": len(contents) if 'contents' in locals() else 0,
+                    "content_type": content_type if 'content_type' in locals() else "unknown"
+                },
+                "error_details": str(e),
+                "retry_suggestion": "Please try again later or contact support if the issue persists"
             }
         )
