@@ -301,6 +301,14 @@ function loadChat(session) {
   document.getElementById("exportBtn").style.display = "inline-block";
   document.getElementById("locationEdit").style.display = "none";
 
+  // Only add the classes if NOT mobile screen width
+  if (window.innerWidth > 768) {  // Define mobile breakpoint here
+    document.querySelector('.main-header').classList.add('chat-active-width');
+  } else {
+    // On mobile, ensure classes are removed in case they existed
+    document.querySelector('.main-header').classList.remove('chat-active-width');
+  }
+
   // new
   if (!session || typeof session.status === "undefined" || !Array.isArray(session.messages)) {
     alert("Could not load chat session (data missing or malformed).");
