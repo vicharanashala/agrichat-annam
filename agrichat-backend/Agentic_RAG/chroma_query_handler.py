@@ -64,8 +64,10 @@ You are an expert agricultural assistant. Using only the provided context (do no
 You are a smart classifier assistant. Categorize the user query strictly into one of the following categories:
 
 - AGRICULTURE: if the question is related to farming, crops, fertilizers, pests, soil, irrigation, harvest, agronomy, etc.
-- GREETING: if it is a greeting, salutation, or polite conversational opening like "hi", "hello", "good morning", etc.
+- GREETING: if it is a greeting, salutation, polite conversational opening, or introduction. This includes messages like "hi", "hello", "good morning", "Hello [name]", "Hi there", "How are you", "Nice to meet you", etc.
 - NON_AGRI: if the question is not agriculture-related or contains inappropriate, offensive, or irrelevant content.
+
+Important: Greetings can include names or additional polite phrases. Focus on the intent of the message.
 
 Respond with only one of these words: AGRICULTURE, GREETING, or NON_AGRI.
 
@@ -298,8 +300,14 @@ Generate a polite, respectful message to inform the user that you can only answe
                     context_used = True
                     logger.info(f"[Context] Using context for follow-up query. Original: {question[:100]}...")
             
-            if question.lower().strip() in ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening', 'howdy', 'greetings']:
+            category = self.classify_query(question)
+            
+            if category == "GREETING":
                 response = self.generate_dynamic_response(question, mode="GREETING")
+                return f"__NO_SOURCE__{response}"
+            
+            if category == "NON_AGRI":
+                response = self.generate_dynamic_response(question, mode="NON_AGRI")
                 return f"__NO_SOURCE__{response}"
 
             try:
@@ -405,12 +413,7 @@ Generate a polite, respectful message to inform the user that you can only answe
                     logger.info(f"[Context] Used marginal RAG content for contextual query")
                     return generated_response
             
-            category = self.classify_query(question)
-            
-            if category == "NON_AGRI":
-                response = self.generate_dynamic_response(question, mode="NON_AGRI")
-                return f"__NO_SOURCE__{response}"
-            
+            # If we reach here, it means we have an agriculture question but no good RAG content
             return "I don't have enough information to answer that."
             
         except Exception as e:
