@@ -24,6 +24,7 @@ from fastapi import Body
 import requests
 from fastapi import UploadFile, File
 import logging
+from sarvamai import SarvamAI
 
 
 query_handler = None
@@ -124,49 +125,31 @@ async def new_session(
             contents = await audio_file.read()
             logger.info(f"Audio file size: {len(contents)} bytes")
 
-            # Determine content type based on file extension
-            content_type = audio_file.content_type
-            if not content_type or content_type == "application/octet-stream":
-                if audio_file.filename.lower().endswith('.mp3'):
-                    content_type = "audio/mpeg"
-                elif audio_file.filename.lower().endswith('.wav'):
-                    content_type = "audio/wav"
-                elif audio_file.filename.lower().endswith('.flac'):
-                    content_type = "audio/flac"
-                elif audio_file.filename.lower().endswith('.m4a'):
-                    content_type = "audio/m4a"
-                else:
-                    content_type = "audio/mpeg"  # default to mp3
+            # Get language code for Sarvam AI
+            selected_language_code = LANGUAGE_CODE_MAP.get(language, "en-IN")
+            logger.info(f"Using language: {language} (Code: {selected_language_code})")
 
-            headers = {
-                "Authorization": f"Bearer {HF_API_TOKEN}",
-                "Content-Type": content_type,
-            }
+            # Transcribe using Sarvam AI
+            response = SARVAM_CLIENT.speech_to_text.transcribe(
+                file=(audio_file.filename, contents),
+                model="saarika:v2.5",
+                language_code=selected_language_code
+            )
 
-            response = requests.post(HF_API_URL, headers=headers, data=contents)
-            logger.info(f"HF Status: {response.status_code}")
+            logger.info(f"Sarvam AI Response: {response}")
 
-            if response.status_code != 200:
-                return JSONResponse(
-                    status_code=502,
-                    content={"error": f"Audio transcription failed: {response.text}"}
-                )
-
-            result = response.json()
-            transcribed_text = result.get("text") or result.get("generated_text")
-            
-            if not transcribed_text:
+            if not response or not hasattr(response, 'transcript'):
                 return JSONResponse(
                     status_code=500,
-                    content={"error": "Transcription not found in response", "raw": result}
+                    content={"error": "Transcription failed - no transcript in response"}
                 )
             
-            question = transcribed_text.strip()
+            question = response.transcript.strip()
             logger.info(f"Transcribed text: {question}")
             
         except Exception as e:
-            logger.exception("Audio transcription failed")
-            return JSONResponse(status_code=500, content={"error": f"Audio transcription failed: {str(e)}"})
+            logger.exception("Sarvam AI transcription failed")
+            return JSONResponse(status_code=500, content={"error": f"Sarvam AI transcription failed: {str(e)}"})
     
     # Validate that we have a question (either from text or audio)
     if not question:
@@ -218,6 +201,7 @@ async def continue_session(
     question: str = Form(None), 
     device_id: str = Form(...), 
     state: str = Form(""),
+    language: str = Form("English"),
     audio_file: UploadFile = File(None)
 ):
     session = sessions_collection.find_one({"session_id": session_id})
@@ -232,49 +216,31 @@ async def continue_session(
             contents = await audio_file.read()
             logger.info(f"Audio file size: {len(contents)} bytes")
 
-            # Determine content type based on file extension
-            content_type = audio_file.content_type
-            if not content_type or content_type == "application/octet-stream":
-                if audio_file.filename.lower().endswith('.mp3'):
-                    content_type = "audio/mpeg"
-                elif audio_file.filename.lower().endswith('.wav'):
-                    content_type = "audio/wav"
-                elif audio_file.filename.lower().endswith('.flac'):
-                    content_type = "audio/flac"
-                elif audio_file.filename.lower().endswith('.m4a'):
-                    content_type = "audio/m4a"
-                else:
-                    content_type = "audio/mpeg"  # default to mp3
+            # Get language code for Sarvam AI
+            selected_language_code = LANGUAGE_CODE_MAP.get(language, "en-IN")
+            logger.info(f"Using language: {language} (Code: {selected_language_code})")
 
-            headers = {
-                "Authorization": f"Bearer {HF_API_TOKEN}",
-                "Content-Type": content_type,
-            }
+            # Transcribe using Sarvam AI
+            response = SARVAM_CLIENT.speech_to_text.transcribe(
+                file=(audio_file.filename, contents),
+                model="saarika:v2.5",
+                language_code=selected_language_code
+            )
 
-            response = requests.post(HF_API_URL, headers=headers, data=contents)
-            logger.info(f"HF Status: {response.status_code}")
+            logger.info(f"Sarvam AI Response: {response}")
 
-            if response.status_code != 200:
-                return JSONResponse(
-                    status_code=502,
-                    content={"error": f"Audio transcription failed: {response.text}"}
-                )
-
-            result = response.json()
-            transcribed_text = result.get("text") or result.get("generated_text")
-            
-            if not transcribed_text:
+            if not response or not hasattr(response, 'transcript'):
                 return JSONResponse(
                     status_code=500,
-                    content={"error": "Transcription not found in response", "raw": result}
+                    content={"error": "Transcription failed - no transcript in response"}
                 )
             
-            question = transcribed_text.strip()
+            question = response.transcript.strip()
             logger.info(f"Transcribed text for session {session_id}: {question}")
             
         except Exception as e:
-            logger.exception("Audio transcription failed")
-            return JSONResponse(status_code=500, content={"error": f"Audio transcription failed: {str(e)}"})
+            logger.exception("Sarvam AI transcription failed")
+            return JSONResponse(status_code=500, content={"error": f"Sarvam AI transcription failed: {str(e)}"})
     
     # Validate that we have a question (either from text or audio)
     if not question:
@@ -299,6 +265,7 @@ async def continue_session(
                 "has_unread": True,
                 "crop": crop,
                 "state": state,
+                "language": language,
                 "timestamp": datetime.now(IST).isoformat()
             },
         },
@@ -389,6 +356,18 @@ logger = logging.getLogger(__name__)
 
 HF_API_URL = "https://api-inference.huggingface.co/models/openai/whisper-large-v3"
 HF_API_TOKEN = os.getenv("HF_API_TOKEN")  
+
+# Sarvam AI Configuration
+SARVAM_API_KEY = "sk_0plgwxhb_stFNbHUQ5KzUjHaU0PQ7AsEH"
+SARVAM_CLIENT = SarvamAI(api_subscription_key=SARVAM_API_KEY)
+
+# Language code mapping for Sarvam AI
+LANGUAGE_CODE_MAP = {
+    "English": "en-IN", "Hindi": "hi-IN", "Tamil": "ta-IN", "Telugu": "te-IN",
+    "Kannada": "kn-IN", "Gujarati": "gu-IN", "Marathi": "mr-IN", "Bengali": "bn-IN",
+    "Punjabi": "pa-IN", "Malayalam": "ml-IN", "Odia": "or-IN", "Assamese": "as-IN",
+    "Urdu": "ur-IN"
+}
 
 @app.post("/api/transcribe-audio")
 async def transcribe_audio(file: UploadFile = File(...)):
