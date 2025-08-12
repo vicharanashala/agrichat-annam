@@ -294,11 +294,24 @@ Generate a polite, respectful message to inform the user that you can only answe
             processing_query = question
             context_used = False
             
+            # Debug: Log conversation history details
             if conversation_history:
-                if self.context_manager.should_use_context(question, conversation_history):
+                logger.info(f"[Context DEBUG] Received conversation history with {len(conversation_history)} entries")
+                for i, entry in enumerate(conversation_history[-2:]):  # Log last 2 entries
+                    logger.info(f"[Context DEBUG] Entry {i}: Q='{entry.get('question', '')[:50]}...', A='{entry.get('answer', '')[:50]}...'")
+                
+                should_use_context = self.context_manager.should_use_context(question, conversation_history)
+                logger.info(f"[Context DEBUG] Should use context for '{question[:50]}...': {should_use_context}")
+                
+                if should_use_context:
                     processing_query = self.context_manager.build_contextual_query(question, conversation_history)
                     context_used = True
                     logger.info(f"[Context] Using context for follow-up query. Original: {question[:100]}...")
+                    logger.info(f"[Context DEBUG] Enhanced query: {processing_query[:200]}...")
+                else:
+                    logger.info(f"[Context DEBUG] Not using context - treating as standalone query")
+            else:
+                logger.info(f"[Context DEBUG] No conversation history provided")
             
             category = self.classify_query(question)
             
