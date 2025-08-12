@@ -71,7 +71,7 @@ app = FastAPI(lifespan=lifespan)
 
 origins = [
     "https://agri-annam.vercel.app",
-    "https://0c9d97e9dff0.ngrok-free.app",
+    "https://68ebe24fbd01.ngrok-free.app",
     "https://localhost:3000",
     "https://127.0.0.1:3000",
     "http://localhost:3000",
