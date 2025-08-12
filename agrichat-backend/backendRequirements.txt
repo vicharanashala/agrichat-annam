@@ -8,6 +8,9 @@ langchain-community
 chromadb
 beautifulsoup4
 markdown
+openai-whisper
+torch
+torchaudio
 numpy
 python-multipart
 gunicorn

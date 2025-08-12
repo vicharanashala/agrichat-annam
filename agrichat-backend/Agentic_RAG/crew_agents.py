@@ -1,12 +1,12 @@
-from tools import FireCrawlWebSearchTool, RAGTool, FallbackAgriTool
+from tools import RAGTool, FallbackAgriTool
 import os
 from dotenv import load_dotenv
 from crewai import LLM, Agent
 from typing import List, Dict, Optional
 load_dotenv()
 
-firecrawl_tool = FireCrawlWebSearchTool(api_key=os.getenv("FIRECRAWL_API_KEY"))
-gemini_api_key = os.getenv("GOOGLE_API_KEY")
+# Remove dependency on external APIs
+gemini_api_key = None  # Not needed for local LLM
 
 import os
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -17,17 +17,14 @@ print(f"[DEBUG] ChromaDB path exists: {os.path.exists(chroma_path)}")
 rag_tool = RAGTool(chroma_path=chroma_path, gemini_api_key=gemini_api_key)
 
 from crewai import LLM, Agent
+# Use local LLM instead of external API
 llm = LLM(
-    model='gemini/gemini-2.5-flash',
-    api_key=gemini_api_key,
+    model='local/openai-oss-20b',  # Placeholder - replace with your local model config
+    api_key="not-needed",
     temperature=0.0
 )
 
-fallback_tool = FallbackAgriTool(
-    google_api_key=gemini_api_key,
-    model="gemini-2.5-flash",
-    websearch_tool=firecrawl_tool
-)
+fallback_tool = FallbackAgriTool()
 
 Retriever_Agent = Agent(
     role="Retriever Agent",

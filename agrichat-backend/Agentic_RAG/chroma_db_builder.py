@@ -1,6 +1,6 @@
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_core.documents import Document
+from local_llm_interface import local_embeddings
 import pandas as pd
 import os
 import shutil
@@ -17,16 +17,8 @@ class ChromaDBBuilder:
         self.csv_path = csv_path
         self.persist_dir = persist_dir
         
-        api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
-        if not api_key:
-            raise ValueError(
-                "API key not found. Please set GOOGLE_API_KEY or GEMINI_API_KEY environment variable."
-            )
-        
-        self.embedding_function = GoogleGenerativeAIEmbeddings(
-            model="models/text-embedding-004",
-            google_api_key=api_key
-        )
+        # Use local embeddings instead of Google's API
+        self.embedding_function = local_embeddings
         self.documents = []
         
 

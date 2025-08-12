@@ -1,9 +1,9 @@
-from firecrawl import FirecrawlApp, ScrapeOptions
+
 from pydantic import PrivateAttr
 from crewai.tools import BaseTool
-import google.generativeai as genai
 from chroma_query_handler import ChromaQueryHandler
 from typing import ClassVar, List, Dict, Optional
+from local_llm_interface import run_local_llm
 import os
 import csv
 from datetime import datetime
@@ -24,16 +24,7 @@ def log_fallback_to_csv(question: str, answer: str, csv_file: str = "fallback_qu
 
 
 class FireCrawlWebSearchTool(BaseTool):
-    def __init__(self, api_key: str):
-        super().__init__(name="FireCrawlWebSearchTool", description="Performs web search using Firecrawl API and returns markdown results.")
-        object.__setattr__(self, 'app', FirecrawlApp(api_key=api_key))
-        object.__setattr__(self, 'ScrapeOptions', ScrapeOptions)
-
-    def _run(self, query: str, limit: int = 2) -> str:
-        scrape_options = self.ScrapeOptions(formats=["markdown"])
-        search_result = self.app.search(query, limit=limit, scrape_options=scrape_options)
-        combined_markdown = "\n\n".join([item.get("markdown", "") for item in search_result.data])
-        return combined_markdown if combined_markdown else "No relevant web search results found."
+    pass  # FireCrawlWebSearchTool is deprecated/removed
 
 
 class RAGTool(BaseTool):
@@ -75,24 +66,20 @@ class RAGTool(BaseTool):
         return self._run(question, conversation_history)
 
 class FallbackAgriTool(BaseTool):
-    _llm_model: any = PrivateAttr()
-    _websearch_tool: any = PrivateAttr()
     _classifier: any = PrivateAttr()
 
     FALLBACK_PROMPT: ClassVar[str] = """
-You are an expert agricultural assistant. Use your own expert knowledge and review any web search information provided to answer the user's agricultural question. If the question is a normal greeting or salutation (e.g., “hello,” “how are you?”, “good morning”), respond gently and politely—don’t refuse, but give a soft, appropriate answer. Do NOT answer non-agricultural queries except for such greetings.
+You are an expert agricultural assistant. Use your own expert knowledge to answer the user's agricultural question. If the question is a normal greeting or salutation (e.g., “hello,” “how are you?”, “good morning”), respond gently and politely—don’t refuse, but give a soft, appropriate answer. Do NOT answer non-agricultural queries except for such greetings.
 
 - Give detailed, step-by-step advice and structure your answer with bullet points, headings, or tables when appropriate.
 - Stick strictly to the user's topic; do not introduce unrelated information.
-- If the web search results are not relevant, do not use them.
-- If the web search results are relevant, incorporate them into your answer.
-- Always provide sources for your information (LLM knowledge and/or web-based crawl/search).
+- Always provide sources for your information (LLM knowledge or database).
 - Keep the response concise, focused, and do not provide any preamble or explanations except for the final answer.
 
 ### Detailed Explanation
-- Provide a comprehensive, step-by-step explanation using both the web/context and your own agricultural knowledge, but only as it directly relates to the user's question.
+- Provide a comprehensive, step-by-step explanation using both the context and your own agricultural knowledge, but only as it directly relates to the user's question.
 - Use bullet points, sub-headings, or tables to clarify complex information.
-- Reference and explain all relevant data points from the context or web.
+- Reference and explain all relevant data points from the context.
 - Briefly define technical terms inline if needed.
 - Avoid detailed botanical or scientific explanations not relevant to farmers unless explicitly asked.
 
@@ -124,47 +111,30 @@ You are an expert agricultural assistant. Use your own expert knowledge and revi
     - For broader crop management questions, summarize key data points (disease management, input use, care tips, risks) in a succinct, easy-to-use manner—only including what's relevant to the query.
     - Never add unrelated information, avoid detailed paragraphs unless multiple issues are asked, and always keep the response direct and farmer-friendly.
 
-- Even if the information does not directly match the question, use context and reasoning to include database/web data points that could help answer the user’s general query about that crop.
+- Even if the information does not directly match the question, use context and reasoning to include database data points that could help answer the user’s general query about that crop.
 - Synthesize relevant knowledge and sources into a complete, actionable answer.
 
 ### User Question
 {question}
 
-{web_results}
-
 ---
 ### Your Answer:
 """
 
-    def __init__(self, google_api_key, model: str, websearch_tool, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(
             name="fallback_agri_tool",
-            description="Fallback LLM+websearch tool for general agricultural answering.",
+            description="Fallback LLM tool for general agricultural answering.",
             **kwargs
         )
-        genai.configure(api_key=google_api_key)
-        self._llm_model = genai.GenerativeModel(model)
-        self._websearch_tool = websearch_tool
 
     def _run(self, question: str) -> str:
         print(f"[DEBUG] FallbackAgriTool called with question: {question}")
-        
-        web_results = self._websearch_tool._run(question, limit=2)
-        web_results_str = f"\nWeb search results:\n{web_results}\n" if web_results else ""
-        prompt = self.FALLBACK_PROMPT.format(question=question, web_results=web_results_str)
-        response = self._llm_model.generate_content(
-            contents=prompt,
-            generation_config=genai.GenerationConfig(
-                temperature=0.4,
-                max_output_tokens=4096,
-            )
-        )
-        
-        final_answer = "Source: LLM knowledge & Web Search\n\n" + response.text.strip()
-        
+        prompt = self.FALLBACK_PROMPT.format(question=question)
+        response_text = run_local_llm(prompt)
+        final_answer = "Source: Local LLM\n\n" + response_text.strip()
         log_fallback_to_csv(question, final_answer)
         print(f"[DEBUG] Logged fallback call to CSV")
-        
         return final_answer
 
 

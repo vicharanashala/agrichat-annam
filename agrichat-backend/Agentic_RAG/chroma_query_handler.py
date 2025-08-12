@@ -1,11 +1,10 @@
 from langchain_community.vectorstores import Chroma
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
-import google.generativeai as genai
 import numpy as np
 from numpy.linalg import norm
 import logging
 from typing import List, Dict, Optional
 from context_manager import ConversationContext
+from local_llm_interface import local_llm, local_embeddings
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -92,13 +91,13 @@ You are an agriculture assistant. The user has sent the following message:
 Generate a polite, respectful message to inform the user that you can only answer agriculture-related queries. Do not be rude. If the question is inappropriate or offensive, gently warn them to stay respectful.
 """
 
-    def __init__(self, chroma_path: str, gemini_api_key: str, embedding_model: str = "models/text-embedding-004", chat_model: str = "gemma-3-27b-it"):
-        self.embedding_function = GoogleGenerativeAIEmbeddings(
-            model=embedding_model,
-            google_api_key=gemini_api_key
-        )
-        genai.configure(api_key=gemini_api_key)
-        self.genai_model = genai.GenerativeModel(chat_model)
+    def __init__(self, chroma_path: str, gemini_api_key: str = None, embedding_model: str = None, chat_model: str = None):
+        # Use local embeddings instead of Google's API
+        self.embedding_function = local_embeddings
+        
+        # Use local LLM instead of Gemini
+        self.local_llm = local_llm
+        
         self.db = Chroma(
             persist_directory=chroma_path,
             embedding_function=self.embedding_function,
@@ -245,14 +244,12 @@ Generate a polite, respectful message to inform the user that you can only answe
     def classify_query(self, question: str) -> str:
         prompt = self.CLASSIFIER_PROMPT.format(question=question)
         try:
-            response = self.genai_model.generate_content(
-                contents=prompt,
-                generation_config=genai.GenerationConfig(
-                    temperature=0,
-                    max_output_tokens=20,
-                )
+            response_text = self.local_llm.generate_content(
+                prompt=prompt,
+                temperature=0,
+                max_tokens=20
             )
-            category = response.text.strip().upper()
+            category = response_text.strip().upper()
             if category in {"AGRICULTURE", "GREETING", "NON_AGRI"}:
                 return category
             else:
@@ -267,14 +264,12 @@ Generate a polite, respectful message to inform the user that you can only answe
         else:
             prompt = self.NON_AGRI_RESPONSE_PROMPT.format(question=question)
         try:
-            response = self.genai_model.generate_content(
-                contents=prompt,
-                generation_config=genai.GenerationConfig(
-                    temperature=0.5,
-                    max_output_tokens=100,
-                )
+            response_text = self.local_llm.generate_content(
+                prompt=prompt,
+                temperature=0.5,
+                max_tokens=100
             )
-            return response.text.strip()
+            return response_text.strip()
         except Exception as e:
             logger.error(f"[Dynamic Response Error] {e}")
             return "Sorry, I can only help with agriculture-related questions."
@@ -378,15 +373,11 @@ Generate a polite, respectful message to inform the user that you can only answe
                         final_question = question if context_used else processing_query
                         prompt = self.construct_structured_prompt(content, final_question)
                         
-                        response = self.genai_model.generate_content(
-                            contents=prompt,
-                            generation_config=genai.GenerationConfig(
-                                temperature=0.3,
-                                max_output_tokens=1024,
-                            )
+                        generated_response = self.local_llm.generate_content(
+                            prompt=prompt,
+                            temperature=0.3,
+                            max_tokens=1024
                         )
-                        
-                        generated_response = response.text.strip()
                         
                         if context_used:
                             logger.info(f"[Context] Response generated with conversation context")
@@ -401,15 +392,12 @@ Generate a polite, respectful message to inform the user that you can only answe
                     final_question = question
                     prompt = self.construct_structured_prompt(context, final_question)
                     
-                    response = self.genai_model.generate_content(
-                        contents=prompt,
-                        generation_config=genai.GenerationConfig(
-                            temperature=0.3,
-                            max_output_tokens=1024,
-                        )
+                    generated_response = self.local_llm.generate_content(
+                        prompt=prompt,
+                        temperature=0.3,
+                        max_tokens=1024
                     )
                     
-                    generated_response = response.text.strip()
                     logger.info(f"[Context] Used marginal RAG content for contextual query")
                     return generated_response
             
