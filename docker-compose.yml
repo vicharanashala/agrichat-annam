@@ -26,8 +26,12 @@ services:
     environment:
       - MONGO_URI=mongodb://mongodb:27017/agrichat
       - USE_HTTPS=${USE_HTTPS:-false}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
     # Add restart policy for production
     restart: unless-stopped
+    # GPU Support
+    runtime: nvidia
     # Override CMD for HTTPS when USE_HTTPS=true
     command: >
       sh -c "

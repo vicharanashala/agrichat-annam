@@ -19,7 +19,8 @@ rag_tool = RAGTool(chroma_path=chroma_path, gemini_api_key=gemini_api_key)
 from crewai import LLM, Agent
 # Use local LLM instead of external API
 llm = LLM(
-    model='local/openai-oss-20b',  # Placeholder - replace with your local model config
+    model=f"ollama/{os.getenv('OLLAMA_MODEL', 'gpt-oss:20b')}",
+    base_url=f"http://{os.getenv('OLLAMA_HOST', 'localhost:11434')}",
     api_key="not-needed",
     temperature=0.0
 )

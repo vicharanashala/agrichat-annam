@@ -5,14 +5,15 @@ Connects to your locally installed Ollama models
 
 import requests
 import json
+import os
 from typing import List, Dict, Optional
 
 class OllamaLLMInterface:
     """Interface for Ollama-hosted models"""
     
-    def __init__(self, ollama_endpoint: str = "http://localhost:11434", model_name: str = "your-model-name"):
-        self.ollama_endpoint = ollama_endpoint
-        self.model_name = model_name
+    def __init__(self, ollama_endpoint: str = None, model_name: str = None):
+        self.ollama_endpoint = ollama_endpoint or f"http://{os.getenv('OLLAMA_HOST', 'localhost:11434')}"
+        self.model_name = model_name or os.getenv('OLLAMA_MODEL', 'gpt-oss:20b')
     
     def generate_content(self, prompt: str, temperature: float = 0.3, max_tokens: int = 1024) -> str:
         """
@@ -53,9 +54,9 @@ class OllamaLLMInterface:
 class OllamaEmbeddings:
     """Ollama embedding interface"""
     
-    def __init__(self, ollama_endpoint: str = "http://localhost:11434", embedding_model: str = "nomic-embed-text"):
-        self.ollama_endpoint = ollama_endpoint
-        self.embedding_model = embedding_model
+    def __init__(self, ollama_endpoint: str = None, embedding_model: str = None):
+        self.ollama_endpoint = ollama_endpoint or f"http://{os.getenv('OLLAMA_HOST', 'localhost:11434')}"
+        self.embedding_model = embedding_model or os.getenv('OLLAMA_EMBEDDING_MODEL', 'nomic-embed-text')
     
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
         """Embed multiple documents using Ollama"""
