@@ -119,6 +119,10 @@ def clean_session(s):
 async def root():
     return {"message": "AgriChat backend is running."}
 
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "message": "AgriChat backend is running."}
+
 @app.options("/{full_path:path}")
 async def options_handler(request: Request):
     return JSONResponse(
