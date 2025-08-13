@@ -19,7 +19,7 @@ rag_tool = RAGTool(chroma_path=chroma_path, gemini_api_key=gemini_api_key)
 from crewai import LLM, Agent
 # Use local LLM instead of external API
 llm = LLM(
-    model=f"ollama/{os.getenv('OLLAMA_MODEL', 'gemma3:1b')}",
+    model=f"ollama/{os.getenv('OLLAMA_MODEL', 'llama3.1:8b-instruct-q4_K_M')}",
     base_url=f"http://{os.getenv('OLLAMA_HOST', 'localhost:11434')}",
     api_key="not-needed",
     temperature=0.0
@@ -46,18 +46,19 @@ Retriever_Agent = Agent(
     tools=[rag_tool, fallback_tool],
 )
 
-def retriever_response(question: str, conversation_history: Optional[List[Dict]] = None) -> str:
+def retriever_response(question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None) -> str:
     """
-    Process question with optional conversation context for follow-up queries
+    Process question with optional conversation context and user state for follow-up queries
     
     Args:
         question: Current user question
         conversation_history: List of previous Q&A pairs for context-aware responses
+        user_state: User's state/region detected from frontend
         
     Returns:
         Generated response
     """
-    rag_response = rag_tool._run(question, conversation_history)
+    rag_response = rag_tool._run(question, conversation_history, user_state)
     if rag_response == "__FALLBACK__":
         return fallback_tool._run(question)
     return rag_response

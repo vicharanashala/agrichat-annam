@@ -13,7 +13,7 @@ class OllamaLLMInterface:
     
     def __init__(self, ollama_endpoint: str = None, model_name: str = None):
         self.ollama_endpoint = ollama_endpoint or f"http://{os.getenv('OLLAMA_HOST', 'localhost:11434')}"
-        self.model_name = model_name or os.getenv('OLLAMA_MODEL', 'gemma3:1b')
+        self.model_name = model_name or os.getenv('OLLAMA_MODEL', 'llama3.1:8b-instruct-q4_K_M')
 
     def generate_content(self, prompt: str, temperature: float = 0.3, max_tokens: int = 1024) -> str:
         """
@@ -93,7 +93,7 @@ class OllamaEmbeddings:
             return [0.0] * 768
 
 
-local_llm = OllamaLLMInterface(model_name="gemma3:1b")
+local_llm = OllamaLLMInterface(model_name="llama3.1:8b-instruct-q4_K_M")
 local_embeddings = OllamaEmbeddings(embedding_model="nomic-embed-text")
 
 def run_local_llm(prompt: str, temperature: float = 0.3, max_tokens: int = 1024) -> str:

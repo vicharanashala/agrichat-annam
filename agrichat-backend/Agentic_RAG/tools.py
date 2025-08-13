@@ -39,25 +39,27 @@ class RAGTool(BaseTool):
         )
         self._handler = ChromaQueryHandler(chroma_path, gemini_api_key)
 
-    def _run(self, question: str, conversation_history: Optional[List[Dict]] = None) -> str:
+    def _run(self, question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None) -> str:
         """
-        Run RAG tool with optional conversation history for context-aware responses
+        Run RAG tool with optional conversation history and user state
         
         Args:
             question: Current user question
             conversation_history: List of previous Q&A pairs for context
+            user_state: User's state/region detected from frontend
             
         Returns:
             Generated response with appropriate source attribution
         """
-        answer = self._handler.get_answer(question, conversation_history)
+        answer = self._handler.get_answer(question, conversation_history, user_state)
         if answer.strip() == "I don't have enough information to answer that.":
             return "__FALLBACK__"
         
         if answer.startswith("__NO_SOURCE__"):
             return answer.replace("__NO_SOURCE__", "")
         
-        return "Source: RAG Database\n\n" + answer
+        # Remove metadata exposure - don't show "Source: RAG Database" to users
+        return answer
     
     def run_with_context(self, question: str, conversation_history: List[Dict]) -> str:
         """

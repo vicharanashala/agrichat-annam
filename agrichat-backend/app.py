@@ -36,7 +36,7 @@ chroma_db_path = os.path.join(current_dir, "Agentic_RAG", "chromaDb")
 logger.info(f"[DEBUG] ChromaDB path: {chroma_db_path}")
 logger.info(f"[DEBUG] ChromaDB path exists: {os.path.exists(chroma_db_path)}")
 
-def get_answer(question: str, conversation_history: Optional[List[Dict]] = None) -> str:
+def get_answer(question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None) -> str:
     """
     Use the same logic as main.py - direct retriever_response function:
     1. Try RAG tool first with optional conversation context
@@ -45,13 +45,16 @@ def get_answer(question: str, conversation_history: Optional[List[Dict]] = None)
     Args:
         question: Current user question
         conversation_history: List of previous Q&A pairs for context
+        user_state: User's state/region detected from frontend location
     """
     logger.info(f"[DEBUG] Processing question with retriever_response approach: {question}")
     if conversation_history:
         logger.info(f"[DEBUG] Using conversation context with {len(conversation_history)} previous interactions")
+    if user_state:
+        logger.info(f"[DEBUG] Using frontend-detected state: {user_state}")
     
     try:
-        response = retriever_response(question, conversation_history)
+        response = retriever_response(question, conversation_history, user_state)
         logger.info(f"[DEBUG] Retriever response: {response}")
         return response
             
@@ -152,8 +155,8 @@ async def list_sessions(request: Request):
 async def new_session(question: str = Form(...), device_id: str = Form(...), state: str = Form(...), language: str = Form(...)):
     session_id = str(uuid4())
     try:
-        # No conversation history for new sessions
-        raw_answer = get_answer(question, conversation_history=None)
+        # No conversation history for new sessions, but pass the detected state
+        raw_answer = get_answer(question, conversation_history=None, user_state=state)
         logger.info(f"[DEBUG] Raw answer: {raw_answer}")
         logger.info(f"[DEBUG] Raw answer type: {type(raw_answer)}")
         
@@ -216,7 +219,9 @@ async def continue_session(session_id: str, question: str = Form(...), device_id
         
         logger.info(f"[DEBUG] Using conversation context: {len(conversation_history)} previous interactions")
         
-        raw_answer = get_answer(question, conversation_history=conversation_history)
+        # Use the state from the current request or fall back to session state
+        current_state = state or session.get("state", "unknown")
+        raw_answer = get_answer(question, conversation_history=conversation_history, user_state=current_state)
     except Exception as e:
         logger.error(f"[DEBUG] Error in get_answer: {e}")
         return JSONResponse(status_code=500, content={"error": "LLM processing failed."})
