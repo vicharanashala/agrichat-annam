@@ -294,10 +294,9 @@ Generate a polite, respectful message to inform the user that you can only answe
             processing_query = question
             context_used = False
             
-            # Debug: Log conversation history details
             if conversation_history:
                 logger.info(f"[Context DEBUG] Received conversation history with {len(conversation_history)} entries")
-                for i, entry in enumerate(conversation_history[-2:]):  # Log last 2 entries
+                for i, entry in enumerate(conversation_history[-2:]):
                     logger.info(f"[Context DEBUG] Entry {i}: Q='{entry.get('question', '')[:50]}...', A='{entry.get('answer', '')[:50]}...'")
                 
                 should_use_context = self.context_manager.should_use_context(question, conversation_history)
