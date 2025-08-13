@@ -52,11 +52,16 @@ class ConversationContext:
         
         current_lower = current_query.lower().strip()
         
+        # Debug: Log the current query being analyzed
+        print(f"[Context DEBUG] Analyzing query for follow-up patterns: '{current_lower}'")
+        
         for pattern in followup_patterns:
             if re.search(pattern, current_lower):
+                print(f"[Context DEBUG] Matched follow-up pattern: {pattern}")
                 return True
         
         if len(current_lower.split()) <= 4 and re.search(r'\b(it|this|that|them|they)\b', current_lower):
+            print(f"[Context DEBUG] Matched short pronoun query")
             return True
                 
         if len(previous_messages) > 0:
@@ -68,9 +73,16 @@ class ConversationContext:
             last_words = set(re.findall(r'\b\w{4,}\b', last_question + ' ' + last_answer))
             
             overlap = current_words.intersection(last_words)
-            if len(overlap) >= 2 or len(overlap) / max(len(current_words), 1) > 0.3:
+            overlap_ratio = len(overlap) / max(len(current_words), 1)
+            
+            print(f"[Context DEBUG] Word overlap: {len(overlap)} words, ratio: {overlap_ratio:.2f}")
+            print(f"[Context DEBUG] Overlapping words: {overlap}")
+            
+            if len(overlap) >= 2 or overlap_ratio > 0.3:
+                print(f"[Context DEBUG] Matched word overlap criteria")
                 return True
                 
+        print(f"[Context DEBUG] No follow-up patterns detected")
         return False
     
     def _extract_key_context(self, messages: List[Dict]) -> str:
