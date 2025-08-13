@@ -31,13 +31,19 @@ Response:
 """
 
     CLASSIFIER_PROMPT = """
-Classify this query into one category:
+You are an intelligent agricultural advisor. Classify this query into one category based on intent and context:
 
-AGRICULTURE - for farming, crops, soil, fertilizers, pests, diseases, irrigation, harvest, seeds, plants
-GREETING - for hello, hi, namaste, good morning, how are you
-NON_AGRI - for everything else
+AGRICULTURE - Any question about farming, crops, cultivation, soil, fertilizers, pests, diseases, irrigation, harvest, seeds, planting, agricultural practices, farm equipment, livestock, or anything related to agriculture and farming
 
-Query: {question}
+GREETING - Simple greetings like hello, hi, namaste, good morning, how are you (without agricultural content)
+
+NON_AGRI - Everything else (politics, sports, entertainment, general knowledge not related to farming)
+
+Important: Consider the full context and intent. Questions like "Can I grow rice in Punjab?" or "Help me with farming" should be AGRICULTURE even if they don't contain obvious keywords.
+
+Query: "{question}"
+
+Classification:
 
 Category:
 """
@@ -126,6 +132,11 @@ Speak directly to them, not about what to say to someone else. Do not provide in
                 "greeting": "You can use Hindi phrases like 'Namaste' if appropriate.",
                 "context": "Uttar Pradesh is India's largest agricultural state producing wheat, rice, sugarcane, and various other crops across diverse agro-climatic zones.",
                 "crops": ["wheat", "rice", "sugarcane", "potato", "peas", "mustard"]
+            },
+            "Punjab": {
+                "greeting": "You can use Punjabi phrases like 'Sat Sri Akal' or Hindi 'Namaste' if appropriate.",
+                "context": "Punjab is known as the 'Granary of India' and 'Land of Five Rivers', famous for wheat and rice cultivation. The state has excellent irrigation infrastructure and is a major contributor to India's food grain production.",
+                "crops": ["wheat", "rice", "cotton", "maize", "sugarcane", "potato"]
             }
         }
         
@@ -354,44 +365,37 @@ You are a knowledgeable agricultural advisor who understands the challenges Indi
 """
         return full_prompt
 
-    def classify_query(self, question: str) -> str:
-        """Enhanced classifier with keyword-based fallback"""
+    def classify_query(self, question: str, conversation_history: Optional[List[Dict]] = None) -> str:
+        """Enhanced classifier that uses LLM intelligence with conversation context"""
         
-        # First, try keyword-based classification for better accuracy
-        question_lower = question.lower()
+        question_lower = question.lower().strip()
         
-        # Agricultural keywords
-        agri_keywords = {
-            'crop', 'crops', 'farming', 'farm', 'agriculture', 'cultivation', 'harvest', 
-            'seeds', 'seed', 'soil', 'fertilizer', 'fertilizers', 'pesticide', 'pesticides',
-            'irrigation', 'planting', 'sowing', 'yield', 'field', 'rice', 'wheat', 'corn', 
-            'maize', 'cotton', 'sugarcane', 'vegetables', 'fruits', 'organic', 'disease', 
-            'diseases', 'pest', 'pests', 'insect', 'insects', 'weed', 'weeds', 'water',
-            'rain', 'drought', 'season', 'growth', 'production', 'farmer', 'agricultural',
-            'land', 'machinery', 'equipment', 'plant', 'plants', 'groundnut', 'coconut',
-            'rubber', 'spices', 'turmeric', 'chili', 'onion', 'potato', 'tomato'
-        }
-        
-        # Greeting keywords
-        greeting_keywords = {
-            'hello', 'hi', 'hey', 'namaste', 'namaskar', 'namaskaram', 'vanakkam',
-            'good morning', 'good afternoon', 'good evening', 'how are you',
-            'nice to meet you', 'greetings', 'salaam', 'adaab'
-        }
-        
-        # Check for agricultural content
-        agri_found = any(keyword in question_lower for keyword in agri_keywords)
-        greeting_found = any(keyword in question_lower for keyword in greeting_keywords)
-        
-        # If we find agricultural keywords, classify as agriculture regardless of other content
-        if agri_found:
-            return "AGRICULTURE"
-        
-        # If it's clearly a greeting without agricultural content
-        if greeting_found and not agri_found:
+        # Handle obvious simple greetings first (single words/phrases)
+        simple_greetings = {'hello', 'hi', 'hey', 'namaste', 'namaskar', 'namaskaram', 'vanakkam', 'good morning', 'good afternoon', 'good evening'}
+        if question_lower in simple_greetings:
             return "GREETING"
         
-        # Fallback to LLM classification for unclear cases
+        # Check conversation context for follow-up questions
+        if conversation_history and len(conversation_history) > 0:
+            # Check if this looks like a follow-up question
+            follow_up_indicators = ['yes', 'please help', 'tell me more', 'what about', 'i want to know', 'help me']
+            is_follow_up = any(indicator in question_lower for indicator in follow_up_indicators)
+            
+            if is_follow_up:
+                # Check if the previous question was agricultural
+                last_interaction = conversation_history[-1]
+                if last_interaction and 'question' in last_interaction:
+                    prev_question = last_interaction['question'].lower()
+                    # Use LLM to classify the previous question
+                    prev_classification = self._classify_with_llm(prev_question)
+                    if prev_classification == "AGRICULTURE":
+                        return "AGRICULTURE"
+        
+        # Use LLM for intelligent classification
+        return self._classify_with_llm(question)
+    
+    def _classify_with_llm(self, question: str) -> str:
+        """Use LLM for intelligent classification"""
         prompt = self.CLASSIFIER_PROMPT.format(question=question)
         try:
             response_text = self.local_llm.generate_content(
@@ -400,14 +404,25 @@ You are a knowledgeable agricultural advisor who understands the challenges Indi
                 max_tokens=20
             )
             category = response_text.strip().upper()
-            if category in {"AGRICULTURE", "GREETING", "NON_AGRI"}:
+            
+            # Validate response
+            valid_categories = {"AGRICULTURE", "GREETING", "NON_AGRI"}
+            if category in valid_categories:
                 return category
+            
+            # If LLM returned something else, try to parse it
+            if "AGRICULTURE" in response_text.upper():
+                return "AGRICULTURE"
+            elif "GREETING" in response_text.upper():
+                return "GREETING"
             else:
                 return "NON_AGRI"
+                
         except Exception as e:
             logger.error(f"[Classifier Error] {e}")
-            # Final fallback - if we detected some agricultural terms, go with agriculture
-            if any(word in question_lower for word in ['crop', 'farm', 'plant', 'soil', 'seed']):
+            # Fallback: Basic keyword detection
+            agri_keywords = ['crop', 'farm', 'plant', 'soil', 'seed', 'grow', 'cultivation', 'rice', 'wheat', 'fertilizer']
+            if any(word in question.lower() for word in agri_keywords):
                 return "AGRICULTURE"
             return "NON_AGRI"
 
@@ -454,8 +469,8 @@ You are a knowledgeable agricultural advisor who understands the challenges Indi
                     processing_query = self.context_manager.build_contextual_query(question, conversation_history)
                     context_used = True
             
-            # Step 2: Classify the question
-            category = self.classify_query(question)
+            # Step 2: Classify the question (now with conversation context)
+            category = self.classify_query(question, conversation_history)
             
             # Step 3: Detect region - prioritize frontend state over question parsing
             region_data = self.get_region_context(question, user_state)
