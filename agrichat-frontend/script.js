@@ -172,7 +172,15 @@ async function toggleSessionStatus(session_id, currentStatus) {
     document.getElementById("exportBtn").style.display = "none";
     document.getElementById("startScreen").style.display = "block";
   } else {
-    const resp = await fetch(`${API_BASE}/session/${session_id}`);
+    const headers = {};
+    // Add ngrok bypass header if using ngrok
+    if (API_BASE.includes('ngrok')) {
+      headers["ngrok-skip-browser-warning"] = "true";
+    }
+
+    const resp = await fetch(`${API_BASE}/session/${session_id}`, {
+      headers: headers
+    });
     const { session } = await resp.json();
     currentSession = session;
     document.getElementById("viewToggleText").textContent = "Active";
@@ -186,8 +194,16 @@ async function toggleSessionStatus(session_id, currentStatus) {
 async function deleteSession(session_id) {
   const confirmed = confirm("Are you sure you want to delete this session?");
   if (!confirmed) return;
+
+  const headers = {};
+  // Add ngrok bypass header if using ngrok
+  if (API_BASE.includes('ngrok')) {
+    headers["ngrok-skip-browser-warning"] = "true";
+  }
+
   await fetch(`${API_BASE}/delete-session/${session_id}`, {
-    method: "DELETE"
+    method: "DELETE",
+    headers: headers
   });
   if (currentSession?.session_id === session_id) {
     currentSession = null;
@@ -207,8 +223,15 @@ async function rateAnswer(index, rating, btn) {
   formData.append("question_index", index);
   formData.append("rating", rating);
 
+  const headers = {};
+  // Add ngrok bypass header if using ngrok
+  if (API_BASE.includes('ngrok')) {
+    headers["ngrok-skip-browser-warning"] = "true";
+  }
+
   await fetch(`${API_BASE}/session/${currentSession.session_id}/rate`, {
     method: "POST",
+    headers: headers,
     body: formData,
   });
 
@@ -401,9 +424,16 @@ window.addEventListener("DOMContentLoaded", () => {
     formData.append("state", state);
     formData.append("language", lang);
 
+    const headers = {};
+    // Add ngrok bypass header if using ngrok
+    if (API_BASE.includes('ngrok')) {
+      headers["ngrok-skip-browser-warning"] = "true";
+    }
+
     showLoader();
     const res = await fetch(`${API_BASE}/query`, {
       method: "POST",
+      headers: headers,
       body: formData,
     });
 
@@ -430,9 +460,16 @@ window.addEventListener("DOMContentLoaded", () => {
     formData.append("device_id", deviceId);
     formData.append("state", localStorage.getItem("agrichat_user_state") || "");
 
+    const headers = {};
+    // Add ngrok bypass header if using ngrok
+    if (API_BASE.includes('ngrok')) {
+      headers["ngrok-skip-browser-warning"] = "true";
+    }
+
     showLoader();
     const res = await fetch(`${API_BASE}/session/${currentSession.session_id}/query`, {
       method: "POST",
+      headers: headers,
       body: formData,
     });
     const data = await res.json();
@@ -592,7 +629,7 @@ async function handleVoiceInput(targetTextarea) {
 
 async function startRecording(targetTextarea) {
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ 
+    const stream = await navigator.mediaDevices.getUserMedia({
       audio: {
         sampleRate: 16000,
         channelCount: 1,
@@ -618,7 +655,7 @@ async function startRecording(targetTextarea) {
 
     mediaRecorder.onstop = async () => {
       isRecording = false;
-      updateVoiceButtonState(false, true); 
+      updateVoiceButtonState(false, true);
       stream.getTracks().forEach(track => track.stop());
 
       try {
@@ -677,8 +714,15 @@ async function transcribeAudio(audioBlob) {
   const formData = new FormData();
   formData.append('file', audioBlob, 'recording.webm');
 
+  const headers = {};
+  // Add ngrok bypass header if using ngrok
+  if (API_BASE.includes('ngrok')) {
+    headers["ngrok-skip-browser-warning"] = "true";
+  }
+
   const response = await fetch(`${API_BASE}/transcribe-audio`, {
     method: 'POST',
+    headers: headers,
     body: formData
   });
 
