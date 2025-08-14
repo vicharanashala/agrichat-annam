@@ -117,9 +117,8 @@ Respond as if you are talking directly to the user, not giving advice on what to
             max_context_tokens=800
         )
         
-        # Database-first thresholds
-        self.min_cosine_threshold = 0.15  # Lowered threshold for better database matches
-        self.good_match_threshold = 0.4   # Threshold for confident database responses
+        self.min_cosine_threshold = 0.15 
+        self.good_match_threshold = 0.4
         
         col = self.db._collection.get()["metadatas"]
         self.meta_index = {
@@ -313,23 +312,18 @@ Respond as if you are talking directly to the user, not giving advice on what to
         
         best_score = max(scores) if scores else 0
         
-        # Check if we have a good match
         if best_score >= self.good_match_threshold:
             return 'GOOD_MATCH'
         
-        # Check if we have any reasonable match
         if best_score >= self.min_cosine_threshold:
-            # Additional quality checks
             best_doc = docs[0]
             content = best_doc.page_content.lower()
             question_lower = question.lower()
             
-            # Check for keyword overlap
             question_words = set(question_lower.split())
             content_words = set(content.split())
             overlap_ratio = len(question_words.intersection(content_words)) / len(question_words)
             
-            # Check for agricultural relevance
             agri_keywords = {'crop', 'plant', 'disease', 'pest', 'fertilizer', 'soil', 'seed', 'farming', 'agriculture', 'harvest'}
             question_agri = question_words.intersection(agri_keywords)
             content_agri = content_words.intersection(agri_keywords)
@@ -349,12 +343,11 @@ Respond as if you are talking directly to the user, not giving advice on what to
         for doc, original_score in results:
             content = doc.page_content.strip()
             
-            # Skip obviously low-quality content
             if (content.lower().count('others') > 3 or 
                 'Question: Others' in content or 
                 'Answer: Others' in content or
                 content.count('Others') > 5 or
-                len(content.strip()) < 20):  # Skip very short content
+                len(content.strip()) < 20):
                 continue
             
             d_emb = self.embedding_function.embed_query(content)
@@ -374,7 +367,6 @@ Respond as if you are talking directly to the user, not giving advice on what to
         
         scored.sort(key=lambda x: x[1], reverse=True)
         
-        # Use lowered threshold for database-first approach
         return [doc for doc, combined_score, cosine_score, orig_score in scored[:top_k] 
                 if doc.page_content.strip() and combined_score > self.min_cosine_threshold]
 
@@ -455,7 +447,6 @@ Respond as if you are talking directly to the user, not giving advice on what to
             
             if conversation_history:
                 logger.info(f"[Context DEBUG] Received conversation history with {len(conversation_history)} entries")
-                # Debug: Show the structure of conversation history
                 logger.info(f"[Context DEBUG] Conversation history structure: {type(conversation_history)}")
                 if len(conversation_history) > 0:
                     logger.info(f"[Context DEBUG] First entry structure: {type(conversation_history[0])}")
@@ -479,14 +470,11 @@ Respond as if you are talking directly to the user, not giving advice on what to
             else:
                 logger.info(f"[DEBUG] No conversation history available")
             
-            # Step 2: Classify the question (with conversation context)
             category = self.classify_query(question, conversation_history)
             
-            # Step 3: Detect region - prioritize frontend state over question parsing
             region_data = self.get_region_context(question, user_state)
             detected_region = region_data["region"]
             
-            # Handle non-agricultural questions immediately
             category = self.classify_query(question)
             
             if category == "GREETING":
