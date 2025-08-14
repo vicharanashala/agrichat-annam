@@ -389,63 +389,171 @@ Respond as if you are talking directly to the user, not giving advice on what to
 
     def get_answer(self, question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None) -> str:
         """
-        FIXED VERSION - Get answer with optional conversation context and user location
+        Get answer with optional conversation context for follow-up queries
         
         Args:
             question: Current user question
             conversation_history: List of previous Q&A pairs for context
-            user_state: User's state/region detected from frontend location
+            user_state: User's state/region for regional context
+            
+        Returns:
+            Generated response
         """
         try:
             processing_query = question
             context_used = False
             
             if conversation_history:
+                logger.info(f"[Context DEBUG] Received conversation history with {len(conversation_history)} entries")
+                # Debug: Show the structure of conversation history
+                logger.info(f"[Context DEBUG] Conversation history structure: {type(conversation_history)}")
+                if len(conversation_history) > 0:
+                    logger.info(f"[Context DEBUG] First entry structure: {type(conversation_history[0])}")
+                    logger.info(f"[Context DEBUG] First entry keys: {list(conversation_history[0].keys()) if isinstance(conversation_history[0], dict) else 'Not a dict'}")
+                
+                for i, entry in enumerate(conversation_history[-2:]):
+                    logger.info(f"[Context DEBUG] Entry {i}: Q='{entry.get('question', '')[:50]}...', A='{entry.get('answer', '')[:50]}...'")
+                
                 should_use_context = self.context_manager.should_use_context(question, conversation_history)
+                logger.info(f"[Context DEBUG] Should use context for '{question[:50]}...': {should_use_context}")
+                
                 if should_use_context:
                     processing_query = self.context_manager.build_contextual_query(question, conversation_history)
                     context_used = True
+                    logger.info(f"[Context] Using context for follow-up query. Original: {question[:100]}...")
+                    logger.info(f"[Context DEBUG] Enhanced query: {processing_query[:200]}...")
+                else:
+                    logger.info(f"[Context DEBUG] Not using context - treating as standalone query")
+            else:
+                logger.info(f"[Context DEBUG] No conversation history provided")
             
-            category = self.classify_query(question, conversation_history)
-            
-            region_data = self.get_region_context(question, user_state)
-            detected_region = region_data["region"]
+            category = self.classify_query(question)
             
             if category == "GREETING":
-                response = self.generate_dynamic_response(question, mode="GREETING", region=detected_region)
+                response = self.generate_dynamic_response(question, mode="GREETING")
                 return f"__NO_SOURCE__{response}"
             
             if category == "NON_AGRI":
-                response = self.generate_dynamic_response(question, mode="NON_AGRI", region=detected_region)
+                response = self.generate_dynamic_response(question, mode="NON_AGRI")
                 return f"__NO_SOURCE__{response}"
-            
-            raw_results = self.db.similarity_search_with_score(processing_query, k=15, filter=None)
+
+            try:
+                expanded_queries = self.expand_query(processing_query)
+                all_results = []
+                seen_content = set()
+                
+                for query_variant in expanded_queries:
+                    try:
+                        metadata_filter = self._create_metadata_filter(query_variant)
+                        variant_results = self.db.similarity_search_with_score(query_variant, k=10, filter=metadata_filter)
+                        
+                        if len(variant_results) < 3:
+                            variant_results_no_filter = self.db.similarity_search_with_score(query_variant, k=15, filter=None)
+                            variant_results.extend(variant_results_no_filter)
+                        
+                        for doc, score in variant_results:
+                            if doc.page_content not in seen_content:
+                                all_results.append((doc, score))
+                                seen_content.add(doc.page_content)
+                    
+                    except Exception as variant_error:
+                        logger.warning(f"[RAG] Error with query variant '{query_variant}': {variant_error}")
+                        continue
+                
+                raw_results = all_results[:25]
+                
+                if not raw_results:
+                    logger.warning(f"[RAG] No results from expanded queries, falling back to original query")
+                    raw_results = self.db.similarity_search_with_score(processing_query, k=15, filter=None)
+                    
+            except Exception as filter_error:
+                logger.warning(f"[ChromaDB Error] {filter_error}. Using fallback search.")
+                raw_results = self.db.similarity_search_with_score(processing_query, k=15, filter=None)
+                
             relevant_docs = self.rerank_documents(processing_query, raw_results)
-            
-            if relevant_docs and len(relevant_docs) > 0:
+            print(f"[DEBUG] After rerank: {len(relevant_docs) if relevant_docs else 0} documents")
+
+            if relevant_docs and relevant_docs[0].page_content.strip():
+                print(f"[DEBUG] First document content length: {len(relevant_docs[0].page_content.strip())}")
                 content = relevant_docs[0].page_content.strip()
                 
                 if (content.lower().count('others') > 3 or 
                     'Question: Others' in content or 
                     'Answer: Others' in content or
                     len(content) < 50):
-                    return "I don't have enough information to answer that."
+                    
+                    print(f"[DEBUG] Content failed Others filter")
+                    if context_used:
+                        logger.info(f"[Context] No good RAG content found, but providing contextual response")
+                        return "I understand you're asking about the topic we were discussing, but I don't have specific information in my database to provide a detailed answer. Could you please be more specific about what you'd like to know?"
+                    else:
+                        logger.info(f"[RAG] No useful content found, checking classification")
+                        relevant_docs = [] 
+                        print(f"[DEBUG] Set relevant_docs to empty due to Others filter")
+                else:
+                    print(f"[DEBUG] Content passed Others filter")
                 
-                final_question = question if context_used else processing_query
-                prompt = self.construct_structured_prompt(content, final_question, user_state)
-                
-                generated_response = self.local_llm.generate_content(
-                    prompt=prompt,
-                    temperature=0.3,
-                    max_tokens=1024
-                )
-                
-                return generated_response
+                if relevant_docs:  
+                    print(f"[DEBUG] relevant_docs has {len(relevant_docs)} documents")
+                    similarity_score = None
+                    for doc, score in raw_results:
+                        if doc.page_content.strip() == content:
+                            similarity_score = score
+                            break
+                    print(f"[DEBUG] similarity_score: {similarity_score}")
+                    
+                    if context_used:
+                        should_use_rag = True
+                        logger.info(f"[Context] Using RAG content for contextual query (score: {similarity_score})")
+                        print(f"[DEBUG] Context path - should_use_rag: {should_use_rag}")
+                    else:
+                        score_threshold = 1.1  
+                        should_use_rag = similarity_score is None or similarity_score <= score_threshold
+                        print(f"[DEBUG] Normal path - should_use_rag: {should_use_rag}")
+                    
+                    if should_use_rag:
+                        print(f"[DEBUG] Generating RAG response...")
+                        final_question = question if context_used else processing_query
+                        prompt = self.construct_structured_prompt(content, final_question, user_state)
+                        
+                        generated_response = self.local_llm.generate_content(
+                            prompt=prompt,
+                            temperature=0.3,
+                            max_tokens=1024
+                        )
+                        
+                        print(f"[DEBUG] Generated response length: {len(generated_response)}")
+                        
+                        if context_used:
+                            logger.info(f"[Context] Response generated with conversation context")
+                        else:
+                            logger.info(f"[RAG] Response generated from RAG database (score: {similarity_score})")
+                            
+                        return generated_response
+                    else:
+                        print(f"[DEBUG] should_use_rag is False, not generating RAG response")
+                else:
+                    print(f"[DEBUG] relevant_docs is empty or falsy")
+            
+            if context_used:
+                if relevant_docs and relevant_docs[0].page_content.strip():
+                    context = relevant_docs[0].page_content
+                    final_question = question
+                    prompt = self.construct_structured_prompt(context, final_question, user_state)
+                    
+                    generated_response = self.local_llm.generate_content(
+                        prompt=prompt,
+                        temperature=0.3,
+                        max_tokens=1024
+                    )
+                    
+                    logger.info(f"[Context] Used marginal RAG content for contextual query")
+                    return generated_response
             
             return "I don't have enough information to answer that."
             
         except Exception as e:
-            logger.error(f"[Error in get_answer] {e}")
+            logger.error(f"[Error] {e}")
             return "I don't have enough information to answer that."
 
     def get_context_summary(self, conversation_history: List[Dict]) -> Optional[str]:

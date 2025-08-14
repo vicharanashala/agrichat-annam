@@ -34,6 +34,7 @@ class ConversationContext:
         Determine if current query is a follow-up based on linguistic patterns
         """
         if not previous_messages:
+            print(f"[Context DEBUG] No previous messages, not a follow-up")
             return False
             
         followup_patterns = [
@@ -48,6 +49,8 @@ class ConversationContext:
             r'\b(more about|tell me more|can you explain|explain more)\b',
             r'\b(what else|anything else|other|another)\b',
             r'^\s*(why|how|when|where|who)\b.*\?',
+            r'\b(yes|ok|okay|sure|please)\b.*\b(help|tell|explain|more)\b',
+            r'^\s*(yes|ok|okay|sure|please)\s*$',
         ]
         
         current_lower = current_query.lower().strip()
@@ -193,3 +196,19 @@ Please provide a response considering the above conversation context, giving mor
             return f"Recent topics: {', '.join(set(recent_topics))}"
         else:
             return f"Last {len(conversation_history)} interactions"
+
+    def test_context_detection(self, current_query: str, conversation_history: List[Dict]) -> Dict:
+        """
+        Test method to check context detection - useful for debugging
+        """
+        result = {
+            "query": current_query,
+            "should_use_context": self.should_use_context(current_query, conversation_history),
+            "is_followup": self._is_followup_query(current_query, conversation_history[-3:] if conversation_history else []),
+            "context_summary": self.get_context_summary(conversation_history)
+        }
+        
+        if self.should_use_context(current_query, conversation_history):
+            result["enhanced_query"] = self.build_contextual_query(current_query, conversation_history)
+        
+        return result
