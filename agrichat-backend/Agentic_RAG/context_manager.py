@@ -52,7 +52,6 @@ class ConversationContext:
         
         current_lower = current_query.lower().strip()
         
-        # Debug: Log the current query being analyzed
         print(f"[Context DEBUG] Analyzing query for follow-up patterns: '{current_lower}'")
         
         for pattern in followup_patterns:

@@ -5,8 +5,7 @@ from crewai import LLM, Agent
 from typing import List, Dict, Optional
 load_dotenv()
 
-# Remove dependency on external APIs
-gemini_api_key = None  # Not needed for local LLM
+gemini_api_key = None  
 
 import os
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -17,7 +16,6 @@ print(f"[DEBUG] ChromaDB path exists: {os.path.exists(chroma_path)}")
 rag_tool = RAGTool(chroma_path=chroma_path, gemini_api_key=gemini_api_key)
 
 from crewai import LLM, Agent
-# Use local LLM instead of external API
 llm = LLM(
     model=f"ollama/{os.getenv('OLLAMA_MODEL', 'llama3.1:8b-instruct-q4_K_M')}",
     base_url=f"http://{os.getenv('OLLAMA_HOST', 'localhost:11434')}",

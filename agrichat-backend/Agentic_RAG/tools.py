@@ -24,7 +24,7 @@ def log_fallback_to_csv(question: str, answer: str, csv_file: str = "fallback_qu
 
 
 class FireCrawlWebSearchTool(BaseTool):
-    pass  # FireCrawlWebSearchTool is deprecated/removed
+    pass
 
 
 class RAGTool(BaseTool):
@@ -58,7 +58,6 @@ class RAGTool(BaseTool):
         if answer.startswith("__NO_SOURCE__"):
             return answer.replace("__NO_SOURCE__", "")
         
-        # Remove metadata exposure - don't show "Source: RAG Database" to users
         return answer
     
     def run_with_context(self, question: str, conversation_history: List[Dict]) -> str:
