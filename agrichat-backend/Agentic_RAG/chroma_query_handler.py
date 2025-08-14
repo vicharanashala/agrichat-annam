@@ -85,13 +85,25 @@ Respond with only one of these words: AGRICULTURE, GREETING, or NON_AGRI.
 """
 
     GREETING_RESPONSE_PROMPT = """
-User greeting: "{question}"
+You are a friendly agricultural assistant. The user has greeted you with: "{question}"
 
-Respond with ONLY this format:
+Respond appropriately to their greeting in a warm and natural way, then invite them to ask agricultural questions. 
 
- Welcome! What farming question can I help you with today?
+Guidelines:
+- If they said "Hi" or "Hello", respond with a similar greeting
+- If they said "Good morning/afternoon/evening", acknowledge the time appropriately  
+- If they used regional greetings like "Namaste", "Namaskaram", "Vanakkam", respond with the same
+- If they mentioned their name, acknowledge it politely
+- Always end by inviting them to ask farming or agricultural questions
+- Keep the response natural and conversational, not robotic
+- Don't use placeholder text or templates
 
-End response there. No additional sentences. No explanations.
+Examples:
+- User: "Hi" → Response: "Hi there! How can I help you with your farming questions today?"
+- User: "Good morning" → Response: "Good morning! I hope you're having a great day. What farming topic can I assist you with?"
+- User: "Namaste" → Response: "Namaste! Welcome. I'm here to help with any agricultural questions you might have."
+
+Now respond to: "{question}"
 """
 
     NON_AGRI_RESPONSE_PROMPT = """
