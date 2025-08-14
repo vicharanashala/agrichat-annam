@@ -487,8 +487,6 @@ Respond as if you are talking directly to the user, not giving advice on what to
             region_data = self.get_region_context(question, user_state)
             detected_region = region_data["region"]
             
-            category = self.classify_query(question)
-            
             if category == "GREETING":
                 response = self.generate_dynamic_response(question, mode="GREETING")
                 return f"__NO_SOURCE__{response}"
