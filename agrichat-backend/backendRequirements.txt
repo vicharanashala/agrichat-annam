@@ -8,7 +8,6 @@ langchain-community
 chromadb
 beautifulsoup4
 markdown
-openai-whisper
 torch
 torchaudio
 numpy
@@ -18,4 +17,4 @@ certifi
 pytz
 python-dateutil
 crewai
-firecrawl-py
+sarvamai

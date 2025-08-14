@@ -398,6 +398,9 @@ window.addEventListener("DOMContentLoaded", () => {
     //     //   return;
     //     // }
     //     localStorage.setItem("agrichat_user_state", state); 
+    // (NEW) After the audioBlob is ready...
+   const audioBlob = new Blob(audioChunks, { type: 'audio/webm' }); // or another appropriate MIME type
+
 
 
     console.log("Start form found:", document.getElementById("start-form"));
@@ -423,7 +426,7 @@ window.addEventListener("DOMContentLoaded", () => {
     formData.append("device_id", deviceId);
     formData.append("state", state);
     formData.append("language", lang);
-
+    formData.append("file", audioBlob, "recording.webm");
     const headers = {};
     // Add ngrok bypass header if using ngrok
     if (API_BASE.includes('ngrok')) {
