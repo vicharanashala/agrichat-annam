@@ -1,26 +1,21 @@
+from langchain_community.embeddings import OllamaEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_core.documents import Document
-from local_llm_interface import local_embeddings
 import pandas as pd
 import os
 import shutil
+import warnings
 
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    pass
-
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="langchain_community")
 
 class ChromaDBBuilder:
     def __init__(self, csv_path, persist_dir):
         self.csv_path = csv_path
         self.persist_dir = persist_dir
-        
-        # Use local embeddings instead of Google's API
-        self.embedding_function = local_embeddings
+        self.embedding_function = OllamaEmbeddings(
+            model="nomic-embed-text"
+        )
         self.documents = []
-        
 
     def load_csv_to_documents(self):
         df = pd.read_csv(self.csv_path)
@@ -35,6 +30,7 @@ class ChromaDBBuilder:
         "Year", "Month", "Day", "State", "District", 
         "Crop", "Season", "Sector", "Question", "Answer"
         ]
+        print(df.columns)
         for col in standard_columns:
             if col not in df.columns:
                 df[col] = "Others"
@@ -51,15 +47,17 @@ class ChromaDBBuilder:
                 "Sector":        row.get("Sector", "Others"),
             }
             meta_str = " | ".join(f"{k}: {v}" for k, v in metadata.items() if v)
+            question = row.get("Question", "Others")
+            answer = row.get("Answer", "Others")
             content = (
                 f"{meta_str}\n"
-                f"Question: {row['Question']}\n"
-                f"Answer: {row['Answer']}"
+                f"Question: {question}\n"
+                f"Answer: {answer}"
             )
             print(content)
             docs.append(Document(page_content=content, metadata=metadata))
         self.documents = docs
-        print(f"[INFO] Prepared {len(docs)} docs")
+        print(f"[INFO] Prepared {len(docs)} documents")
 
     def store_documents_to_chroma(self):
         if not self.documents:
@@ -74,19 +72,17 @@ class ChromaDBBuilder:
         print(f"[SUCCESS] Stored {len(self.documents)} agricultural Q/A pairs in ChromaDB at: {self.persist_dir}")
 
 if __name__ == "__main__":
-    csv_file = r"agrichat-annam/agrichat-backend/Agentic RAG/data/sample_data.csv"
-    storage_dir = r"agrichat-annam/agrichat-backend/Agentic RAG/chromaDb"
+    data_folder = r"data/embedded_data"
+    completed_folder = r"data/completed"
+    storage_dir = r"data/chromaDb"
+    os.makedirs(completed_folder, exist_ok=True)
 
-    try:
-        builder = ChromaDBBuilder(csv_path=csv_file, persist_dir=storage_dir)
-        print(f"[INFO] Processing {csv_file}")
-        builder.load_csv_to_documents()
-        builder.store_documents_to_chroma()
-    except ValueError as e:
-        print(f"[ERROR] {e}")
-        print("Please set your API key using one of these methods:")
-        print("1. Export in terminal: export GOOGLE_API_KEY='your-api-key-here'")
-        print("2. Create a .env file with: GOOGLE_API_KEY=your-api-key-here")
-        print("3. Set it in your shell profile (~/.zshrc or ~/.bashrc)")
-        exit(1)
-    
+    for filename in os.listdir(data_folder):
+        if filename.lower().endswith(".csv"):
+            csv_file = os.path.join(data_folder, filename)
+            builder = ChromaDBBuilder(csv_path=csv_file, persist_dir=storage_dir)
+            builder.load_csv_to_documents()
+            builder.store_documents_to_chroma()
+            shutil.move(csv_file, os.path.join(completed_folder, filename))
+            print(f"[INFO] Moved {filename} to {completed_folder}")
+
