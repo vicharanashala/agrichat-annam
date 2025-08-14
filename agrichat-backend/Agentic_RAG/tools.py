@@ -41,7 +41,7 @@ class RAGTool(BaseTool):
 
     def _run(self, question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None) -> str:
         """
-        Run RAG tool with optional conversation history and user state
+        Run RAG tool with improved fallback detection
         
         Args:
             question: Current user question
@@ -49,15 +49,23 @@ class RAGTool(BaseTool):
             user_state: User's state/region detected from frontend
             
         Returns:
-            Generated response with appropriate source attribution
+            Generated response with appropriate source attribution or __FALLBACK__ indicator
         """
         answer = self._handler.get_answer(question, conversation_history, user_state)
+        
+        # Check for fallback indicators from the new database-first approach
+        if answer.startswith("__FALLBACK__"):
+            # Log fallback for analysis
+            log_fallback_to_csv(question, "Database search failed - using LLM fallback", "fallback_queries.csv")
+            return "__FALLBACK__"
+        
         if answer.strip() == "I don't have enough information to answer that.":
             return "__FALLBACK__"
         
         if answer.startswith("__NO_SOURCE__"):
             return answer.replace("__NO_SOURCE__", "")
         
+        # For successful database responses, remove any metadata exposure
         return answer
     
     def run_with_context(self, question: str, conversation_history: List[Dict]) -> str:

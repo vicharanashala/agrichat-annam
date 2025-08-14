@@ -53,6 +53,7 @@ IMPORTANT INSTRUCTIONS:
 - Do NOT use placeholder text like [Your Name], [Your Region/Organization], [Company Name], or any text in square brackets
 - Do NOT introduce yourself with a name or organization 
 - Do NOT make assumptions about the user's specific farm, location details, or personal circumstances beyond the provided state
+- If this appears to be a follow-up question, acknowledge the previous context naturally
 - Provide direct, helpful advice without template language
 
 **If the context does not contain relevant information, reply exactly:**   
@@ -112,9 +113,13 @@ Respond as if you are talking directly to the user, not giving advice on what to
         )
         
         self.context_manager = ConversationContext(
-            max_context_pairs=3,
-            max_context_tokens=500
+            max_context_pairs=5,
+            max_context_tokens=800
         )
+        
+        # Database-first thresholds
+        self.min_cosine_threshold = 0.15  # Lowered threshold for better database matches
+        self.good_match_threshold = 0.4   # Threshold for confident database responses
         
         col = self.db._collection.get()["metadatas"]
         self.meta_index = {
@@ -298,8 +303,44 @@ Respond as if you are talking directly to the user, not giving advice on what to
     def cosine_sim(self, a, b):
         return np.dot(a, b) / (norm(a) * norm(b))
 
+    def evaluate_database_match_quality(self, question: str, docs: List, scores: List[float]) -> str:
+        """
+        Evaluate the quality of database matches and determine response strategy
+        Returns: 'GOOD_MATCH', 'WEAK_MATCH', or 'NO_MATCH'
+        """
+        if not docs or not scores:
+            return 'NO_MATCH'
+        
+        best_score = max(scores) if scores else 0
+        
+        # Check if we have a good match
+        if best_score >= self.good_match_threshold:
+            return 'GOOD_MATCH'
+        
+        # Check if we have any reasonable match
+        if best_score >= self.min_cosine_threshold:
+            # Additional quality checks
+            best_doc = docs[0]
+            content = best_doc.page_content.lower()
+            question_lower = question.lower()
+            
+            # Check for keyword overlap
+            question_words = set(question_lower.split())
+            content_words = set(content.split())
+            overlap_ratio = len(question_words.intersection(content_words)) / len(question_words)
+            
+            # Check for agricultural relevance
+            agri_keywords = {'crop', 'plant', 'disease', 'pest', 'fertilizer', 'soil', 'seed', 'farming', 'agriculture', 'harvest'}
+            question_agri = question_words.intersection(agri_keywords)
+            content_agri = content_words.intersection(agri_keywords)
+            
+            if overlap_ratio >= 0.2 or (question_agri and content_agri):
+                return 'WEAK_MATCH'
+        
+        return 'NO_MATCH'
+
     def rerank_documents(self, question: str, results, top_k: int = 5):
-        """Enhanced reranking with better similarity scoring and multiple strategies"""
+        """Enhanced reranking with better similarity scoring and lowered threshold for database-first approach"""
         query_embedding = self.embedding_function.embed_query(question)
         scored = []
         question_lower = question.lower()
@@ -308,10 +349,12 @@ Respond as if you are talking directly to the user, not giving advice on what to
         for doc, original_score in results:
             content = doc.page_content.strip()
             
+            # Skip obviously low-quality content
             if (content.lower().count('others') > 3 or 
                 'Question: Others' in content or 
                 'Answer: Others' in content or
-                content.count('Others') > 5):
+                content.count('Others') > 5 or
+                len(content.strip()) < 20):  # Skip very short content
                 continue
             
             d_emb = self.embedding_function.embed_query(content)
@@ -320,7 +363,7 @@ Respond as if you are talking directly to the user, not giving advice on what to
             content_words = set(content.lower().split())
             keyword_overlap = len(question_words.intersection(content_words)) / len(question_words) if question_words else 0
             
-            agri_terms = {'crop', 'plant', 'disease', 'pest', 'fertilizer', 'soil', 'water', 'harvest', 'seed', 'growth', 'yield'}
+            agri_terms = {'crop', 'plant', 'disease', 'pest', 'fertilizer', 'soil', 'water', 'harvest', 'seed', 'growth', 'yield', 'farming', 'agriculture'}
             question_agri_terms = question_words.intersection(agri_terms)
             content_agri_terms = content_words.intersection(agri_terms)
             agri_overlap = len(question_agri_terms.intersection(content_agri_terms)) / max(len(question_agri_terms), 1)
@@ -331,8 +374,9 @@ Respond as if you are talking directly to the user, not giving advice on what to
         
         scored.sort(key=lambda x: x[1], reverse=True)
         
+        # Use lowered threshold for database-first approach
         return [doc for doc, combined_score, cosine_score, orig_score in scored[:top_k] 
-                if doc.page_content.strip() and combined_score > 0.3]
+                if doc.page_content.strip() and combined_score > self.min_cosine_threshold]
 
     def construct_structured_prompt(self, context: str, question: str, user_state: str = None) -> str:
         if user_state:
@@ -389,7 +433,13 @@ Respond as if you are talking directly to the user, not giving advice on what to
 
     def get_answer(self, question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None) -> str:
         """
-        Get answer with optional conversation context for follow-up queries
+        Database-first RAG approach with improved fallback mechanism
+        
+        Strategy:
+        1. Check database first with multiple search strategies
+        2. Evaluate match quality 
+        3. Use database content if good match found
+        4. Fallback to LLM-only response if no good database match
         
         Args:
             question: Current user question
@@ -420,13 +470,23 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 if should_use_context:
                     processing_query = self.context_manager.build_contextual_query(question, conversation_history)
                     context_used = True
-                    logger.info(f"[Context] Using context for follow-up query. Original: {question[:100]}...")
-                    logger.info(f"[Context DEBUG] Enhanced query: {processing_query[:200]}...")
+                    logger.info(f"[DEBUG] Using conversation context from last {len(conversation_history[-5:])} messages")
+                    context_summary = self.context_manager.get_context_summary(conversation_history)
+                    if context_summary:
+                        logger.info(f"[DEBUG] Context summary: {context_summary}")
                 else:
-                    logger.info(f"[Context DEBUG] Not using context - treating as standalone query")
+                    logger.info(f"[DEBUG] No context needed for this query")
             else:
-                logger.info(f"[Context DEBUG] No conversation history provided")
+                logger.info(f"[DEBUG] No conversation history available")
             
+            # Step 2: Classify the question (with conversation context)
+            category = self.classify_query(question, conversation_history)
+            
+            # Step 3: Detect region - prioritize frontend state over question parsing
+            region_data = self.get_region_context(question, user_state)
+            detected_region = region_data["region"]
+            
+            # Handle non-agricultural questions immediately
             category = self.classify_query(question)
             
             if category == "GREETING":

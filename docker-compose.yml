@@ -14,20 +14,17 @@ services:
     build:
       context: ./agrichat-backend
     container_name: agrichat-backend
-    ports:
-      - "8000:8000"   # HTTP
-      - "8443:8443"   # HTTPS
+    network_mode: host
     env_file:
       - .env
     depends_on:
       - mongodb
-    networks:
-      - agrichat-net
     environment:
-      - MONGO_URI=mongodb://mongodb:27017/agrichat
+      - MONGO_URI=mongodb://localhost:27017/agrichat
       - USE_HTTPS=${USE_HTTPS:-false}
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - OLLAMA_HOST=localhost:11434
     # Add restart policy for production
     restart: unless-stopped
     # GPU Support

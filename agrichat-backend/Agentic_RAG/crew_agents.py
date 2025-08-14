@@ -46,7 +46,7 @@ Retriever_Agent = Agent(
 
 def retriever_response(question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None) -> str:
     """
-    Process question with optional conversation context and user state for follow-up queries
+    Process question with improved database-first approach and fallback handling
     
     Args:
         question: Current user question
@@ -54,12 +54,30 @@ def retriever_response(question: str, conversation_history: Optional[List[Dict]]
         user_state: User's state/region detected from frontend
         
     Returns:
-        Generated response
+        Generated response using database-first approach with intelligent fallback
     """
-    rag_response = rag_tool._run(question, conversation_history, user_state)
-    if rag_response == "__FALLBACK__":
-        return fallback_tool._run(question)
-    return rag_response
+    try:
+        # Try RAG tool first (now with database-first approach)
+        rag_response = rag_tool._run(question, conversation_history, user_state)
+        
+        # Check if RAG tool indicates fallback is needed
+        if rag_response == "__FALLBACK__":
+            print(f"[DEBUG] RAG tool requested fallback for question: {question}")
+            # Use fallback tool for questions that couldn't be answered from database
+            fallback_response = fallback_tool._run(question)
+            return fallback_response
+        
+        # Return successful RAG response
+        return rag_response
+        
+    except Exception as e:
+        print(f"[ERROR] Error in retriever_response: {e}")
+        # Emergency fallback
+        try:
+            return fallback_tool._run(question)
+        except Exception as fallback_error:
+            print(f"[ERROR] Fallback tool also failed: {fallback_error}")
+            return "I'm having trouble processing your question right now. Please try again or rephrase your question."
 
 Grader_agent = Agent(
     role='Answer Grader',
