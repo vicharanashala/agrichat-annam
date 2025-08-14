@@ -17,7 +17,7 @@ rag_tool = RAGTool(chroma_path=chroma_path, gemini_api_key=gemini_api_key)
 
 from crewai import LLM, Agent
 llm = LLM(
-    model=f"ollama/{os.getenv('OLLAMA_MODEL', 'llama3.1:8b-instruct-q4_K_M')}",
+    model=f"ollama/{os.getenv('OLLAMA_MODEL', 'gemma3:27b')}",
     base_url=f"http://{os.getenv('OLLAMA_HOST', 'localhost:11434')}",
     api_key="not-needed",
     temperature=0.0
@@ -57,22 +57,17 @@ def retriever_response(question: str, conversation_history: Optional[List[Dict]]
         Generated response using database-first approach with intelligent fallback
     """
     try:
-        # Try RAG tool first (now with database-first approach)
         rag_response = rag_tool._run(question, conversation_history, user_state)
         
-        # Check if RAG tool indicates fallback is needed
         if rag_response == "__FALLBACK__":
             print(f"[DEBUG] RAG tool requested fallback for question: {question}")
-            # Use fallback tool for questions that couldn't be answered from database
             fallback_response = fallback_tool._run(question)
             return fallback_response
         
-        # Return successful RAG response
         return rag_response
         
     except Exception as e:
         print(f"[ERROR] Error in retriever_response: {e}")
-        # Emergency fallback
         try:
             return fallback_tool._run(question)
         except Exception as fallback_error:
