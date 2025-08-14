@@ -38,13 +38,13 @@ class RAGTool(BaseTool):
     _classifier: any = PrivateAttr()
     args_schema = RAGToolSchema
 
-    def __init__(self, chroma_path, gemini_api_key, **kwargs):
+    def __init__(self, chroma_path, **kwargs):
         super().__init__(
             name="rag_tool",
-            description="Retrieval-Augmented Generation tool using ChromaDB and Gemini API.",
+            description="Retrieval-Augmented Generation tool using ChromaDB.",
             **kwargs
         )
-        self._handler = ChromaQueryHandler(chroma_path, gemini_api_key)
+        self._handler = ChromaQueryHandler(chroma_path)
 
     def _run(self, question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = "") -> str:
         """
@@ -58,6 +58,15 @@ class RAGTool(BaseTool):
         Returns:
             Generated response with appropriate source attribution or __FALLBACK__ indicator
         """
+        print(f"[DEBUG] RAGTool._run called with:")
+        print(f"  question: {question}")
+        print(f"  conversation_history: {conversation_history}")
+        print(f"  user_state: {user_state}")
+        
+        import inspect
+        sig = inspect.signature(self._handler.get_answer)
+        print(f"[DEBUG] get_answer signature: {sig}")
+        
         answer = self._handler.get_answer(question, conversation_history, user_state)
         
         if answer.startswith("__FALLBACK__"):

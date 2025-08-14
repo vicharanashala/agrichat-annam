@@ -34,7 +34,6 @@ class OllamaLLMInterface:
                 f"{self.ollama_endpoint}/api/generate",
                 json=payload,
                 headers={"Content-Type": "application/json"},
-                # timeout=60  # Ollama can be slower for large models
             )
             
             if response.status_code == 200:

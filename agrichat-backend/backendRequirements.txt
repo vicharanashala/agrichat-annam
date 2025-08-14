@@ -14,8 +14,6 @@ torchaudio
 numpy
 python-multipart
 gunicorn
-langchain_google_genai
-google.generativeai
 certifi
 pytz
 python-dateutil

@@ -107,17 +107,19 @@ You can add this at the end of your **Docusaurus `Setup Instructions` page**:
 
 ---
 
-## 🐳 Optional: Docker Setup (Gemini Pipeline)
+## 🐳 Optional: Docker Setup (Local LLM Pipeline)
 
-You can run the chatbot using Docker with the **Gemini-based RAG pipeline**.
+You can run the chatbot using Docker with the **Local LLM-based RAG pipeline** using Ollama.
 
 ### Step 1: Set Environment Variables
 
-Create a `.env` file in the project root with your **Google Gemini API key**:
+Create a `.env` file in the project root with your MongoDB URI:
 
 ```env
 MONGO_URI=your-mongo-atlas-uri
-GEMINI_API_KEY=your-gemini-api-key
+OLLAMA_HOST=localhost:11434
+OLLAMA_MODEL=gemma3:27b
+OLLAMA_EMBEDDING_MODEL=nomic-embed-text
 ```
 
 ---

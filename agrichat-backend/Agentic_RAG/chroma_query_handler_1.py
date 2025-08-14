@@ -5,6 +5,7 @@
 # from typing import List, Dict, Optional
 # from context_manager import ConversationContext
 # from local_llm_interface import local_llm, local_embeddings
+# import argparse
 
 # logger = logging.getLogger("uvicorn.error")
 
@@ -12,12 +13,15 @@
 #     STRUCTURED_PROMPT = """
 # You are an expert agricultural assistant. Using only the provided context (do not mention or reveal any metadata such as date, district, state, or season unless the user asks for it), answer the user's question in a detailed and structured manner. Stay strictly within the scope of the user's question and do not introduce unrelated information.
 
+# The user is located in {user_state}. {region_context}
+
 # ### Detailed Explanation
 # - Provide a comprehensive, step-by-step explanation using both the context and your own agricultural knowledge, but only as it directly relates to the user's question.
 # - Use bullet points, sub-headings, or tables to clarify complex information.
 # - Reference and explain all relevant data points from the context.
 # - Briefly define technical terms inline if needed.
 # - Avoid botanical or scientific explanations that are not relevant to farmers unless explicitly asked.
+# - While focusing on {user_state} conditions, you can also provide information about crops not typically grown in {user_state} if the user specifically asks about them.
 
 # ### Special Instructions for Disease, Fertilizer, Fungicide, or Tonic Queries
 # - Whenever a question relates to disease, pest attacks, use of fertilizers, fungicides, plant tonics, or similar agricultural inputs—even if not explicitly stated—include both:
@@ -27,9 +31,8 @@
 # - Ensure both professional and practical solutions are always offered unless the question strictly forbids one or the other.
 
 # ### Additional Guidance for General Crop Management Questions (e.g., maximizing yield, disease prevention, necessary precautions)
-# - If a general question is asked about growing a particular crop (such as groundnut/peanut) and the database contains information related to that crop, analyze the context of the user’s question (such as disease prevention, yield maximization, or best practices).
+# - If a general question is asked about growing a particular crop and the database contains information related to that crop, analyze the context of the user's question (such as disease prevention, yield maximization, or best practices).
 # - Retrieve and provide all relevant guidance from the database about that crop, including:
-
 #     - Disease management
 #     - Best agronomic practices to maximize yield
 #     - Important precautions and crop requirements
@@ -46,6 +49,13 @@
 
 # - Even if the database information does not directly match the question, use context and reasoning to include all data points from the database that could help answer the user's general query about that crop.
 # - Your response should synthesize the relevant parts of the database connected to the user's request, offering a complete, actionable answer.
+
+# IMPORTANT INSTRUCTIONS:
+# - Do NOT use placeholder text like [Your Name], [Your Region/Organization], [Company Name], or any text in square brackets
+# - Do NOT introduce yourself with a name or organization 
+# - Do NOT make assumptions about the user's specific farm, location details, or personal circumstances beyond the provided state
+# - If this appears to be a follow-up question, acknowledge the previous context naturally
+# - Provide direct, helpful advice without template language
 
 # **If the context does not contain relevant information, reply exactly:**   
 # `I don't have enough information to answer that.`
@@ -76,11 +86,25 @@
 # """
 
 #     GREETING_RESPONSE_PROMPT = """
-# You are a friendly assistant. The user has sent the following message:
+# You are a friendly agricultural assistant. The user has greeted you with: "{question}"
 
-# "{question}"
+# Respond appropriately to their greeting in a warm and natural way, then invite them to ask agricultural questions. 
 
-# Generate a short, warm, and polite greeting or salutation in response, encouraging the user to ask their farming or agricultural question. Do not use any emojis, emoticons, or special symbols in your response. Keep it professional and text-only.
+# Guidelines:
+# - If they said "Hi" or "Hello", respond with a similar greeting
+# - If they said "Good morning/afternoon/evening", acknowledge the time appropriately  
+# - If they used regional greetings like "Namaste", "Namaskaram", "Vanakkam", respond with the same
+# - If they mentioned their name, acknowledge it politely
+# - Always end by inviting them to ask farming or agricultural questions
+# - Keep the response natural and conversational, not robotic
+# - Don't use placeholder text or templates
+
+# Examples:
+# - User: "Hi" → Response: "Hi there! How can I help you with your farming questions today?"
+# - User: "Good morning" → Response: "Good morning! I hope you're having a great day. What farming topic can I assist you with?"
+# - User: "Namaste" → Response: "Namaste! Welcome. I'm here to help with any agricultural questions you might have."
+
+# Now respond to: "{question}"
 # """
 
 #     NON_AGRI_RESPONSE_PROMPT = """
@@ -91,11 +115,9 @@
 # Respond as if you are talking directly to the user, not giving advice on what to say to someone else.
 # """
 
-#     def __init__(self, chroma_path: str, gemini_api_key: str = None, embedding_model: str = None, chat_model: str = None):
-#         # Use local embeddings instead of Google's API
+#     def __init__(self, chroma_path: str, embedding_model: str = None, chat_model: str = None):
 #         self.embedding_function = local_embeddings
         
-#         # Use local LLM instead of Gemini
 #         self.local_llm = local_llm
         
 #         self.db = Chroma(
@@ -108,6 +130,9 @@
 #             max_context_tokens=500
 #         )
         
+#         self.min_cosine_threshold = 0.3 
+#         self.good_match_threshold = 0.6
+        
 #         col = self.db._collection.get()["metadatas"]
 #         self.meta_index = {
 #             field: {m[field] for m in col if field in m and m[field]}
@@ -116,6 +141,97 @@
 #                 "Crop", "District", "Season", "Sector", "State"
 #             ]
 #         }
+
+#     def get_region_context(self, question: str = None, region: str = None):
+#         """
+#         Get region-specific context for greetings and responses
+#         """
+#         regional_data = {
+#             "Andhra Pradesh": {
+#                 "greeting": "You can use Telugu phrases like 'Namaskaram' if appropriate.",
+#                 "context": "Andhra Pradesh is known for rice, cotton, sugarcane, and groundnut cultivation. The state has diverse agro-climatic zones with both kharif and rabi seasons being important.",
+#                 "crops": ["rice", "cotton", "sugarcane", "groundnut", "chili", "turmeric"]
+#             },
+#             "Telangana": {
+#                 "greeting": "You can use Telugu phrases like 'Namaskaram' if appropriate.",
+#                 "context": "Telangana is famous for rice, cotton, maize, and various millets. The state promotes sustainable farming with initiatives like Rythu Bandhu.",
+#                 "crops": ["rice", "cotton", "maize", "millets", "turmeric", "red gram"]
+#             },
+#             "Tamil Nadu": {
+#                 "greeting": "You can use Tamil phrases like 'Vanakkam' if appropriate.",
+#                 "context": "Tamil Nadu excels in rice, sugarcane, cotton, and coconut cultivation. The state has strong irrigation systems and diverse cropping patterns.",
+#                 "crops": ["rice", "sugarcane", "cotton", "coconut", "banana", "turmeric"]
+#             },
+#             "Kerala": {
+#                 "greeting": "You can use Malayalam phrases like 'Namaskaram' if appropriate.",
+#                 "context": "Kerala is renowned for spices, coconut, rubber, and rice cultivation. The state has unique farming practices suited to its tropical climate.",
+#                 "crops": ["coconut", "rubber", "rice", "pepper", "cardamom", "tea"]
+#             },
+#             "Maharashtra": {
+#                 "greeting": "You can use Marathi phrases like 'Namaskar' if appropriate.",
+#                 "context": "Maharashtra is a major producer of sugarcane, cotton, soybeans, and various fruits. The state has both rain-fed and irrigated agriculture.",
+#                 "crops": ["sugarcane", "cotton", "soybeans", "onion", "grapes", "pomegranate"]
+#             },
+#             "Haryana": {
+#                 "greeting": "You can use Hindi phrases like 'Namaste' if appropriate.",
+#                 "context": "Haryana is known as the 'Granary of India' with extensive wheat and rice cultivation. The state has advanced agricultural practices and infrastructure.",
+#                 "crops": ["wheat", "rice", "sugarcane", "cotton", "mustard", "barley"]
+#             },
+#             "Uttar Pradesh": {
+#                 "greeting": "You can use Hindi phrases like 'Namaste' if appropriate.",
+#                 "context": "Uttar Pradesh is India's largest agricultural state producing wheat, rice, sugarcane, and various other crops across diverse agro-climatic zones.",
+#                 "crops": ["wheat", "rice", "sugarcane", "potato", "peas", "mustard"]
+#             },
+#             "Punjab": {
+#                 "greeting": "You can use Punjabi phrases like 'Sat Sri Akal' or Hindi 'Namaste' if appropriate.",
+#                 "context": "Punjab is known as the 'Granary of India' and 'Land of Five Rivers', famous for wheat and rice cultivation. The state has excellent irrigation infrastructure and is a major contributor to India's food grain production.",
+#                 "crops": ["wheat", "rice", "cotton", "maize", "sugarcane", "potato"]
+#             }
+#         }
+        
+#         detected_region = region
+        
+#         if not detected_region and question:
+#             question_lower = question.lower()
+#             for state_name in self.meta_index.get('State', set()):
+#                 if state_name.lower() in question_lower:
+#                     detected_region = state_name
+#                     break
+            
+#             if not detected_region:
+#                 for district_name in self.meta_index.get('District', set()):
+#                     if district_name.lower() in question_lower:
+#                         detected_region = f"your region ({district_name})"
+#                         break
+
+#         normalized_states = {
+#             "andhra pradesh": "Andhra Pradesh",
+#             "telangana": "Telangana", 
+#             "tamil nadu": "Tamil Nadu",
+#             "kerala": "Kerala",
+#             "maharastra": "Maharashtra",
+#             "maharashtra": "Maharashtra",
+#             "haryana": "Haryana",
+#             "uttar pradesh": "Uttar Pradesh"
+#         }
+        
+#         if detected_region and detected_region.lower() in normalized_states:
+#             detected_region = normalized_states[detected_region.lower()]
+        
+#         if detected_region and detected_region in regional_data:
+#             return {
+#                 "region": detected_region,
+#                 "context": regional_data[detected_region]["context"],
+#                 "greeting": regional_data[detected_region]["greeting"],
+#                 "crops": regional_data[detected_region]["crops"]
+#             }
+#         else:
+#             return {
+#                 "region": detected_region or "India",
+#                 "context": "India has diverse agro-climatic zones with rich farming traditions across different states and regions.",
+#                 "greeting": "You can use appropriate regional greetings like 'Namaste', 'Namaskaram', or 'Vanakkam'.",
+#                 "crops": ["rice", "wheat", "cotton", "sugarcane", "pulses", "vegetables"]
+#             }
 
 #     def expand_query(self, query):
 #         """
@@ -199,8 +315,39 @@
 #     def cosine_sim(self, a, b):
 #         return np.dot(a, b) / (norm(a) * norm(b))
 
+#     def evaluate_database_match_quality(self, question: str, docs: List, scores: List[float]) -> str:
+#         """
+#         Evaluate the quality of database matches and determine response strategy
+#         Returns: 'GOOD_MATCH', 'WEAK_MATCH', or 'NO_MATCH'
+#         """
+#         if not docs or not scores:
+#             return 'NO_MATCH'
+        
+#         best_score = max(scores) if scores else 0
+        
+#         if best_score >= self.good_match_threshold:
+#             return 'GOOD_MATCH'
+        
+#         if best_score >= self.min_cosine_threshold:
+#             best_doc = docs[0]
+#             content = best_doc.page_content.lower()
+#             question_lower = question.lower()
+            
+#             question_words = set(question_lower.split())
+#             content_words = set(content.split())
+#             overlap_ratio = len(question_words.intersection(content_words)) / len(question_words)
+            
+#             agri_keywords = {'crop', 'plant', 'disease', 'pest', 'fertilizer', 'soil', 'seed', 'farming', 'agriculture', 'harvest'}
+#             question_agri = question_words.intersection(agri_keywords)
+#             content_agri = content_words.intersection(agri_keywords)
+            
+#             if overlap_ratio >= 0.2 or (question_agri and content_agri):
+#                 return 'WEAK_MATCH'
+        
+#         return 'NO_MATCH'
+
 #     def rerank_documents(self, question: str, results, top_k: int = 5):
-#         """Enhanced reranking with better similarity scoring and multiple strategies"""
+#         """Enhanced reranking with better similarity scoring and lowered threshold for database-first approach"""
 #         query_embedding = self.embedding_function.embed_query(question)
 #         scored = []
 #         question_lower = question.lower()
@@ -212,7 +359,8 @@
 #             if (content.lower().count('others') > 3 or 
 #                 'Question: Others' in content or 
 #                 'Answer: Others' in content or
-#                 content.count('Others') > 5):
+#                 content.count('Others') > 5 or
+#                 len(content.strip()) < 20):
 #                 continue
             
 #             d_emb = self.embedding_function.embed_query(content)
@@ -221,7 +369,7 @@
 #             content_words = set(content.lower().split())
 #             keyword_overlap = len(question_words.intersection(content_words)) / len(question_words) if question_words else 0
             
-#             agri_terms = {'crop', 'plant', 'disease', 'pest', 'fertilizer', 'soil', 'water', 'harvest', 'seed', 'growth', 'yield'}
+#             agri_terms = {'crop', 'plant', 'disease', 'pest', 'fertilizer', 'soil', 'water', 'harvest', 'seed', 'growth', 'yield', 'farming', 'agriculture'}
 #             question_agri_terms = question_words.intersection(agri_terms)
 #             content_agri_terms = content_words.intersection(agri_terms)
 #             agri_overlap = len(question_agri_terms.intersection(content_agri_terms)) / max(len(question_agri_terms), 1)
@@ -233,13 +381,27 @@
 #         scored.sort(key=lambda x: x[1], reverse=True)
         
 #         return [doc for doc, combined_score, cosine_score, orig_score in scored[:top_k] 
-#                 if doc.page_content.strip() and combined_score > 0.3]
+#                 if doc.page_content.strip() and combined_score > self.min_cosine_threshold]
 
-#     def construct_structured_prompt(self, context: str, question: str) -> str:
-#         return self.STRUCTURED_PROMPT.format(
-#             context=context,
-#             question=question
-#         )
+#     def construct_structured_prompt(self, context: str, question: str, user_state: str = None) -> str:
+#         if user_state:
+#             region_data = self.get_region_context(None, user_state)
+#             user_region = region_data["region"]
+#             regional_context = region_data["context"]
+            
+#             return self.STRUCTURED_PROMPT.format(
+#                 context=context,
+#                 question=question,
+#                 user_state=user_region,
+#                 region_context=regional_context
+#             )
+#         else:
+#             return self.STRUCTURED_PROMPT.format(
+#                 context=context,
+#                 question=question,
+#                 user_state="India",
+#                 region_context="India has diverse agro-climatic zones with rich farming traditions across different states and regions."
+#             )
 
 #     def classify_query(self, question: str) -> str:
 #         prompt = self.CLASSIFIER_PROMPT.format(question=question)
@@ -258,7 +420,7 @@
 #             logger.error(f"[Classifier Error] {e}")
 #             return "NON_AGRI"
 
-#     def generate_dynamic_response(self, question: str, mode: str) -> str:
+#     def generate_dynamic_response(self, question: str, mode: str, region: str = None) -> str:
 #         if mode == "GREETING":
 #             prompt = self.GREETING_RESPONSE_PROMPT.format(question=question)
 #         else:
@@ -274,13 +436,20 @@
 #             logger.error(f"[Dynamic Response Error] {e}")
 #             return "Sorry, I can only help with agriculture-related questions."
 
-#     def get_answer(self, question: str, conversation_history: Optional[List[Dict]] = None) -> str:
+#     def get_answer(self, question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None) -> str:
 #         """
-#         Get answer with optional conversation context for follow-up queries
+#         Database-first RAG approach with improved fallback mechanism
+        
+#         Strategy:
+#         1. Check database first with multiple search strategies
+#         2. Evaluate match quality 
+#         3. Use database content if good match found
+#         4. Fallback to LLM-only response if no good database match
         
 #         Args:
 #             question: Current user question
 #             conversation_history: List of previous Q&A pairs for context
+#             user_state: User's state/region for regional context
             
 #         Returns:
 #             Generated response
@@ -291,6 +460,11 @@
             
 #             if conversation_history:
 #                 logger.info(f"[Context DEBUG] Received conversation history with {len(conversation_history)} entries")
+#                 logger.info(f"[Context DEBUG] Conversation history structure: {type(conversation_history)}")
+#                 if len(conversation_history) > 0:
+#                     logger.info(f"[Context DEBUG] First entry structure: {type(conversation_history[0])}")
+#                     logger.info(f"[Context DEBUG] First entry keys: {list(conversation_history[0].keys()) if isinstance(conversation_history[0], dict) else 'Not a dict'}")
+                
 #                 for i, entry in enumerate(conversation_history[-2:]):
 #                     logger.info(f"[Context DEBUG] Entry {i}: Q='{entry.get('question', '')[:50]}...', A='{entry.get('answer', '')[:50]}...'")
                 
@@ -300,14 +474,19 @@
 #                 if should_use_context:
 #                     processing_query = self.context_manager.build_contextual_query(question, conversation_history)
 #                     context_used = True
-#                     logger.info(f"[Context] Using context for follow-up query. Original: {question[:100]}...")
-#                     logger.info(f"[Context DEBUG] Enhanced query: {processing_query[:200]}...")
+#                     logger.info(f"[DEBUG] Using conversation context from last {len(conversation_history[-5:])} messages")
+#                     context_summary = self.context_manager.get_context_summary(conversation_history)
+#                     if context_summary:
+#                         logger.info(f"[DEBUG] Context summary: {context_summary}")
 #                 else:
-#                     logger.info(f"[Context DEBUG] Not using context - treating as standalone query")
+#                     logger.info(f"[DEBUG] No context needed for this query")
 #             else:
-#                 logger.info(f"[Context DEBUG] No conversation history provided")
+#                 logger.info(f"[DEBUG] No conversation history available")
             
-#             category = self.classify_query(question)
+#             category = self.classify_query(question, conversation_history)
+            
+#             region_data = self.get_region_context(question, user_state)
+#             detected_region = region_data["region"]
             
 #             if category == "GREETING":
 #                 response = self.generate_dynamic_response(question, mode="GREETING")
@@ -394,7 +573,7 @@
 #                     if should_use_rag:
 #                         print(f"[DEBUG] Generating RAG response...")
 #                         final_question = question if context_used else processing_query
-#                         prompt = self.construct_structured_prompt(content, final_question)
+#                         prompt = self.construct_structured_prompt(content, final_question, user_state)
                         
 #                         generated_response = self.local_llm.generate_content(
 #                             prompt=prompt,
@@ -406,10 +585,12 @@
                         
 #                         if context_used:
 #                             logger.info(f"[Context] Response generated with conversation context")
+#                             final_response = f"Source: RAG Database\n\n{generated_response.strip()}"
 #                         else:
 #                             logger.info(f"[RAG] Response generated from RAG database (score: {similarity_score})")
+#                             final_response = f"Source: RAG Database\n\n{generated_response.strip()}"
                             
-#                         return generated_response
+#                         return final_response
 #                     else:
 #                         print(f"[DEBUG] should_use_rag is False, not generating RAG response")
 #                 else:
@@ -419,7 +600,7 @@
 #                 if relevant_docs and relevant_docs[0].page_content.strip():
 #                     context = relevant_docs[0].page_content
 #                     final_question = question
-#                     prompt = self.construct_structured_prompt(context, final_question)
+#                     prompt = self.construct_structured_prompt(context, final_question, user_state)
                     
 #                     generated_response = self.local_llm.generate_content(
 #                         prompt=prompt,
@@ -428,7 +609,9 @@
 #                     )
                     
 #                     logger.info(f"[Context] Used marginal RAG content for contextual query")
-#                     return generated_response
+#                     # Add source attribution for marginal RAG content responses
+#                     final_response = f"Source: RAG Database\n\n{generated_response.strip()}"
+#                     return final_response
             
 #             return "I don't have enough information to answer that."
             
@@ -441,3 +624,4 @@
 #         Get a brief summary of conversation context for debugging
 #         """
 #         return self.context_manager.get_context_summary(conversation_history)
+

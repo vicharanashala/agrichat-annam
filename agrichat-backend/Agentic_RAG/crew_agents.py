@@ -5,7 +5,6 @@ from crewai import LLM, Agent
 from typing import List, Dict, Optional
 load_dotenv()
 
-gemini_api_key = None  
 
 import os
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -13,7 +12,7 @@ chroma_path = os.path.join(current_dir, "chromaDb")
 print(f"[DEBUG] Using ChromaDB path: {chroma_path}")
 print(f"[DEBUG] ChromaDB path exists: {os.path.exists(chroma_path)}")
 
-rag_tool = RAGTool(chroma_path=chroma_path, gemini_api_key=gemini_api_key)
+rag_tool = RAGTool(chroma_path=chroma_path)
 
 from crewai import LLM, Agent
 llm = LLM(
