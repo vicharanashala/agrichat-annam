@@ -13,9 +13,10 @@ class OllamaLLMInterface:
     
     def __init__(self, ollama_endpoint: str = None, model_name: str = None):
         self.ollama_endpoint = ollama_endpoint or f"http://{os.getenv('OLLAMA_HOST', 'localhost:11434')}"
-        self.model_name = model_name or os.getenv('OLLAMA_MODEL', 'gemma3:27b')
+        self.model_name = model_name or os.getenv('OLLAMA_MODEL', 'gemma3-optimized')
+        self.session = requests.Session()
 
-    def generate_content(self, prompt: str, temperature: float = 0.3, max_tokens: int = 1024) -> str:
+    def generate_content(self, prompt: str, temperature: float = 0.3, max_tokens: int = 2048) -> str:
         """
         Generate content using Ollama
         """
@@ -26,14 +27,19 @@ class OllamaLLMInterface:
                 "stream": False,
                 "options": {
                     "temperature": temperature,
-                    "num_predict": max_tokens
+                    "num_predict": max_tokens,
+                    "num_ctx": 32768,
+                    "num_batch": 2048,
+                    "num_gpu": 99,
+                    "num_thread": 48
                 }
             }
             
-            response = requests.post(
+            response = self.session.post(
                 f"{self.ollama_endpoint}/api/generate",
                 json=payload,
                 headers={"Content-Type": "application/json"},
+                timeout=120
             )
             
             if response.status_code == 200:
@@ -92,7 +98,7 @@ class OllamaEmbeddings:
             return [0.0] * 768
 
 
-local_llm = OllamaLLMInterface(model_name="gemma3:27b")
+local_llm = OllamaLLMInterface(model_name="gemma3-optimized")
 local_embeddings = OllamaEmbeddings(embedding_model="nomic-embed-text")
 
 def run_local_llm(prompt: str, temperature: float = 0.3, max_tokens: int = 1024) -> str:

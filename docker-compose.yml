@@ -25,17 +25,27 @@ services:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - OLLAMA_HOST=localhost:11434
+      - CUDA_VISIBLE_DEVICES=0,1
+      - OLLAMA_NUM_PARALLEL=4
+      - OLLAMA_MAX_LOADED_MODELS=2
     # Add restart policy for production
     restart: unless-stopped
     # GPU Support
     runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 2
+              capabilities: [gpu]
     # Override CMD for HTTPS when USE_HTTPS=true
     command: >
       sh -c "
         if [ \"$$USE_HTTPS\" = \"true\" ]; then
-          uvicorn app:app --host 0.0.0.0 --port 8443 --ssl-keyfile=ssl/private.key --ssl-certfile=ssl/certificate.crt
+          gunicorn app:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8443 --workers 4 --keyfile=ssl/private.key --certfile=ssl/certificate.crt
         else
-          uvicorn app:app --host 0.0.0.0 --port 8000
+          gunicorn app:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --workers 4 --worker-connections 1000 --max-requests 1000 --max-requests-jitter 100
         fi
       "
 
