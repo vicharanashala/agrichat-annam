@@ -5,6 +5,7 @@ import logging
 from typing import List, Dict, Optional
 from context_manager import ConversationContext
 from local_llm_interface import local_llm, local_embeddings
+import argparse
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -584,10 +585,12 @@ Respond as if you are talking directly to the user, not giving advice on what to
                         
                         if context_used:
                             logger.info(f"[Context] Response generated with conversation context")
+                            final_response = f"Source: RAG Database\n\n{generated_response.strip()}"
                         else:
                             logger.info(f"[RAG] Response generated from RAG database (score: {similarity_score})")
+                            final_response = f"Source: RAG Database\n\n{generated_response.strip()}"
                             
-                        return generated_response
+                        return final_response
                     else:
                         print(f"[DEBUG] should_use_rag is False, not generating RAG response")
                 else:
@@ -606,7 +609,9 @@ Respond as if you are talking directly to the user, not giving advice on what to
                     )
                     
                     logger.info(f"[Context] Used marginal RAG content for contextual query")
-                    return generated_response
+                    # Add source attribution for marginal RAG content responses
+                    final_response = f"Source: RAG Database\n\n{generated_response.strip()}"
+                    return final_response
             
             return "I don't have enough information to answer that."
             
@@ -619,3 +624,4 @@ Respond as if you are talking directly to the user, not giving advice on what to
         Get a brief summary of conversation context for debugging
         """
         return self.context_manager.get_context_summary(conversation_history)
+

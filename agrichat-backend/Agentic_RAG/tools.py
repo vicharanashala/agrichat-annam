@@ -1,5 +1,5 @@
 
-from pydantic import PrivateAttr
+from pydantic import PrivateAttr, BaseModel, Field
 from crewai.tools import BaseTool
 from chroma_query_handler import ChromaQueryHandler
 from typing import ClassVar, List, Dict, Optional
@@ -27,9 +27,16 @@ class FireCrawlWebSearchTool(BaseTool):
     pass
 
 
+class RAGToolSchema(BaseModel):
+    question: str = Field(description="The user's question")
+    conversation_history: Optional[List[Dict]] = Field(default=None, description="Previous conversation history")
+    user_state: str = Field(default="", description="User's state/region")
+
+
 class RAGTool(BaseTool):
     _handler: any = PrivateAttr()
     _classifier: any = PrivateAttr()
+    args_schema = RAGToolSchema
 
     def __init__(self, chroma_path, gemini_api_key, **kwargs):
         super().__init__(
@@ -39,7 +46,7 @@ class RAGTool(BaseTool):
         )
         self._handler = ChromaQueryHandler(chroma_path, gemini_api_key)
 
-    def _run(self, question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None) -> str:
+    def _run(self, question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = "") -> str:
         """
         Run RAG tool with improved fallback detection
         
@@ -53,9 +60,7 @@ class RAGTool(BaseTool):
         """
         answer = self._handler.get_answer(question, conversation_history, user_state)
         
-        # Check for fallback indicators from the new database-first approach
         if answer.startswith("__FALLBACK__"):
-            # Log fallback for analysis
             log_fallback_to_csv(question, "Database search failed - using LLM fallback", "fallback_queries.csv")
             return "__FALLBACK__"
         
@@ -65,7 +70,6 @@ class RAGTool(BaseTool):
         if answer.startswith("__NO_SOURCE__"):
             return answer.replace("__NO_SOURCE__", "")
         
-        # For successful database responses, remove any metadata exposure
         return answer
     
     def run_with_context(self, question: str, conversation_history: List[Dict]) -> str:
@@ -74,8 +78,14 @@ class RAGTool(BaseTool):
         """
         return self._run(question, conversation_history)
 
+
+class FallbackAgriToolSchema(BaseModel):
+    question: str = Field(description="The user's question")
+
+
 class FallbackAgriTool(BaseTool):
     _classifier: any = PrivateAttr()
+    args_schema = FallbackAgriToolSchema
 
     FALLBACK_PROMPT: ClassVar[str] = """
 You are an expert agricultural assistant. Use your own expert knowledge to answer the user's agricultural question. If the question is a normal greeting or salutation (e.g., “hello,” “how are you?”, “good morning”), respond gently and politely—don’t refuse, but give a soft, appropriate answer. Do NOT answer non-agricultural queries except for such greetings.
