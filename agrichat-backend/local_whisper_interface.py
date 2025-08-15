@@ -34,7 +34,6 @@ class LocalWhisperInterface:
             self.model = whisper.load_model(self.model_size)
             print(f"Whisper {self.model_size} model loaded successfully!")
             
-            # Check if CUDA is available
             import torch
             if torch.cuda.is_available():
                 print(f"Using GPU acceleration with {torch.cuda.get_device_name()}")
@@ -59,13 +58,11 @@ class LocalWhisperInterface:
         if not self.model:
             return "Error: Whisper model not loaded"
         
-        # Create temporary file
         with tempfile.NamedTemporaryFile(delete=False, suffix=self._get_audio_extension(filename)) as temp_file:
             temp_file.write(audio_data)
             temp_file_path = temp_file.name
         
         try:
-            # Transcribe audio
             print(f"🎤 Transcribing audio: {filename}")
             result = self.model.transcribe(temp_file_path)
             transcript = result["text"].strip()
@@ -78,7 +75,6 @@ class LocalWhisperInterface:
             return f"Error: Failed to transcribe audio - {str(e)}"
             
         finally:
-            # Clean up temporary file
             try:
                 os.unlink(temp_file_path)
             except:

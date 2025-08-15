@@ -90,6 +90,7 @@ class RAGTool(BaseTool):
 
 class FallbackAgriToolSchema(BaseModel):
     question: str = Field(description="The user's question")
+    conversation_history: Optional[List[Dict]] = Field(default=None, description="Previous conversation history")
 
 
 class FallbackAgriTool(BaseTool):
@@ -156,13 +157,38 @@ You are an expert agricultural assistant. Use your own expert knowledge to answe
             **kwargs
         )
 
-    def _run(self, question: str) -> str:
+    def _run(self, question: str, conversation_history: Optional[List[Dict]] = None) -> str:
         print(f"[DEBUG] FallbackAgriTool called with question: {question}")
-        prompt = self.FALLBACK_PROMPT.format(question=question)
-        response_text = run_local_llm(prompt)
-        final_answer = "Source: Local LLM\n\n" + response_text.strip()
-        log_fallback_to_csv(question, final_answer)
+        print(f"[DEBUG] FallbackAgriTool received conversation history: {len(conversation_history) if conversation_history else 0} entries")
+        
+        if conversation_history and len(conversation_history) > 0:
+            recent_context = []
+            
+            for entry in conversation_history[-2:]:  # Just last 2 exchanges
+                q = entry.get('question', '')
+                a = entry.get('answer', '')
+                recent_context.append(f"User: {q}")
+                recent_context.append(f"Assistant: {a}")
+            
+            context_text = "\n".join(recent_context)
+            
+            enhanced_prompt = f"""Here's our recent conversation:
+{context_text}
+
+Now the user asks: {question}
+
+Please respond naturally, understanding what they're referring to from our conversation context."""
+
+            prompt = enhanced_prompt
+        else:
+            prompt = f"User asks: {question}\n\nPlease respond as an agricultural expert."
+            
+        response_text = run_local_llm(prompt, use_fallback=True)
+        
+        print(f"[SOURCE] Local LLM used for question: {question}")
+        log_fallback_to_csv(question, response_text)
         print(f"[DEBUG] Logged fallback call to CSV")
-        return final_answer
+        
+        return response_text.strip()  # Remove source prefix from user response
 
 

@@ -496,11 +496,48 @@ window.addEventListener("DOMContentLoaded", () => {
 });
 
 function showLoader() {
-  document.getElementById("loadingOverlay").style.display = "flex";
+  const loadingOverlay = document.getElementById("loadingOverlay");
+  loadingOverlay.style.display = "flex";
+  
+  let thinkingText = document.getElementById("thinkingText");
+  if (!thinkingText) {
+    thinkingText = document.createElement("div");
+    thinkingText.id = "thinkingText";
+    thinkingText.style.cssText = `
+      color: #4CAF50;
+      font-size: 16px;
+      margin-top: 20px;
+      text-align: center;
+      font-weight: 500;
+    `;
+    loadingOverlay.appendChild(thinkingText);
+  }
+  
+  const thinkingStates = [
+    "Understanding your question...",
+    "Searching agricultural database...", 
+    "Processing with AI...",
+    "Generating response..."
+  ];
+  
+  let currentState = 0;
+  thinkingText.textContent = thinkingStates[0];
+  
+
+  loadingOverlay.thinkingInterval = setInterval(() => {
+    currentState = (currentState + 1) % thinkingStates.length;
+    thinkingText.textContent = thinkingStates[currentState];
+  }, 1500);
 }
 
 function hideLoader() {
-  document.getElementById("loadingOverlay").style.display = "none";
+  const loadingOverlay = document.getElementById("loadingOverlay");
+  loadingOverlay.style.display = "none";
+  
+  if (loadingOverlay.thinkingInterval) {
+    clearInterval(loadingOverlay.thinkingInterval);
+    loadingOverlay.thinkingInterval = null;
+  }
 }
 
 async function detectLocationAndLanguage(updateBackend = false) {

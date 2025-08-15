@@ -16,7 +16,7 @@ rag_tool = RAGTool(chroma_path=chroma_path)
 
 from crewai import LLM, Agent
 llm = LLM(
-    model=f"ollama/{os.getenv('OLLAMA_MODEL', 'gemma3:27b')}",
+    model=f"ollama/{os.getenv('OLLAMA_MODEL', 'llama3.1-optimized')}",
     base_url=f"http://{os.getenv('OLLAMA_HOST', 'localhost:11434')}",
     api_key="not-needed",
     temperature=0.0
@@ -56,11 +56,34 @@ def retriever_response(question: str, conversation_history: Optional[List[Dict]]
         Generated response using database-first approach with intelligent fallback
     """
     try:
+        question_lower = question.lower().strip()
+        simple_greetings = [
+            'hi', 'hello', 'hey', 'namaste', 'namaskaram', 'vanakkam', 
+            'good morning', 'good afternoon', 'good evening', 'good day',
+            'howdy', 'greetings', 'salaam', 'adaab'
+        ]
+        
+        if len(question_lower) < 20 and any(greeting in question_lower for greeting in simple_greetings):
+            print(f"[FAST GREETING] Detected simple greeting: {question}")
+            print(f"[SOURCE] Fast pattern matching used for greeting: {question}")
+            if 'namaste' in question_lower:
+                fast_response = "Namaste! Welcome to AgriChat. I'm here to help you with all your farming and agriculture questions. What would you like to know about?"
+            elif 'namaskaram' in question_lower:
+                fast_response = "Namaskaram! I'm your agricultural assistant. Feel free to ask me anything about crops, farming techniques, or agricultural practices."
+            elif 'vanakkam' in question_lower:
+                fast_response = "Vanakkam! I'm here to assist you with farming and agriculture. What agricultural topic would you like to discuss today?"
+            elif any(time in question_lower for time in ['morning', 'afternoon', 'evening']):
+                fast_response = f"Good {question_lower.split()[-1]}! I'm your agricultural assistant. How can I help you with your farming questions today?"
+            else:
+                fast_response = "Hello! I'm your agricultural assistant. I'm here to help with farming, crops, and agricultural practices. What would you like to know?"
+            
+            return fast_response
+        
         rag_response = rag_tool._run(question, conversation_history, user_state)
         
         if rag_response == "__FALLBACK__":
             print(f"[DEBUG] RAG tool requested fallback for question: {question}")
-            fallback_response = fallback_tool._run(question)
+            fallback_response = fallback_tool._run(question, conversation_history)
             return fallback_response
         
         return rag_response
@@ -68,7 +91,7 @@ def retriever_response(question: str, conversation_history: Optional[List[Dict]]
     except Exception as e:
         print(f"[ERROR] Error in retriever_response: {e}")
         try:
-            return fallback_tool._run(question)
+            return fallback_tool._run(question, conversation_history)
         except Exception as fallback_error:
             print(f"[ERROR] Fallback tool also failed: {fallback_error}")
             return "I'm having trouble processing your question right now. Please try again or rephrase your question."

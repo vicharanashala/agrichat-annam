@@ -95,13 +95,11 @@ class ConversationContext:
         if not messages:
             return ""
             
-        # Use all 5 messages if available
         recent_messages = messages[-self.max_context_pairs:]
         
         context_parts = []
         total_tokens = 0
         
-        # Enhanced agricultural keywords for better context extraction
         agri_keywords = {
             'crop', 'farming', 'soil', 'fertilizer', 'pesticide', 'irrigation', 
             'seed', 'harvest', 'disease', 'pest', 'weather', 'climate', 
@@ -111,29 +109,24 @@ class ConversationContext:
             'farm', 'farmer', 'field', 'land', 'season', 'kharif', 'rabi'
         }
         
-        # Process messages with weighted importance (most recent gets highest priority)
         for i, msg in enumerate(reversed(recent_messages)):
             question = msg.get('question', '')
             answer = msg.get('answer', '')
             
-            # Extract the most relevant sentences from answer
             answer_sentences = re.split(r'[.!?]+', answer)
             key_sentences = []
             
-            # Prioritize sentences with agricultural terms
             for sentence in answer_sentences[:4]:  # Look at more sentences for better context
                 sentence = sentence.strip()
                 if sentence and len(sentence) > 10:  # Filter out very short sentences
                     sentence_lower = sentence.lower()
                     agri_score = sum(1 for keyword in agri_keywords if keyword in sentence_lower)
                     
-                    # Prioritize agricultural sentences
                     if agri_score > 0:
                         key_sentences.insert(0, sentence)
                     else:
                         key_sentences.append(sentence)
             
-            # Create context entry with appropriate weight indicators
             if i == 0:
                 weight_indicator = "Most Recent"
             elif i == 1:
@@ -145,7 +138,6 @@ class ConversationContext:
             else:
                 weight_indicator = "Historical"
             
-            # Build context entry with more detailed information for recent messages
             if key_sentences:
                 if i <= 1:  # For the 2 most recent messages, include more detail
                     context_entry = f"{weight_indicator}: Q: {question[:120]} A: {'. '.join(key_sentences[:3])}"
@@ -154,10 +146,8 @@ class ConversationContext:
             else:
                 context_entry = f"{weight_indicator}: Q: {question[:100]}"
             
-            # Check token limit
             entry_tokens = self._estimate_tokens(context_entry)
             if total_tokens + entry_tokens > self.max_context_tokens:
-                # Try to fit a shorter version
                 if i <= 1:  # Always try to include the most recent 2 messages
                     short_entry = f"{weight_indicator}: Q: {question[:60]} A: {key_sentences[0][:50] if key_sentences else 'No specific answer'}"
                     short_tokens = self._estimate_tokens(short_entry)
@@ -179,7 +169,6 @@ class ConversationContext:
         if not conversation_history:
             return False
             
-        # Check the last 5 messages for context clues
         recent_messages = conversation_history[-5:] if len(conversation_history) >= 5 else conversation_history
         
         return self._is_followup_query(current_query, recent_messages)
@@ -220,7 +209,6 @@ Please provide a response considering the above conversation context, giving mor
         if not conversation_history:
             return None
             
-        # Analyze the last 5 messages for topic extraction
         recent_topics = []
         crop_mentions = []
         
@@ -228,16 +216,13 @@ Please provide a response considering the above conversation context, giving mor
             question = msg.get('question', '')
             answer = msg.get('answer', '')
             
-            # Extract agricultural terms from both question and answer
             combined_text = (question + ' ' + answer).lower()
             
-            # Extract general agricultural terms
             key_terms = re.findall(r'\b(?:crop|farming|soil|fertilizer|pesticide|irrigation|seed|harvest|disease|pest|weather|yield|agriculture|plant|cultivation|organic|compost)\w*\b', 
                                  combined_text)
             if key_terms:
                 recent_topics.extend(key_terms[:3])  # Take more terms for better context
             
-            # Extract specific crop names
             crop_terms = re.findall(r'\b(?:rice|wheat|cotton|maize|sugarcane|tomato|potato|onion|chili|groundnut|soybean|mustard|barley|millets)\w*\b',
                                   combined_text)
             if crop_terms:

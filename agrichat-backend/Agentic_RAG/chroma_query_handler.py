@@ -4,7 +4,7 @@ from numpy.linalg import norm
 import logging
 from typing import List, Dict, Optional
 from context_manager import ConversationContext
-from local_llm_interface import local_llm, local_embeddings
+from local_llm_interface import local_llm, local_embeddings, run_local_llm
 import argparse
 
 logger = logging.getLogger("uvicorn.error")
@@ -290,9 +290,9 @@ Respond as if you are talking directly to the user, not giving advice on what to
             return query[:-1]
         return query
 
-    def _create_metadata_filter(self, question):
+    def _create_metadata_filter(self, question, user_state=None):
         """
-        Create metadata filter from question, but avoid overly restrictive filters
+        Create metadata filter from question and user_state, but avoid overly restrictive filters
         that might cause ChromaDB query errors
         """
         q = question.lower()
@@ -300,16 +300,26 @@ Respond as if you are talking directly to the user, not giving advice on what to
         
         safe_fields = ["Crop", "District", "State", "Season"]
         
+        if user_state and user_state.strip():
+            if "State" in self.meta_index:
+                for val in self.meta_index["State"]:
+                    if str(val).lower() == user_state.lower().strip():
+                        filt["State"] = val
+                        print(f"[DEBUG] Added State filter: {val} from user_state: {user_state}")
+                        break
+        
         for field in safe_fields:
-            if field in self.meta_index:
+            if field in self.meta_index and field != "State":  # Skip State since we handled it above
                 for val in self.meta_index[field]:
                     if str(val).lower() in q and str(val).lower() != "other" and str(val).lower() != "-":
                         filt[field] = val
+                        print(f"[DEBUG] Added {field} filter: {val}")
                         break
         
         if len(filt) > 2:
             filt = dict(list(filt.items())[:2])
             
+        print(f"[DEBUG] Final metadata filter: {filt}")
         return filt or None
 
     def cosine_sim(self, a, b):
@@ -406,10 +416,11 @@ Respond as if you are talking directly to the user, not giving advice on what to
     def classify_query(self, question: str, conversation_history: Optional[List[Dict]] = None) -> str:
         prompt = self.CLASSIFIER_PROMPT.format(question=question)
         try:
-            response_text = self.local_llm.generate_content(
-                prompt=prompt,
+            response_text = run_local_llm(
+                prompt,
                 temperature=0,
-                max_tokens=20
+                max_tokens=20,
+                use_fallback=False
             )
             category = response_text.strip().upper()
             if category in {"AGRICULTURE", "GREETING", "NON_AGRI"}:
@@ -426,10 +437,11 @@ Respond as if you are talking directly to the user, not giving advice on what to
         else:
             prompt = self.NON_AGRI_RESPONSE_PROMPT.format(question=question)
         try:
-            response_text = self.local_llm.generate_content(
-                prompt=prompt,
-                temperature=0.5,
-                max_tokens=300
+            response_text = run_local_llm(
+                prompt,
+                temperature=0.3,
+                max_tokens=512,
+                use_fallback=False
             )
             return response_text.strip()
         except Exception as e:
@@ -455,6 +467,28 @@ Respond as if you are talking directly to the user, not giving advice on what to
             Generated response
         """
         try:
+            question_lower = question.lower().strip()
+            simple_greetings = [
+                'hi', 'hello', 'hey', 'namaste', 'namaskaram', 'vanakkam', 
+                'good morning', 'good afternoon', 'good evening', 'good day',
+                'howdy', 'greetings', 'salaam', 'adaab'
+            ]
+            
+            if len(question_lower) < 20 and any(greeting in question_lower for greeting in simple_greetings):
+                logger.info(f"[FAST GREETING] Detected simple greeting: {question}")
+                if 'namaste' in question_lower:
+                    fast_response = "Namaste! Welcome to AgriChat. I'm here to help you with all your farming and agriculture questions. What would you like to know about?"
+                elif 'namaskaram' in question_lower:
+                    fast_response = "Namaskaram! I'm your agricultural assistant. Feel free to ask me anything about crops, farming techniques, or agricultural practices."
+                elif 'vanakkam' in question_lower:
+                    fast_response = "Vanakkam! I'm here to assist you with farming and agriculture. What agricultural topic would you like to discuss today?"
+                elif any(time in question_lower for time in ['morning', 'afternoon', 'evening']):
+                    fast_response = f"Good {question_lower.split()[-1]}! I'm your agricultural assistant. How can I help you with your farming questions today?"
+                else:
+                    fast_response = "Hello! I'm your agricultural assistant. I'm here to help with farming, crops, and agricultural practices. What would you like to know?"
+                
+                return f"__NO_SOURCE__{fast_response}"
+            
             processing_query = question
             context_used = False
             
@@ -503,7 +537,7 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 
                 for query_variant in expanded_queries:
                     try:
-                        metadata_filter = self._create_metadata_filter(query_variant)
+                        metadata_filter = self._create_metadata_filter(query_variant, user_state)
                         variant_results = self.db.similarity_search_with_score(query_variant, k=10, filter=metadata_filter)
                         
                         if len(variant_results) < 3:
@@ -575,20 +609,23 @@ Respond as if you are talking directly to the user, not giving advice on what to
                         final_question = question if context_used else processing_query
                         prompt = self.construct_structured_prompt(content, final_question, user_state)
                         
-                        generated_response = self.local_llm.generate_content(
-                            prompt=prompt,
+                        generated_response = run_local_llm(
+                            prompt,
                             temperature=0.3,
-                            max_tokens=1024
+                            max_tokens=1024,
+                            use_fallback=False
                         )
                         
                         print(f"[DEBUG] Generated response length: {len(generated_response)}")
                         
                         if context_used:
                             logger.info(f"[Context] Response generated with conversation context")
-                            final_response = f"Source: RAG Database\n\n{generated_response.strip()}"
+                            logger.info(f"[SOURCE] RAG Database used with context for question: {question[:50]}...")
+                            final_response = generated_response.strip()
                         else:
                             logger.info(f"[RAG] Response generated from RAG database (score: {similarity_score})")
-                            final_response = f"Source: RAG Database\n\n{generated_response.strip()}"
+                            logger.info(f"[SOURCE] RAG Database used for question: {question[:50]}...")
+                            final_response = generated_response.strip()
                             
                         return final_response
                     else:
@@ -602,15 +639,16 @@ Respond as if you are talking directly to the user, not giving advice on what to
                     final_question = question
                     prompt = self.construct_structured_prompt(context, final_question, user_state)
                     
-                    generated_response = self.local_llm.generate_content(
-                        prompt=prompt,
+                    generated_response = run_local_llm(
+                        prompt,
                         temperature=0.3,
-                        max_tokens=1024
+                        max_tokens=1024,
+                        use_fallback=False
                     )
                     
                     logger.info(f"[Context] Used marginal RAG content for contextual query")
-                    # Add source attribution for marginal RAG content responses
-                    final_response = f"Source: RAG Database\n\n{generated_response.strip()}"
+                    logger.info(f"[SOURCE] RAG Database used with marginal content for question: {question[:50]}...")
+                    final_response = generated_response.strip()
                     return final_response
             
             return "I don't have enough information to answer that."

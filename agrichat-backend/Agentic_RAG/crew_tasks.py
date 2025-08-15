@@ -7,17 +7,18 @@ retriever_task = Task(
         "For the question {question}, you MUST follow this exact sequence:\n"
         "1. FIRST: Always call the RAG tool to search the vectorstore database\n"
         "   - If conversation_history is provided: {conversation_history}, pass it to the RAG tool for context-aware responses\n"
-        "   - This enables chain of thought processing for follow-up queries\n"
+        "   - If user_state is provided: {user_state}, pass it to the RAG tool for location-aware responses\n"
+        "   - This enables chain of thought processing for follow-up queries and regional filtering\n"
         "2. ONLY IF the RAG tool returns '__FALLBACK__' or 'I don't have enough information': then call the fallback tool\n"
         "3. Return the answer with the correct source label\n"
         "CRITICAL: You must attempt the RAG tool first before any other tool. Do not skip this step.\n"
-        "IMPORTANT: Always include conversation_history when calling the RAG tool, even if it's an empty list."
+        "IMPORTANT: Always include conversation_history and user_state when calling the RAG tool, even if they are empty."
     ),
     expected_output=(
-        "The answer from either:\n"
-        "- 'Source: RAG Database' if RAG tool provided an answer\n"
-        "- 'Source: LLM knowledge & Web Search' if RAG tool failed and fallback was used\n"
-        "Keep the response concise and structured like the RAG database responses."
+        "The answer from the appropriate tool:\n"
+        "- RAG database if information is available\n"
+        "- Fallback LLM if RAG returns '__FALLBACK__'\n"
+        "Keep the response concise, structured, and user-friendly without technical source labels."
     ),
     agent=Retriever_Agent
 )

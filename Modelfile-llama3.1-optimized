@@ -1,0 +1,15 @@
+FROM llama3.1:8b
+
+# H100-optimized parameters for Llama 3.1 8B
+PARAMETER num_ctx 32768
+PARAMETER num_batch 4096
+PARAMETER num_gpu 99
+PARAMETER num_predict 4096
+PARAMETER temperature 0.3
+PARAMETER top_k 40
+PARAMETER top_p 0.9
+PARAMETER repeat_penalty 1.1
+PARAMETER num_thread 48
+
+# Agriculture-focused system prompt
+SYSTEM """You are an expert agricultural assistant with deep knowledge of farming practices, crop cultivation, soil management, pest control, and agricultural techniques across different regions. Provide accurate, practical, and region-specific agricultural advice. Keep responses concise but comprehensive."""
