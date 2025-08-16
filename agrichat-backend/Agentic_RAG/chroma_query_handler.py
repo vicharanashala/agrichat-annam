@@ -138,9 +138,8 @@ Respond as if you are talking directly to the user, not giving advice on what to
         self.min_cosine_threshold = 0.15 
         self.good_match_threshold = 0.4
         
-        # PERFORMANCE OPTIMIZATION: Simple query cache
         self.query_cache = {}
-        self.cache_max_size = 100  # Cache last 100 queries
+        self.cache_max_size = 100
         
         col = self.db._collection.get()["metadatas"]
         self.meta_index = {
@@ -159,7 +158,6 @@ Respond as if you are talking directly to the user, not giving advice on what to
     def _cache_query_result(self, cache_key: str, results: list):
         """Cache query results with size limit"""
         if len(self.query_cache) >= self.cache_max_size:
-            # Remove oldest entry (simple FIFO)
             oldest_key = next(iter(self.query_cache))
             del self.query_cache[oldest_key]
         self.query_cache[cache_key] = results
@@ -266,13 +264,12 @@ Respond as if you are talking directly to the user, not giving advice on what to
         """
         variants = [query.strip()]
         
-        # Only add simplified variant if original is complex
         if len(query.split()) > 4:
             simplified = self._simplify_query(query)
             if simplified != query and len(simplified) > 3:
                 variants.append(simplified)
         
-        return variants[:2]  # Limit to maximum 2 variants
+        return variants[:2]
     
     def _extract_agricultural_terms(self, text):
         """Extract agricultural terms from text"""
@@ -550,18 +547,15 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 return f"__NO_SOURCE__{response}"
 
             try:
-                # OPTIMIZED: Simplified search strategy for better performance
                 expanded_queries = self.expand_query(processing_query)
                 all_results = []
                 seen_content = set()
                 
-                # Primary search with first query variant (OPTIMIZED: reduced k=8 to k=5)
                 primary_query = expanded_queries[0]
                 try:
                     metadata_filter = self._create_metadata_filter(primary_query, user_state)
                     primary_results = self.db.similarity_search_with_score(primary_query, k=5, filter=metadata_filter)
                     
-                    # Only search without filter if we got very few results
                     if len(primary_results) < 2:
                         primary_results = self.db.similarity_search_with_score(primary_query, k=5, filter=None)
                     
@@ -573,7 +567,6 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 except Exception as primary_error:
                     logger.warning(f"[RAG] Error with primary query: {primary_error}")
                 
-                # Fallback search only if we have multiple queries and insufficient results (OPTIMIZED: reduced k=5 to k=3)
                 if len(expanded_queries) > 1 and len(all_results) < 3:
                     fallback_query = expanded_queries[1]
                     try:
@@ -585,11 +578,11 @@ Respond as if you are talking directly to the user, not giving advice on what to
                     except Exception as fallback_error:
                         logger.warning(f"[RAG] Error with fallback query: {fallback_error}")
                 
-                raw_results = all_results[:10]  # OPTIMIZED: Reduced from 15 to 10
+                raw_results = all_results[:10]
                 
                 if not raw_results:
                     logger.warning(f"[RAG] No results from expanded queries, falling back to original query")
-                    raw_results = self.db.similarity_search_with_score(processing_query, k=10, filter=None)  # OPTIMIZED: Reduced from 15 to 10
+                    raw_results = self.db.similarity_search_with_score(processing_query, k=10, filter=None)
                     
             except Exception as filter_error:
                 logger.warning(f"[ChromaDB Error] {filter_error}. Using fallback search.")
@@ -641,11 +634,9 @@ Respond as if you are talking directly to the user, not giving advice on what to
                     
                     if should_use_rag:
                         print(f"[DEBUG] Generating RAG response...")
-                        # final_question = question if context_used else processing_query
-                        final_question = processing_query  # Always use processing_query for performance testing
+                        final_question = processing_query
                         prompt = self.construct_structured_prompt(content, final_question, user_state)
                         
-                        # Use fast model for RAG processing
                         generated_response = run_local_llm(
                             prompt,
                             temperature=0.3,
@@ -702,7 +693,5 @@ Respond as if you are talking directly to the user, not giving advice on what to
         """
         Get a brief summary of conversation context for debugging
         """
-        # COMMENTED OUT FOR PERFORMANCE TESTING
-        # return self.context_manager.get_context_summary(conversation_history)
         return None
 
