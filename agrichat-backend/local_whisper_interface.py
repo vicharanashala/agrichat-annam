@@ -97,4 +97,4 @@ class LocalWhisperInterface:
 # - "small": Better accuracy
 # - "medium": Very good accuracy
 # - "large": Best accuracy but slowest
-local_whisper = LocalWhisperInterface(model_size="base")
+local_whisper = LocalWhisperInterface(model_size="large")

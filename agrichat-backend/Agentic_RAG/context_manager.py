@@ -1,33 +1,253 @@
 """
-Context Manager for Chain of Thought Implementation
-Handles conversation context with token optimization for follow-up queries
+Enhanced Context Manager for Chain of Thought Implementation
+Handles conversation context with hybrid memory strategies and agricultural entity tracking
 """
 
 import json
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Set
 from datetime import datetime
 import re
+from enum import Enum
+
+class MemoryStrategy(Enum):
+    """Memory strategy types"""
+    BUFFER = "buffer"  # Keep raw interactions
+    SUMMARY = "summary"  # Summarize old interactions
+    HYBRID = "hybrid"  # Summary + recent buffer
+    AUTO = "auto"  # Auto-select based on conversation length
 
 class ConversationContext:
-    """Manages conversation context with token optimization"""
+    """Enhanced conversation context manager with multiple memory strategies"""
     
-    def __init__(self, max_context_pairs: int = 5, max_context_tokens: int = 800):
+    def __init__(self, 
+                 max_context_pairs: int = 5, 
+                 max_context_tokens: int = 800,
+                 hybrid_buffer_pairs: int = 3,
+                 summary_threshold: int = 8,
+                 memory_strategy: MemoryStrategy = MemoryStrategy.AUTO):
         """
-        Initialize context manager
+        Initialize enhanced context manager
         
         Args:
-            max_context_pairs: Maximum number of Q&A pairs to maintain in context (increased to 5)
-            max_context_tokens: Maximum estimated tokens for context (increased for more context)
+            max_context_pairs: Maximum number of Q&A pairs for buffer mode
+            max_context_tokens: Maximum estimated tokens for context
+            hybrid_buffer_pairs: Number of recent pairs to keep in raw form for hybrid mode
+            summary_threshold: Conversation length threshold to switch to summary/hybrid mode
+            memory_strategy: Memory strategy to use
         """
         self.max_context_pairs = max_context_pairs
         self.max_context_tokens = max_context_tokens
+        self.hybrid_buffer_pairs = hybrid_buffer_pairs
+        self.summary_threshold = summary_threshold
+        self.memory_strategy = memory_strategy
+        
+        # Agricultural entity tracking
+        self.tracked_entities = {
+            'crops': set(),
+            'diseases': set(),
+            'pests': set(),
+            'fertilizers': set(),
+            'locations': set(),
+            'seasons': set()
+        }
         
     def _estimate_tokens(self, text: str) -> int:
         """
-        Rough token estimation (approximately 4 characters per token)
-        This is a simplified estimation for English text
+        Improved token estimation using multiple heuristics
+        Based on OpenAI's tokenization patterns
         """
-        return len(text) // 4
+        if not text:
+            return 0
+            
+        # Remove extra whitespace
+        text = re.sub(r'\s+', ' ', text.strip())
+        
+        # Count words, punctuation, and special patterns
+        words = len(text.split())
+        
+        # Count punctuation marks (often separate tokens)
+        punctuation_count = len(re.findall(r'[.,!?;:\-()"\']', text))
+        
+        # Count numbers (often tokenized differently)
+        number_count = len(re.findall(r'\d+', text))
+        
+        # Count technical terms and compound words
+        technical_terms = len(re.findall(r'[A-Z][a-z]+[A-Z]', text))  # CamelCase
+        hyphenated_words = len(re.findall(r'\w+-\w+', text))
+        
+        # Estimate based on character count with adjustments
+        char_based = len(text) // 4
+        
+        # Word-based estimation with adjustments
+        word_based = words + (punctuation_count * 0.3) + (number_count * 0.5) + technical_terms + hyphenated_words
+        
+        # Take the maximum of both methods for conservative estimation
+        return int(max(char_based, word_based))
+    
+    def _extract_agricultural_entities(self, text: str) -> Dict[str, Set[str]]:
+        """
+        Extract and track agricultural entities from text
+        
+        Args:
+            text: Text to extract entities from
+            
+        Returns:
+            Dict of entity types and their values
+        """
+        text_lower = text.lower()
+        entities = {
+            'crops': set(),
+            'diseases': set(), 
+            'pests': set(),
+            'fertilizers': set(),
+            'locations': set(),
+            'seasons': set()
+        }
+        
+        # Crop entities
+        crop_patterns = [
+            r'\b(rice|wheat|maize|corn|cotton|sugarcane|potato|tomato|onion|chili|pepper|groundnut|peanut|soybean|mustard|barley|millets|jowar|bajra|ragi|sesame|sunflower|safflower|castor|coconut|areca|cardamom|ginger|turmeric|coriander|cumin|fenugreek|garlic|cabbage|cauliflower|brinjal|eggplant|okra|ladyfinger|cucumber|bottle gourd|ridge gourd|bitter gourd|pumpkin|watermelon|muskmelon|papaya|mango|banana|guava|pomegranate|citrus|orange|lime|lemon)\w*\b',
+            r'\b(paddy|dal|pulses|legumes|cereals|vegetables|fruits|spices|fodder|forage)\w*\b'
+        ]
+        
+        # Disease entities  
+        disease_patterns = [
+            r'\b(blight|rust|smut|wilt|rot|mildew|mosaic|virus|bacterial|fungal|leaf spot|stem rot|root rot|collar rot|damping off|blast|sheath blight)\w*\b',
+            r'\b(disease|infection|pathogen|symptom)\w*\b'
+        ]
+        
+        # Pest entities
+        pest_patterns = [
+            r'\b(borer|caterpillar|aphid|thrips|whitefly|jassid|bug|weevil|mite|nematode|grub|larva|worm|moth|butterfly|beetle|fly|termite|ant|locust|grasshopper)\w*\b',
+            r'\b(pest|insect|damage|infestation)\w*\b'
+        ]
+        
+        # Fertilizer entities
+        fertilizer_patterns = [
+            r'\b(urea|dap|potash|nitrogen|phosphorus|potassium|npk|compost|manure|vermicompost|organic|bio.?fertilizer|micro.?nutrient|zinc|boron|iron|manganese|sulfur|calcium|magnesium)\w*\b',
+            r'\b(fertilizer|nutrient|amendment)\w*\b'
+        ]
+        
+        # Location entities (Indian states and regions)
+        location_patterns = [
+            r'\b(punjab|haryana|uttar pradesh|up|bihar|west bengal|odisha|jharkhand|madhya pradesh|mp|rajasthan|gujarat|maharashtra|karnataka|andhra pradesh|ap|telangana|tamil nadu|tn|kerala|assam|manipur|meghalaya|tripura|nagaland|mizoram|arunachal pradesh|sikkim|goa|himachal pradesh|hp|uttarakhand|jammu|kashmir|delhi|chandigarh|puducherry)\w*\b',
+            r'\b(north|south|east|west|central|india|region|zone|district|state|village|block|tehsil|mandal)\w*\b'
+        ]
+        
+        # Season entities
+        season_patterns = [
+            r'\b(kharif|rabi|zaid|summer|winter|monsoon|pre.?monsoon|post.?monsoon|rainy|dry|wet|season|sowing|planting|harvesting|harvest)\w*\b'
+        ]
+        
+        # Extract entities
+        for pattern in crop_patterns:
+            entities['crops'].update(re.findall(pattern, text_lower))
+            
+        for pattern in disease_patterns:
+            entities['diseases'].update(re.findall(pattern, text_lower))
+            
+        for pattern in pest_patterns:
+            entities['pests'].update(re.findall(pattern, text_lower))
+            
+        for pattern in fertilizer_patterns:
+            entities['fertilizers'].update(re.findall(pattern, text_lower))
+            
+        for pattern in location_patterns:
+            entities['locations'].update(re.findall(pattern, text_lower))
+            
+        for pattern in season_patterns:
+            entities['seasons'].update(re.findall(pattern, text_lower))
+        
+        # Update tracked entities
+        for entity_type, values in entities.items():
+            self.tracked_entities[entity_type].update(values)
+        
+        return entities
+    
+    def _generate_conversation_summary(self, messages: List[Dict]) -> str:
+        """
+        Generate a concise summary of conversation history
+        Focuses on agricultural entities and key topics
+        
+        Args:
+            messages: List of conversation messages to summarize
+            
+        Returns:
+            Concise summary focusing on agricultural context
+        """
+        if not messages:
+            return ""
+        
+        # Extract all entities from the conversation
+        all_text = " ".join([f"{msg.get('question', '')} {msg.get('answer', '')}" for msg in messages])
+        entities = self._extract_agricultural_entities(all_text)
+        
+        # Build summary components
+        summary_parts = []
+        
+        # Add entity information
+        if entities['crops']:
+            crops_list = list(entities['crops'])[:5]  # Limit to top 5
+            summary_parts.append(f"Crops discussed: {', '.join(crops_list)}")
+            
+        if entities['diseases']:
+            diseases_list = list(entities['diseases'])[:3]
+            summary_parts.append(f"Diseases mentioned: {', '.join(diseases_list)}")
+            
+        if entities['pests']:
+            pests_list = list(entities['pests'])[:3]
+            summary_parts.append(f"Pests discussed: {', '.join(pests_list)}")
+            
+        if entities['locations']:
+            locations_list = list(entities['locations'])[:2]
+            summary_parts.append(f"Regions: {', '.join(locations_list)}")
+            
+        if entities['seasons']:
+            seasons_list = list(entities['seasons'])[:2]
+            summary_parts.append(f"Seasons: {', '.join(seasons_list)}")
+        
+        # Add topic flow summary
+        topics = []
+        for msg in messages[-3:]:  # Last 3 interactions for topic flow
+            question = msg.get('question', '')
+            if 'disease' in question.lower() or 'pest' in question.lower():
+                topics.append("pest/disease management")
+            elif 'fertilizer' in question.lower() or 'nutrient' in question.lower():
+                topics.append("fertilization")
+            elif 'water' in question.lower() or 'irrigation' in question.lower():
+                topics.append("irrigation")
+            elif 'harvest' in question.lower() or 'yield' in question.lower():
+                topics.append("harvesting")
+            elif 'plant' in question.lower() or 'sow' in question.lower():
+                topics.append("planting")
+        
+        if topics:
+            summary_parts.append(f"Recent topics: {', '.join(set(topics))}")
+        
+        # Add conversation context
+        summary_parts.append(f"Total interactions: {len(messages)}")
+        
+        return ". ".join(summary_parts) + "."
+    
+    def _determine_memory_strategy(self, conversation_length: int) -> MemoryStrategy:
+        """
+        Automatically determine the best memory strategy based on conversation length
+        
+        Args:
+            conversation_length: Number of messages in conversation
+            
+        Returns:
+            Optimal memory strategy for the conversation length
+        """
+        if self.memory_strategy != MemoryStrategy.AUTO:
+            return self.memory_strategy
+            
+        if conversation_length <= 4:
+            return MemoryStrategy.BUFFER
+        elif conversation_length <= self.summary_threshold:
+            return MemoryStrategy.BUFFER
+        else:
+            return MemoryStrategy.HYBRID
     
     def _is_followup_query(self, current_query: str, previous_messages: List[Dict]) -> bool:
         """
@@ -87,14 +307,40 @@ class ConversationContext:
         print(f"[Context DEBUG] No follow-up patterns detected")
         return False
     
-    def _extract_key_context(self, messages: List[Dict]) -> str:
+    def _extract_key_context(self, messages: List[Dict], strategy: MemoryStrategy = None) -> str:
         """
-        Extract key context from previous messages with token optimization
-        Prioritizes recent messages and agricultural terms, now supporting 5 message history
+        Extract key context from previous messages using specified memory strategy
+        Supports buffer, summary, and hybrid approaches
+        
+        Args:
+            messages: List of conversation messages
+            strategy: Memory strategy to use (defaults to auto-determined)
+            
+        Returns:
+            Formatted context string
         """
         if not messages:
             return ""
-            
+        
+        # Determine strategy if not provided
+        if strategy is None:
+            strategy = self._determine_memory_strategy(len(messages))
+        
+        print(f"[Context DEBUG] Using memory strategy: {strategy.value} for {len(messages)} messages")
+        
+        if strategy == MemoryStrategy.BUFFER:
+            return self._extract_buffer_context(messages)
+        elif strategy == MemoryStrategy.SUMMARY:
+            return self._extract_summary_context(messages)
+        elif strategy == MemoryStrategy.HYBRID:
+            return self._extract_hybrid_context(messages)
+        else:
+            return self._extract_buffer_context(messages)  # Fallback
+    
+    def _extract_buffer_context(self, messages: List[Dict]) -> str:
+        """
+        Extract context using buffer strategy (original implementation)
+        """
         recent_messages = messages[-self.max_context_pairs:]
         
         context_parts = []
@@ -116,9 +362,9 @@ class ConversationContext:
             answer_sentences = re.split(r'[.!?]+', answer)
             key_sentences = []
             
-            for sentence in answer_sentences[:4]:  # Look at more sentences for better context
+            for sentence in answer_sentences[:4]:
                 sentence = sentence.strip()
-                if sentence and len(sentence) > 10:  # Filter out very short sentences
+                if sentence and len(sentence) > 10:
                     sentence_lower = sentence.lower()
                     agri_score = sum(1 for keyword in agri_keywords if keyword in sentence_lower)
                     
@@ -139,16 +385,16 @@ class ConversationContext:
                 weight_indicator = "Historical"
             
             if key_sentences:
-                if i <= 1:  # For the 2 most recent messages, include more detail
+                if i <= 1:
                     context_entry = f"{weight_indicator}: Q: {question[:120]} A: {'. '.join(key_sentences[:3])}"
-                else:  # For older messages, be more concise
+                else:
                     context_entry = f"{weight_indicator}: Q: {question[:80]} A: {key_sentences[0][:100]}"
             else:
                 context_entry = f"{weight_indicator}: Q: {question[:100]}"
             
             entry_tokens = self._estimate_tokens(context_entry)
             if total_tokens + entry_tokens > self.max_context_tokens:
-                if i <= 1:  # Always try to include the most recent 2 messages
+                if i <= 1:
                     short_entry = f"{weight_indicator}: Q: {question[:60]} A: {key_sentences[0][:50] if key_sentences else 'No specific answer'}"
                     short_tokens = self._estimate_tokens(short_entry)
                     if total_tokens + short_tokens <= self.max_context_tokens:
@@ -158,6 +404,34 @@ class ConversationContext:
                 
             context_parts.append(context_entry)
             total_tokens += entry_tokens
+        
+        return "\n".join(context_parts)
+    
+    def _extract_summary_context(self, messages: List[Dict]) -> str:
+        """
+        Extract context using summary strategy
+        """
+        summary = self._generate_conversation_summary(messages)
+        return f"Conversation Summary: {summary}"
+    
+    def _extract_hybrid_context(self, messages: List[Dict]) -> str:
+        """
+        Extract context using hybrid strategy (summary + recent buffer)
+        """
+        context_parts = []
+        
+        # Add summary of older messages if conversation is long enough
+        if len(messages) > self.hybrid_buffer_pairs:
+            older_messages = messages[:-self.hybrid_buffer_pairs]
+            summary = self._generate_conversation_summary(older_messages)
+            context_parts.append(f"Earlier Discussion Summary: {summary}")
+        
+        # Add recent messages in detail
+        recent_messages = messages[-self.hybrid_buffer_pairs:]
+        recent_context = self._extract_buffer_context(recent_messages)
+        if recent_context:
+            context_parts.append("Recent Context:")
+            context_parts.append(recent_context)
         
         return "\n".join(context_parts)
     
@@ -173,84 +447,207 @@ class ConversationContext:
         
         return self._is_followup_query(current_query, recent_messages)
     
-    def build_contextual_query(self, current_query: str, conversation_history: List[Dict]) -> str:
+    def build_contextual_query(self, current_query: str, conversation_history: List[Dict], enable_chain_of_thought: bool = True) -> str:
         """
         Build a contextual query incorporating relevant conversation history
+        Supports chain of thought reasoning and entity tracking
         
         Args:
             current_query: The current user question
             conversation_history: List of previous Q&A pairs
+            enable_chain_of_thought: Whether to include chain of thought prompting
             
         Returns:
             Enhanced query with context or original query if no context needed
         """
         if not self.should_use_context(current_query, conversation_history):
             return current_query
-            
+        
+        # Extract entities from current query to enhance context relevance
+        current_entities = self._extract_agricultural_entities(current_query)
+        
+        # Get context using appropriate memory strategy
         context = self._extract_key_context(conversation_history)
         
         if not context:
             return current_query
-            
-        contextual_query = f"""Context from our conversation:
-{context}
-
-Current question: {current_query}
-
-Please provide a response considering the above conversation context, giving more importance to recent interactions."""
         
-        return contextual_query
+        # Build enhanced contextual query
+        contextual_parts = []
+        
+        # Add conversation context
+        contextual_parts.append(f"Context from our conversation:\n{context}")
+        
+        # Add entity context if relevant entities found
+        entity_context = []
+        for entity_type, entities in current_entities.items():
+            if entities and self.tracked_entities[entity_type]:
+                related_entities = self.tracked_entities[entity_type].intersection(entities)
+                if related_entities:
+                    entity_context.append(f"Related {entity_type}: {', '.join(related_entities)}")
+        
+        if entity_context:
+            contextual_parts.append(f"Related entities from our discussion:\n{'; '.join(entity_context)}")
+        
+        # Add current question
+        contextual_parts.append(f"Current question: {current_query}")
+        
+        # Add chain of thought instruction if enabled
+        if enable_chain_of_thought:
+            contextual_parts.append("""
+Please analyze this question step by step:
+1. Consider the conversation context and related entities discussed
+2. Identify the specific agricultural problem or information need
+3. Draw connections to previous discussions if relevant
+4. Provide a comprehensive response considering the full context
+
+Respond with detailed, actionable advice relevant to Indian agricultural conditions.""")
+        else:
+            contextual_parts.append("Please provide a response considering the above conversation context, giving more importance to recent interactions.")
+        
+        return "\n\n".join(contextual_parts)
     
     def get_context_summary(self, conversation_history: List[Dict]) -> Optional[str]:
         """
-        Get a brief summary of the conversation context for debugging
-        Now analyzes up to 5 messages for better topic tracking
+        Enhanced context summary with entity tracking and memory strategy info
         """
         if not conversation_history:
             return None
-            
-        recent_topics = []
-        crop_mentions = []
         
-        for msg in conversation_history[-5:]:
-            question = msg.get('question', '')
-            answer = msg.get('answer', '')
+        # Generate comprehensive summary using the summary method
+        summary = self._generate_conversation_summary(conversation_history)
+        
+        # Add memory strategy info
+        strategy = self._determine_memory_strategy(len(conversation_history))
+        
+        # Add entity tracking summary
+        entity_summary = []
+        for entity_type, entities in self.tracked_entities.items():
+            if entities:
+                entity_summary.append(f"{entity_type}: {len(entities)} tracked")
+        
+        strategy_info = f"Memory strategy: {strategy.value}"
+        entity_info = f"Entities: {', '.join(entity_summary)}" if entity_summary else "No entities tracked"
+        
+        return f"{summary} | {strategy_info} | {entity_info}"
+
+    def get_tracked_entities(self) -> Dict[str, Set[str]]:
+        """
+        Get all tracked agricultural entities
+        
+        Returns:
+            Dictionary of entity types and their tracked values
+        """
+        return self.tracked_entities.copy()
+    
+    def reset_entity_tracking(self):
+        """
+        Reset all tracked entities (useful for new conversations)
+        """
+        for entity_type in self.tracked_entities:
+            self.tracked_entities[entity_type].clear()
+    
+    def get_memory_strategy_info(self, conversation_length: int) -> Dict:
+        """
+        Get information about memory strategy selection
+        
+        Args:
+            conversation_length: Length of conversation to analyze
             
-            combined_text = (question + ' ' + answer).lower()
-            
-            key_terms = re.findall(r'\b(?:crop|farming|soil|fertilizer|pesticide|irrigation|seed|harvest|disease|pest|weather|yield|agriculture|plant|cultivation|organic|compost)\w*\b', 
-                                 combined_text)
-            if key_terms:
-                recent_topics.extend(key_terms[:3])  # Take more terms for better context
-            
-            crop_terms = re.findall(r'\b(?:rice|wheat|cotton|maize|sugarcane|tomato|potato|onion|chili|groundnut|soybean|mustard|barley|millets)\w*\b',
-                                  combined_text)
-            if crop_terms:
-                crop_mentions.extend(crop_terms[:2])
-                
-        topic_summary = []
-        if crop_mentions:
-            topic_summary.append(f"Crops: {', '.join(set(crop_mentions))}")
-        if recent_topics:
-            topic_summary.append(f"Topics: {', '.join(set(recent_topics))}")
-            
-        if topic_summary:
-            return "; ".join(topic_summary)
-        else:
-            return f"Last {len(conversation_history)} general interactions"
+        Returns:
+            Dictionary with strategy information
+        """
+        strategy = self._determine_memory_strategy(conversation_length)
+        
+        return {
+            "strategy": strategy.value,
+            "conversation_length": conversation_length,
+            "threshold_summary": self.summary_threshold,
+            "max_buffer_pairs": self.max_context_pairs,
+            "hybrid_buffer_pairs": self.hybrid_buffer_pairs,
+            "recommended": {
+                "buffer": conversation_length <= 4,
+                "summary": conversation_length > self.summary_threshold and conversation_length > 12,
+                "hybrid": 4 < conversation_length <= 12
+            }
+        }
 
     def test_context_detection(self, current_query: str, conversation_history: List[Dict]) -> Dict:
         """
-        Test method to check context detection - useful for debugging
+        Enhanced test method for context detection and strategy analysis
         """
+        # Extract entities from current query
+        current_entities = self._extract_agricultural_entities(current_query)
+        
+        # Determine memory strategy
+        strategy = self._determine_memory_strategy(len(conversation_history))
+        
         result = {
             "query": current_query,
+            "conversation_length": len(conversation_history),
             "should_use_context": self.should_use_context(current_query, conversation_history),
             "is_followup": self._is_followup_query(current_query, conversation_history[-3:] if conversation_history else []),
-            "context_summary": self.get_context_summary(conversation_history)
+            "memory_strategy": strategy.value,
+            "context_summary": self.get_context_summary(conversation_history),
+            "current_entities": {k: list(v) for k, v in current_entities.items() if v},
+            "tracked_entities": {k: list(v) for k, v in self.tracked_entities.items() if v},
+            "token_estimation": self._estimate_tokens(current_query)
         }
         
         if self.should_use_context(current_query, conversation_history):
             result["enhanced_query"] = self.build_contextual_query(current_query, conversation_history)
+            result["context_tokens"] = self._estimate_tokens(self._extract_key_context(conversation_history, strategy))
         
         return result
+    
+    def configure_strategy(self, strategy: MemoryStrategy, **kwargs):
+        """
+        Configure memory strategy and parameters
+        
+        Args:
+            strategy: Memory strategy to use
+            **kwargs: Additional configuration parameters
+        """
+        self.memory_strategy = strategy
+        
+        if 'max_context_pairs' in kwargs:
+            self.max_context_pairs = kwargs['max_context_pairs']
+        if 'max_context_tokens' in kwargs:
+            self.max_context_tokens = kwargs['max_context_tokens']
+        if 'hybrid_buffer_pairs' in kwargs:
+            self.hybrid_buffer_pairs = kwargs['hybrid_buffer_pairs']
+        if 'summary_threshold' in kwargs:
+            self.summary_threshold = kwargs['summary_threshold']
+        
+        print(f"[Context Config] Strategy set to {strategy.value} with parameters: {kwargs}")
+
+# Convenience function for quick testing
+def test_memory_strategies(query: str, history: List[Dict]) -> Dict:
+    """
+    Test all memory strategies for comparison
+    
+    Args:
+        query: Current query to test
+        history: Conversation history
+        
+    Returns:
+        Dictionary with results for each strategy
+    """
+    results = {}
+    
+    for strategy in [MemoryStrategy.BUFFER, MemoryStrategy.SUMMARY, MemoryStrategy.HYBRID]:
+        context_manager = ConversationContext(memory_strategy=strategy)
+        
+        # Populate entity tracking
+        for msg in history:
+            context_manager._extract_agricultural_entities(f"{msg.get('question', '')} {msg.get('answer', '')}")
+        
+        test_result = context_manager.test_context_detection(query, history)
+        results[strategy.value] = {
+            "context_length": len(test_result.get("enhanced_query", query)),
+            "token_estimate": test_result.get("context_tokens", 0),
+            "strategy_used": test_result["memory_strategy"],
+            "entities_tracked": len([e for entities in test_result["tracked_entities"].values() for e in entities])
+        }
+    
+    return results

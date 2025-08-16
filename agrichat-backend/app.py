@@ -19,25 +19,38 @@ from dotenv import load_dotenv
 import logging
 from typing import Optional, List, Dict
 import requests
-from sarvamai import SarvamAI
+from local_whisper_interface import local_whisper
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import re
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 IST = pytz.timezone("Asia/Kolkata")
-SARVAM_API_KEY = os.getenv("SARVAM_API_KEY") 
-SARVAM_CLIENT = SarvamAI(api_subscription_key=SARVAM_API_KEY)
-LANGUAGE_CODE_MAP = {
-    "English": "en-IN", "Hindi": "hi-IN", "Tamil": "ta-IN", "Telugu": "te-IN",
-    "Kannada": "kn-IN", "Gujarati": "gu-IN", "Marathi": "mr-IN", "Bengali": "bn-IN",
-    "Punjabi": "pa-IN", "Malayalam": "ml-IN", "Odia": "or-IN", "Assamese": "as-IN",
-    "Urdu": "ur-IN"
-}
 current_dir = os.path.dirname(os.path.abspath(__file__))
 agentic_rag_path = os.path.join(current_dir, "Agentic_RAG")
 sys.path.insert(0, agentic_rag_path)
 load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
 
+# Fast mode configuration
+USE_FAST_MODE = os.getenv("USE_FAST_MODE", "false").lower() == "true"
+logger.info(f"[CONFIG] USE_FAST_MODE environment variable: {os.getenv('USE_FAST_MODE', 'not set')}")
+logger.info(f"[CONFIG] Fast Mode Enabled: {USE_FAST_MODE}")
+
+# Try to import fast response handler
+fast_handler = None
+if USE_FAST_MODE:
+    try:
+        from fast_response_handler import FastResponseHandler
+        fast_handler = FastResponseHandler()
+        logger.info("[CONFIG] Fast response handler loaded successfully")
+    except ImportError as e:
+        logger.warning(f"[CONFIG] Fast response handler not available: {e}")
+        logger.info("[CONFIG] Falling back to CrewAI mode")
+        USE_FAST_MODE = False
+
+# Import CrewAI components like main.py
 from crewai import Crew
 from Agentic_RAG.crew_agents import (
     Retriever_Agent, Grader_agent,
@@ -47,24 +60,46 @@ from Agentic_RAG.crew_tasks import (
     retriever_task, grader_task,
     hallucination_task, answer_task
 )
+from Agentic_RAG.chroma_query_handler import ChromaQueryHandler
 
 chroma_db_path = os.path.join(current_dir, "Agentic_RAG", "chromaDb")
 logger.info(f"[DEBUG] ChromaDB path: {chroma_db_path}")
 logger.info(f"[DEBUG] ChromaDB path exists: {os.path.exists(chroma_db_path)}")
 
+# Initialize query handler for classification
+query_handler = ChromaQueryHandler(chroma_path=chroma_db_path)
+
 def get_answer(question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None) -> str:
     """
-    Use the same CrewAI logic as main.py:
-    1. Create Crew with Retriever_Agent and retriever_task
-    2. Pass question and conversation_history as inputs
-    3. Return the crew result
+    Main answer function that routes to fast mode or CrewAI based on configuration.
     
     Args:
         question: Current user question
         conversation_history: List of previous Q&A pairs for context
         user_state: User's state/region detected from frontend location
     """
-    logger.info(f"[DEBUG] Processing question with CrewAI approach like main.py: {question}")
+    if USE_FAST_MODE and fast_handler:
+        return get_fast_answer(question, conversation_history, user_state)
+    else:
+        return get_crewai_answer(question, conversation_history, user_state)
+
+def get_fast_answer(question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None) -> str:
+    """
+    Fast mode using FastResponseHandler for 10-15x faster responses.
+    """
+    logger.info(f"[FAST] Processing question with fast handler: {question}")
+    try:
+        return fast_handler.get_answer(question, conversation_history, user_state)
+    except Exception as e:
+        logger.error(f"[FAST] Error in fast mode: {e}")
+        logger.info("[FAST] Falling back to CrewAI")
+        return get_crewai_answer(question, conversation_history, user_state)
+
+def get_crewai_answer(question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None) -> str:
+    """
+    CrewAI mode - original multi-agent approach for complex reasoning.
+    """
+    logger.info(f"[CREWAI] Processing question with CrewAI approach: {question}")
     
     question_lower = question.lower().strip()
     simple_greetings = [
@@ -76,17 +111,18 @@ def get_answer(question: str, conversation_history: Optional[List[Dict]] = None,
     if len(question_lower) < 20 and any(greeting in question_lower for greeting in simple_greetings):
         logger.info(f"[GREETING] Detected simple greeting: {question}")
         logger.info(f"[SOURCE] Fast pattern matching used for greeting: {question}")
+        state_context = f" in {user_state}" if user_state and user_state.lower() != "unknown" else " in India"
         if 'namaste' in question_lower:
-            return "Namaste! Welcome to AgriChat. I'm here to help you with all your farming and agriculture questions. What would you like to know about?"
+            return f"Namaste! Welcome to AgriChat, your trusted agricultural assistant for Indian farming{state_context}. I specialize in crop management, soil health, weather patterns, and farming practices specific to Indian conditions. What agricultural challenge can I help you with today?"
         elif 'namaskaram' in question_lower:
-            return "Namaskaram! I'm your agricultural assistant. Feel free to ask me anything about crops, farming techniques, or agricultural practices."
+            return f"Namaskaram! I'm your specialized agricultural assistant for Indian farmers{state_context}. Feel free to ask me about Indian crop varieties, monsoon farming, soil management, or any farming techniques suited to Indian climate and conditions."
         elif 'vanakkam' in question_lower:
-            return "Vanakkam! I'm here to assist you with farming and agriculture. What agricultural topic would you like to discuss today?"
+            return f"Vanakkam! I'm here to assist you with Indian farming and agriculture{state_context}. What regional agricultural topic would you like to discuss - from rice cultivation to spice farming, I'm here to help with India-specific guidance!"
         elif any(time in question_lower for time in ['morning', 'afternoon', 'evening']):
             time_word = next(time for time in ['morning', 'afternoon', 'evening'] if time in question_lower)
-            return f"Good {time_word}! I'm your agricultural assistant. How can I help you with your farming questions today?"
+            return f"Good {time_word}! I'm your agricultural assistant specializing in Indian farming practices{state_context}. How can I help you with your crop management, seasonal farming, or any agriculture-related questions specific to Indian conditions today?"
         else:
-            return "Hello! I'm your agricultural assistant. I'm here to help with farming, crops, and agricultural practices. What would you like to know?"
+            return f"Hello! I'm your agricultural assistant specializing in Indian farming and crop management{state_context}. I'm here to help with crops, farming techniques, and agricultural practices tailored to Indian soil, climate, and regional conditions. What would you like to know?"
     
     if conversation_history:
         logger.info(f"[DEBUG] Using conversation context with {len(conversation_history)} previous interactions")
@@ -106,13 +142,13 @@ def get_answer(question: str, conversation_history: Optional[List[Dict]] = None,
         
         inputs = {
             "question": question,
-            "conversation_history": conversation_history or [],
-            "user_state": user_state or ""
+            "conversation_history": conversation_history or []
         }
         
         result = rag_crew.kickoff(inputs=inputs)
         logger.info(f"[DEBUG] CrewAI result: {result}")
         
+        # Clean up any source attribution from the result
         result_str = str(result).strip()
         if "Source: RAG Database" in result_str:
             logger.info(f"[SOURCE] RAG Database used for question: {question[:50]}...")
@@ -127,7 +163,142 @@ def get_answer(question: str, conversation_history: Optional[List[Dict]] = None,
         logger.error(f"[DEBUG] Error in CrewAI execution: {e}")
         return "I apologize, but I'm experiencing technical difficulties. Please try again later."
 
-logger.info(f"[DEBUG] Using CrewAI approach same as main.py")
+def preprocess_question(question: str) -> str:
+    """
+    Preprocess question text for similarity comparison
+    """
+    # Convert to lowercase
+    question = question.lower()
+    # Remove special characters and extra spaces
+    question = re.sub(r'[^a-zA-Z0-9\s]', '', question)
+    question = re.sub(r'\s+', ' ', question).strip()
+    return question
+
+def get_question_recommendations(user_question: str, user_state: str = None, limit: int = 2) -> List[Dict]:
+    """
+    Get question recommendations based on similarity to user's question and state
+    Only returns recommendations for agriculture-related questions
+    
+    Args:
+        user_question: The user's current question
+        user_state: User's state for state-specific recommendations
+        limit: Number of recommendations to return (default 2)
+    
+    Returns:
+        List of recommended questions with their details (empty if not agriculture-related)
+    """
+    try:
+        # Use existing classification logic to check if question is agriculture-related
+        question_category = query_handler.classify_query(user_question)
+        if question_category != "AGRICULTURE":
+            logger.info(f"Question classified as {question_category}, skipping recommendations: {user_question}")
+            return []
+        
+        # Get all unique questions from database
+        pipeline = [
+            {"$unwind": "$messages"},
+            {"$group": {
+                "_id": {
+                    "question": "$messages.question",
+                    "state": "$state"
+                },
+                "count": {"$sum": 1},
+                "sample_answer": {"$first": "$messages.answer"}
+            }},
+            {"$match": {"count": {"$gte": 1}}},  # Only questions asked at least once
+            {"$project": {
+                "question": "$_id.question",
+                "state": "$_id.state",
+                "count": 1,
+                "sample_answer": 1
+            }},
+            {"$limit": 200}  # Limit for performance
+        ]
+        
+        questions_data = list(sessions_collection.aggregate(pipeline))
+        
+        if not questions_data:
+            logger.info("No questions found in database for recommendations")
+            return []
+        
+        # Preprocess current question
+        processed_user_question = preprocess_question(user_question)
+        
+        # Prepare questions for similarity calculation
+        questions_list = []
+        metadata_list = []
+        
+        for item in questions_data:
+            question = item['question']
+            
+            # Use existing classification logic to filter agriculture-related questions
+            question_category = query_handler.classify_query(question)
+            if question_category != "AGRICULTURE":
+                continue
+                
+            processed_question = preprocess_question(question)
+            
+            # Skip if question is too similar to current question (avoid exact matches)
+            if processed_question == processed_user_question:
+                continue
+                
+            questions_list.append(processed_question)
+            metadata_list.append({
+                'original_question': question,
+                'state': item.get('state', 'unknown'),
+                'count': item['count'],
+                'sample_answer': item['sample_answer']
+            })
+        
+        if not questions_list:
+            logger.info("No suitable questions found for recommendations")
+            return []
+        
+        # Calculate similarity using TF-IDF
+        vectorizer = TfidfVectorizer(
+            max_features=1000,
+            stop_words='english',
+            ngram_range=(1, 2)
+        )
+        
+        all_questions = [processed_user_question] + questions_list
+        tfidf_matrix = vectorizer.fit_transform(all_questions)
+        
+        # Calculate cosine similarity
+        similarities = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:]).flatten()
+        
+        # Create recommendations with scores
+        recommendations = []
+        for i, similarity_score in enumerate(similarities):
+            if similarity_score > 0.1:  # Minimum similarity threshold
+                rec = {
+                    'question': metadata_list[i]['original_question'],
+                    'state': metadata_list[i]['state'],
+                    'similarity_score': float(similarity_score),
+                    'popularity': metadata_list[i]['count'],
+                    'sample_answer': metadata_list[i]['sample_answer'][:200] + "..."  # Preview
+                }
+                recommendations.append(rec)
+        
+        # Sort by state match first (if user_state provided), then by similarity score
+        if user_state:
+            def sort_key(rec):
+                state_boost = 0.2 if rec['state'].lower() == user_state.lower() else 0
+                return rec['similarity_score'] + state_boost
+            recommendations.sort(key=sort_key, reverse=True)
+        else:
+            recommendations.sort(key=lambda x: x['similarity_score'], reverse=True)
+        
+        # Return top recommendations
+        top_recommendations = recommendations[:limit]
+        
+        logger.info(f"Found {len(top_recommendations)} recommendations for question: {user_question[:50]}...")
+        
+        return top_recommendations
+        
+    except Exception as e:
+        logger.error(f"Error generating recommendations: {e}")
+        return []
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -250,6 +421,20 @@ async def new_session(question: str = Form(...), device_id: str = Form(...), sta
 
     sessions_collection.insert_one(session)
     session.pop("_id", None)
+    
+    # Get recommendations for this question
+    try:
+        recommendations = get_question_recommendations(
+            user_question=question,
+            user_state=state,
+            limit=2
+        )
+        session["recommendations"] = recommendations
+        logger.info(f"Added {len(recommendations)} recommendations to session response")
+    except Exception as e:
+        logger.error(f"Failed to get recommendations: {e}")
+        session["recommendations"] = []
+    
     return {"session": session}
 
 @app.get("/api/session/{session_id}")
@@ -310,8 +495,23 @@ async def continue_session(session_id: str, question: str = Form(...), device_id
     updated = sessions_collection.find_one({"session_id": session_id})
     if updated:
         updated.pop("_id", None)
+        
+        # Get recommendations for the latest question
+        try:
+            recommendations = get_question_recommendations(
+                user_question=question,
+                user_state=state,
+                limit=2
+            )
+            updated["recommendations"] = recommendations
+            logger.info(f"Added {len(recommendations)} recommendations to continue session response")
+        except Exception as e:
+            logger.error(f"Failed to get recommendations: {e}")
+            updated["recommendations"] = []
+    
     return {"session": updated}
 
+# Streaming endpoint for better UX
 @app.post("/api/query/stream")
 async def stream_query(question: str = Form(...), device_id: str = Form(...), state: str = Form(...), language: str = Form(...)):
     """
@@ -321,6 +521,7 @@ async def stream_query(question: str = Form(...), device_id: str = Form(...), st
         import json
         import asyncio
         
+        # Send thinking states
         thinking_states = [
             "Understanding your question...",
             "Searching agricultural database...", 
@@ -330,13 +531,15 @@ async def stream_query(question: str = Form(...), device_id: str = Form(...), st
         
         for i, state in enumerate(thinking_states):
             yield f"data: {json.dumps({'type': 'thinking', 'message': state, 'progress': (i + 1) * 25})}\n\n"
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.5)  # Small delay for better UX
         
         try:
+            # Get the actual answer
             raw_answer = get_answer(question, conversation_history=None, user_state=state)
             answer_only = str(raw_answer).strip()
             html_answer = markdown.markdown(answer_only, extensions=["extra", "nl2br"])
             
+            # Send final response
             session_id = str(uuid4())
             session = {
                 "session_id": session_id,
@@ -449,219 +652,260 @@ async def transcribe_audio(file: UploadFile = File(...), language: str = Form("E
         contents = await file.read()
         logger.info(f"File size: {len(contents)} bytes")
 
-        selected_language_code = LANGUAGE_CODE_MAP.get(language, "en-IN")
-        logger.info(f"Using language: {language} (Code: {selected_language_code})")
+        logger.info(f"Using language: {language} (Local Whisper)")
 
-        response = SARVAM_CLIENT.speech_to_text.transcribe(
-            file=(file.filename, contents),
-            model="saarika:v2.5",
-            language_code=selected_language_code
-        )
+        # Transcribe using Local Whisper (GPU-accelerated)
+        transcript = local_whisper.transcribe_audio(contents, file.filename)
 
-        logger.info(f"Sarvam AI Response: {response}")
-
-        if not response or not hasattr(response, 'transcript'):
+        # Check if transcription failed
+        if transcript.startswith("Error:"):
+            logger.error(f"Local Whisper transcription failed: {transcript}")
             return JSONResponse(
                 status_code=500,
-                content={"error": "Transcription failed - no transcript in response"}
+                content={"error": f"Transcription failed: {transcript}"}
             )
 
-        transcript = response.transcript.strip()
-        logger.info(f"Transcript: {transcript}")
+        logger.info(f"Transcript: {transcript[:100]}...")
 
         return {"transcript": transcript}
 
     except Exception as e:
-        logger.exception("Sarvam AI transcription failed")
-        return JSONResponse(status_code=500, content={"error": f"Sarvam AI transcription failed: {str(e)}"})
-#old transcription
-"""HF_API_URL = "https://api-inference.huggingface.co/models/openai/whisper-large-v3" # using this whisper model
-HF_API_URL = "https://api-inference.huggingface.co/models/openai/whisper-tiny"
-HF_API_TOKEN = os.getenv("HF_API_TOKEN")  
+        logger.exception("Local Whisper transcription failed")
+        return JSONResponse(status_code=500, content={"error": f"Local Whisper transcription failed: {str(e)}"})
 
-@app.post("/api/transcribe-audio")
-async def transcribe_audio(file: UploadFile = File(...)):
+@app.post("/api/recommendations")
+async def get_recommendations(data: dict = Body(...)):
+    """
+    Get question recommendations based on the user's current question and state
+    
+    Expected input:
+    {
+        "question": "How to grow tomatoes in summer?",
+        "state": "Maharashtra",
+        "limit": 2
+    }
+    """
     try:
-        logger.info(f"Received file: {file.filename}")
-
-        contents = await file.read()
-        logger.info(f"File size: {len(contents)} bytes")
-
-        content_type = file.content_type
-        if file.filename:
-            if file.filename.lower().endswith('.wav'):
-                content_type = "audio/wav"
-            elif file.filename.lower().endswith('.mp3'):
-                content_type = "audio/mpeg"
-            elif file.filename.lower().endswith('.flac'):
-                content_type = "audio/flac"
-            elif file.filename.lower().endswith('.ogg'):
-                content_type = "audio/ogg"
-            elif file.filename.lower().endswith('.m4a'):
-                content_type = "audio/m4a"
-            elif file.filename.lower().endswith('.webm'):
-                content_type = "audio/webm"
-
-        logger.info(f"Using content type: {content_type}")
-
-        headers = {
-            "Content-Type": content_type,
+        user_question = data.get('question', '')
+        user_state = data.get('state', '')
+        limit = data.get('limit', 2)
+        
+        if not user_question.strip():
+            return JSONResponse(
+                status_code=400,
+                content={"error": "Question is required"}
+            )
+        
+        # Get recommendations
+        recommendations = get_question_recommendations(
+            user_question=user_question,
+            user_state=user_state,
+            limit=min(limit, 5)  # Max 5 recommendations
+        )
+        
+        return {
+            "recommendations": recommendations,
+            "total_found": len(recommendations),
+            "based_on": {
+                "question": user_question[:100] + "..." if len(user_question) > 100 else user_question,
+                "state": user_state or "any"
+            }
         }
-
-        if HF_API_TOKEN and HF_API_TOKEN.strip():
-            headers["Authorization"] = f"Bearer {HF_API_TOKEN}"
-            logger.info("Using authenticated request")
-        else:
-            logger.info("Trying without authentication (public model)")
-
-        logger.info(f"Transcribing with whisper-tiny model")
-
-        response = requests.post(HF_API_URL, headers=headers, data=contents, timeout=60)
-
-        logger.info(f"HF Status: {response.status_code}")
-        logger.info(f"HF Response: {response.text[:500]}...")
-
-        if response.status_code == 200:
-            try:
-                result = response.json()
-                transcript = result.get("text") or result.get("generated_text")
-
-                if transcript and transcript.strip():
-                    logger.info(f"Transcription successful: {transcript[:100]}...")
-                    return {"transcript": transcript.strip()}
-                else:
-                    logger.warning(f"No transcript in response: {result}")
-                    return JSONResponse(
-                        status_code=500,
-                        content={"error": "No transcript found in response", "raw": str(result)}
-                    )
-            except Exception as json_error:
-                logger.error(f"Failed to parse JSON response: {json_error}")
-                return JSONResponse(
-                    status_code=500,
-                    content={"error": "Invalid JSON response from Hugging Face", "raw_response": response.text[:500]}
-                )
-
-        elif response.status_code == 503:
-            return JSONResponse(
-                status_code=200,
-                content={
-                    "transcript": f"Audio Processing in Progress! Your audio file '{file.filename}' has been received. Our speech recognition service is currently starting up. Please wait 30-60 seconds and try uploading your audio again. Thank you for your patience!",
-                    "demo_mode": True,
-                    "api_status": "working",
-                    "model_status": "loading_503",
-                    "file_info": {
-                        "filename": file.filename,
-                        "size_bytes": len(contents),
-                        "content_type": content_type
-                    },
-                    "retry_suggestion": "Please wait 30-60 seconds and try again"
-                }
-            )
-
-        elif response.status_code == 404:
-            logger.warning("Whisper model returned 404 - not available")
-            return JSONResponse(
-                status_code=200,
-                content={
-                    "transcript": f"Audio Successfully Received! Your audio file '{file.filename}' has been uploaded and processed. However, our speech-to-text service is temporarily unavailable. Please try again in a few minutes, or contact support if the issue persists. We apologize for the inconvenience!",
-                    "demo_mode": True,
-                    "api_status": "working",
-                    "model_status": "unavailable_404", 
-                    "file_info": {
-                        "filename": file.filename,
-                        "size_bytes": len(contents),
-                        "content_type": content_type
-                    },
-                    "debug_info": {
-                        "hf_status_code": response.status_code,
-                        "hf_response": response.text[:100],
-                        "model_url": HF_API_URL,
-                        "token_provided": bool(HF_API_TOKEN and HF_API_TOKEN.strip())
-                    },
-                    "next_steps": "The speech recognition service is temporarily unavailable. Please try again in a few minutes."
-                }
-            )
-
-        elif response.status_code == 429:
-            return JSONResponse(
-                status_code=200,
-                content={
-                    "transcript": f"Processing Limit Reached! Your audio file '{file.filename}' has been received successfully. However, we're currently processing many requests. Please wait a few minutes and try again. We appreciate your patience!",
-                    "demo_mode": True,
-                    "api_status": "working",
-                    "model_status": "rate_limited_429",
-                    "file_info": {
-                        "filename": file.filename,
-                        "size_bytes": len(contents),
-                        "content_type": content_type
-                    },
-                    "retry_suggestion": "Please wait 3-5 minutes before trying again"
-                }
-            )
-
-        else:
-            logger.error(f"Unexpected status code: {response.status_code}")
-            logger.error(f"Response content: {response.text}")
-            return JSONResponse(
-                status_code=502,
-                content={
-                    "error": f"Hugging Face API error: {response.status_code}",
-                    "details": response.text[:300],
-                    "debug_info": f"Headers sent: {dict(headers)}"
-                }
-            )
-
-    except requests.exceptions.Timeout:
-        logger.error("Request timed out")
-        return JSONResponse(
-            status_code=200,
-            content={
-                "transcript": f"Processing Timeout! Your audio file '{file.filename}' was received, but the transcription service is taking longer than expected. This might be due to high server load. Please try again in a few minutes.",
-                "demo_mode": True,
-                "api_status": "timeout",
-                "model_status": "timeout_504",
-                "file_info": {
-                    "filename": file.filename,
-                    "size_bytes": len(contents),
-                    "content_type": content_type if 'content_type' in locals() else "unknown"
-                },
-                "retry_suggestion": "Please try again in 2-3 minutes"
-            }
-        )
-    except requests.exceptions.ConnectionError:
-        logger.error("Connection error")
-        return JSONResponse(
-            status_code=200,
-            content={
-                "transcript": f"Connection Issue! Your audio file '{file.filename}' was received, but we're having trouble connecting to our speech recognition service. Please check your internet connection and try again.",
-                "demo_mode": True,
-                "api_status": "connection_error",
-                "model_status": "connection_failed_503",
-                "file_info": {
-                    "filename": file.filename,
-                    "size_bytes": len(contents),
-                    "content_type": content_type if 'content_type' in locals() else "unknown"
-                },
-                "retry_suggestion": "Please check your internet connection and try again"
-            }
-        )
+        
     except Exception as e:
-        logger.exception("Transcription failed with unexpected error")
+        logger.error(f"Error in recommendations endpoint: {e}")
         return JSONResponse(
-            status_code=200, 
-            content={
-                "transcript": f"Unexpected Error! Your audio file '{file.filename}' was received, but we encountered an unexpected issue during processing. Our technical team has been notified. Please try again later.",
-                "demo_mode": True,
-                "api_status": "error",
-                "model_status": "internal_error_500",
-                "file_info": {
-                    "filename": file.filename if 'file' in locals() and hasattr(file, 'filename') else "unknown",
-                    "size_bytes": len(contents) if 'contents' in locals() else 0,
-                    "content_type": content_type if 'content_type' in locals() else "unknown"
-                },
-                "error_details": str(e),
-                "retry_suggestion": "Please try again later or contact support if the issue persists"
-            }
+            status_code=500,
+            content={"error": "Failed to generate recommendations"}
         )
-"""
+
+# OLD TRANSCRIBE-AUDIO
+# HF_API_URL = "https://api-inference.huggingface.co/models/openai/whisper-large-v3" # using this whisper model
+# HF_API_URL = "https://api-inference.huggingface.co/models/openai/whisper-tiny"
+# HF_API_TOKEN = os.getenv("HF_API_TOKEN")  
+
+# @app.post("/api/transcribe-audio")
+# async def transcribe_audio(file: UploadFile = File(...)):
+#     try:
+#         logger.info(f"Received file: {file.filename}")
+
+#         contents = await file.read()
+#         logger.info(f"File size: {len(contents)} bytes")
+
+#         content_type = file.content_type
+#         if file.filename:
+#             if file.filename.lower().endswith('.wav'):
+#                 content_type = "audio/wav"
+#             elif file.filename.lower().endswith('.mp3'):
+#                 content_type = "audio/mpeg"
+#             elif file.filename.lower().endswith('.flac'):
+#                 content_type = "audio/flac"
+#             elif file.filename.lower().endswith('.ogg'):
+#                 content_type = "audio/ogg"
+#             elif file.filename.lower().endswith('.m4a'):
+#                 content_type = "audio/m4a"
+#             elif file.filename.lower().endswith('.webm'):
+#                 content_type = "audio/webm"
+
+#         logger.info(f"Using content type: {content_type}")
+
+#         headers = {
+#             "Content-Type": content_type,
+#         }
+
+#         if HF_API_TOKEN and HF_API_TOKEN.strip():
+#             headers["Authorization"] = f"Bearer {HF_API_TOKEN}"
+#             logger.info("Using authenticated request")
+#         else:
+#             logger.info("Trying without authentication (public model)")
+
+#         logger.info(f"Transcribing with whisper-tiny model")
+
+#         response = requests.post(HF_API_URL, headers=headers, data=contents, timeout=60)
+
+#         logger.info(f"HF Status: {response.status_code}")
+#         logger.info(f"HF Response: {response.text[:500]}...")
+
+#         if response.status_code == 200:
+#             try:
+#                 result = response.json()
+#                 transcript = result.get("text") or result.get("generated_text")
+
+#                 if transcript and transcript.strip():
+#                     logger.info(f"Transcription successful: {transcript[:100]}...")
+#                     return {"transcript": transcript.strip()}
+#                 else:
+#                     logger.warning(f"No transcript in response: {result}")
+#                     return JSONResponse(
+#                         status_code=500,
+#                         content={"error": "No transcript found in response", "raw": str(result)}
+#                     )
+#             except Exception as json_error:
+#                 logger.error(f"Failed to parse JSON response: {json_error}")
+#                 return JSONResponse(
+#                     status_code=500,
+#                     content={"error": "Invalid JSON response from Hugging Face", "raw_response": response.text[:500]}
+#                 )
+
+#         elif response.status_code == 503:
+#             return JSONResponse(
+#                 status_code=200,
+#                 content={
+#                     "transcript": f"Audio Processing in Progress! Your audio file '{file.filename}' has been received. Our speech recognition service is currently starting up. Please wait 30-60 seconds and try uploading your audio again. Thank you for your patience!",
+#                     "demo_mode": True,
+#                     "api_status": "working",
+#                     "model_status": "loading_503",
+#                     "file_info": {
+#                         "filename": file.filename,
+#                         "size_bytes": len(contents),
+#                         "content_type": content_type
+#                     },
+#                     "retry_suggestion": "Please wait 30-60 seconds and try again"
+#                 }
+#             )
+
+#         elif response.status_code == 404:
+#             logger.warning("Whisper model returned 404 - not available")
+#             return JSONResponse(
+#                 status_code=200,
+#                 content={
+#                     "transcript": f"Audio Successfully Received! Your audio file '{file.filename}' has been uploaded and processed. However, our speech-to-text service is temporarily unavailable. Please try again in a few minutes, or contact support if the issue persists. We apologize for the inconvenience!",
+#                     "demo_mode": True,
+#                     "api_status": "working",
+#                     "model_status": "unavailable_404", 
+#                     "file_info": {
+#                         "filename": file.filename,
+#                         "size_bytes": len(contents),
+#                         "content_type": content_type
+#                     },
+#                     "debug_info": {
+#                         "hf_status_code": response.status_code,
+#                         "hf_response": response.text[:100],
+#                         "model_url": HF_API_URL,
+#                         "token_provided": bool(HF_API_TOKEN and HF_API_TOKEN.strip())
+#                     },
+#                     "next_steps": "The speech recognition service is temporarily unavailable. Please try again in a few minutes."
+#                 }
+#             )
+
+#         elif response.status_code == 429:
+#             return JSONResponse(
+#                 status_code=200,
+#                 content={
+#                     "transcript": f"Processing Limit Reached! Your audio file '{file.filename}' has been received successfully. However, we're currently processing many requests. Please wait a few minutes and try again. We appreciate your patience!",
+#                     "demo_mode": True,
+#                     "api_status": "working",
+#                     "model_status": "rate_limited_429",
+#                     "file_info": {
+#                         "filename": file.filename,
+#                         "size_bytes": len(contents),
+#                         "content_type": content_type
+#                     },
+#                     "retry_suggestion": "Please wait 3-5 minutes before trying again"
+#                 }
+#             )
+
+#         else:
+#             logger.error(f"Unexpected status code: {response.status_code}")
+#             logger.error(f"Response content: {response.text}")
+#             return JSONResponse(
+#                 status_code=502,
+#                 content={
+#                     "error": f"Hugging Face API error: {response.status_code}",
+#                     "details": response.text[:300],
+#                     "debug_info": f"Headers sent: {dict(headers)}"
+#                 }
+#             )
+
+#     except requests.exceptions.Timeout:
+#         logger.error("Request timed out")
+#         return JSONResponse(
+#             status_code=200,
+#             content={
+#                 "transcript": f"Processing Timeout! Your audio file '{file.filename}' was received, but the transcription service is taking longer than expected. This might be due to high server load. Please try again in a few minutes.",
+#                 "demo_mode": True,
+#                 "api_status": "timeout",
+#                 "model_status": "timeout_504",
+#                 "file_info": {
+#                     "filename": file.filename,
+#                     "size_bytes": len(contents),
+#                     "content_type": content_type if 'content_type' in locals() else "unknown"
+#                 },
+#                 "retry_suggestion": "Please try again in 2-3 minutes"
+#             }
+#         )
+#     except requests.exceptions.ConnectionError:
+#         logger.error("Connection error")
+#         return JSONResponse(
+#             status_code=200,
+#             content={
+#                 "transcript": f"Connection Issue! Your audio file '{file.filename}' was received, but we're having trouble connecting to our speech recognition service. Please check your internet connection and try again.",
+#                 "demo_mode": True,
+#                 "api_status": "connection_error",
+#                 "model_status": "connection_failed_503",
+#                 "file_info": {
+#                     "filename": file.filename,
+#                     "size_bytes": len(contents),
+#                     "content_type": content_type if 'content_type' in locals() else "unknown"
+#                 },
+#                 "retry_suggestion": "Please check your internet connection and try again"
+#             }
+#         )
+#     except Exception as e:
+#         logger.exception("Transcription failed with unexpected error")
+#         return JSONResponse(
+#             status_code=200, 
+#             content={
+#                 "transcript": f"Unexpected Error! Your audio file '{file.filename}' was received, but we encountered an unexpected issue during processing. Our technical team has been notified. Please try again later.",
+#                 "demo_mode": True,
+#                 "api_status": "error",
+#                 "model_status": "internal_error_500",
+#                 "file_info": {
+#                     "filename": file.filename if 'file' in locals() and hasattr(file, 'filename') else "unknown",
+#                     "size_bytes": len(contents) if 'contents' in locals() else 0,
+#                     "content_type": content_type if 'content_type' in locals() else "unknown"
+#                 },
+#                 "error_details": str(e),
+#                 "retry_suggestion": "Please try again later or contact support if the issue persists"
+#             }
+#         )

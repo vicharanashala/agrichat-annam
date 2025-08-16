@@ -24,6 +24,7 @@ class OllamaLLMInterface:
         - Fallback model (powerful): Gemma 3 27B for complex queries
         """
         try:
+            # Choose model based on use_fallback parameter
             selected_model = self.fallback_model if use_fallback else self.model_name
             
             if use_fallback:
@@ -39,7 +40,7 @@ class OllamaLLMInterface:
                     "temperature": temperature,
                     "num_predict": max_tokens,
                     "num_ctx": 32768,
-                    "num_batch": 4096 if not use_fallback else 2048,
+                    "num_batch": 4096 if not use_fallback else 2048,  # Higher batch for faster model
                     "num_gpu": 99,
                     "num_thread": 48
                 }

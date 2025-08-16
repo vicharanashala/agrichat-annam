@@ -3,9 +3,11 @@ import numpy as np
 from numpy.linalg import norm
 import logging
 from typing import List, Dict, Optional
-from context_manager import ConversationContext
+from context_manager import ConversationContext, MemoryStrategy
 from local_llm_interface import local_llm, local_embeddings, run_local_llm
 import argparse
+import hashlib
+from functools import lru_cache
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -127,11 +129,18 @@ Respond as if you are talking directly to the user, not giving advice on what to
         
         self.context_manager = ConversationContext(
             max_context_pairs=5,
-            max_context_tokens=800
+            max_context_tokens=800,
+            hybrid_buffer_pairs=3,
+            summary_threshold=8,
+            memory_strategy=MemoryStrategy.AUTO
         )
         
         self.min_cosine_threshold = 0.15 
         self.good_match_threshold = 0.4
+        
+        # PERFORMANCE OPTIMIZATION: Simple query cache
+        self.query_cache = {}
+        self.cache_max_size = 100  # Cache last 100 queries
         
         col = self.db._collection.get()["metadatas"]
         self.meta_index = {
@@ -142,7 +151,24 @@ Respond as if you are talking directly to the user, not giving advice on what to
             ]
         }
 
-    def get_region_context(self, question: str = None, region: str = None):
+    def _get_query_cache_key(self, query: str, user_state: str = None, filter_dict: dict = None) -> str:
+        """Generate cache key for query results"""
+        cache_data = f"{query}|{user_state or ''}|{str(filter_dict or {})}"
+        return hashlib.md5(cache_data.encode()).hexdigest()
+    
+    def _cache_query_result(self, cache_key: str, results: list):
+        """Cache query results with size limit"""
+        if len(self.query_cache) >= self.cache_max_size:
+            # Remove oldest entry (simple FIFO)
+            oldest_key = next(iter(self.query_cache))
+            del self.query_cache[oldest_key]
+        self.query_cache[cache_key] = results
+    
+    def _get_cached_result(self, cache_key: str) -> Optional[list]:
+        """Get cached query result if available"""
+        return self.query_cache.get(cache_key)
+
+    def get_region_context(self, question: str = None, region: str = None)::
         """
         Get region-specific context for greetings and responses
         """
@@ -235,29 +261,18 @@ Respond as if you are talking directly to the user, not giving advice on what to
 
     def expand_query(self, query):
         """
-        Expand query with variations to handle 'twisted' questions better
+        OPTIMIZED: Reduced query expansion for better performance
+        Creates only 1-2 strategic query variants instead of 5+
         """
-        expanded = [query]
+        variants = [query.strip()]
         
-        try:
-            agri_keywords = self._extract_agricultural_terms(query)
-            
-            if agri_keywords:
-                keyword_query = " ".join(agri_keywords)
-                expanded.append(keyword_query)
-            
+        # Only add simplified variant if original is complex
+        if len(query.split()) > 4:
             simplified = self._simplify_query(query)
-            if simplified and simplified != query:
-                expanded.append(simplified)
-            
-            alternative = self._rephrase_query(query)
-            if alternative and alternative not in expanded:
-                expanded.append(alternative)
-            
-        except Exception as e:
-            logger.warning(f"[RAG] Error expanding query: {e}")
+            if simplified != query and len(simplified) > 3:
+                variants.append(simplified)
         
-        return expanded[:5]
+        return variants[:2]  # Limit to maximum 2 variants
     
     def _extract_agricultural_terms(self, text):
         """Extract agricultural terms from text"""
@@ -309,7 +324,7 @@ Respond as if you are talking directly to the user, not giving advice on what to
                         break
         
         for field in safe_fields:
-            if field in self.meta_index and field != "State":  # Skip State since we handled it above
+            if field in self.meta_index and field != "State":
                 for val in self.meta_index[field]:
                     if str(val).lower() in q and str(val).lower() != "other" and str(val).lower() != "-":
                         filt[field] = val
@@ -502,18 +517,22 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 for i, entry in enumerate(conversation_history[-2:]):
                     logger.info(f"[Context DEBUG] Entry {i}: Q='{entry.get('question', '')[:50]}...', A='{entry.get('answer', '')[:50]}...'")
                 
-                should_use_context = self.context_manager.should_use_context(question, conversation_history)
-                logger.info(f"[Context DEBUG] Should use context for '{question[:50]}...': {should_use_context}")
+                # COMMENTED OUT FOR PERFORMANCE TESTING
+                # should_use_context = self.context_manager.should_use_context(question, conversation_history)
+                # logger.info(f"[Context DEBUG] Should use context for '{question[:50]}...': {should_use_context}")
                 
-                if should_use_context:
-                    processing_query = self.context_manager.build_contextual_query(question, conversation_history)
-                    context_used = True
-                    logger.info(f"[DEBUG] Using conversation context from last {len(conversation_history[-5:])} messages")
-                    context_summary = self.context_manager.get_context_summary(conversation_history)
-                    if context_summary:
-                        logger.info(f"[DEBUG] Context summary: {context_summary}")
-                else:
-                    logger.info(f"[DEBUG] No context needed for this query")
+                # if should_use_context:
+                #     processing_query = self.context_manager.build_contextual_query(question, conversation_history)
+                #     context_used = True
+                #     logger.info(f"[DEBUG] Using conversation context from last {len(conversation_history[-5:])} messages")
+                #     context_summary = self.context_manager.get_context_summary(conversation_history)
+                #     if context_summary:
+                #         logger.info(f"[DEBUG] Context summary: {context_summary}")
+                # else:
+                #     logger.info(f"[DEBUG] No context needed for this query")
+                
+                # Skip context processing for performance testing
+                logger.info(f"[DEBUG] Context manager disabled for performance testing")
             else:
                 logger.info(f"[DEBUG] No conversation history available")
             
@@ -531,33 +550,46 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 return f"__NO_SOURCE__{response}"
 
             try:
+                # OPTIMIZED: Simplified search strategy for better performance
                 expanded_queries = self.expand_query(processing_query)
                 all_results = []
                 seen_content = set()
                 
-                for query_variant in expanded_queries:
+                # Primary search with first query variant (OPTIMIZED: reduced k=8 to k=5)
+                primary_query = expanded_queries[0]
+                try:
+                    metadata_filter = self._create_metadata_filter(primary_query, user_state)
+                    primary_results = self.db.similarity_search_with_score(primary_query, k=5, filter=metadata_filter)
+                    
+                    # Only search without filter if we got very few results
+                    if len(primary_results) < 2:
+                        primary_results = self.db.similarity_search_with_score(primary_query, k=5, filter=None)
+                    
+                    for doc, score in primary_results:
+                        if doc.page_content not in seen_content:
+                            all_results.append((doc, score))
+                            seen_content.add(doc.page_content)
+                
+                except Exception as primary_error:
+                    logger.warning(f"[RAG] Error with primary query: {primary_error}")
+                
+                # Fallback search only if we have multiple queries and insufficient results (OPTIMIZED: reduced k=5 to k=3)
+                if len(expanded_queries) > 1 and len(all_results) < 3:
+                    fallback_query = expanded_queries[1]
                     try:
-                        metadata_filter = self._create_metadata_filter(query_variant, user_state)
-                        variant_results = self.db.similarity_search_with_score(query_variant, k=10, filter=metadata_filter)
-                        
-                        if len(variant_results) < 3:
-                            variant_results_no_filter = self.db.similarity_search_with_score(query_variant, k=15, filter=None)
-                            variant_results.extend(variant_results_no_filter)
-                        
-                        for doc, score in variant_results:
+                        fallback_results = self.db.similarity_search_with_score(fallback_query, k=3, filter=None)
+                        for doc, score in fallback_results:
                             if doc.page_content not in seen_content:
                                 all_results.append((doc, score))
                                 seen_content.add(doc.page_content)
-                    
-                    except Exception as variant_error:
-                        logger.warning(f"[RAG] Error with query variant '{query_variant}': {variant_error}")
-                        continue
+                    except Exception as fallback_error:
+                        logger.warning(f"[RAG] Error with fallback query: {fallback_error}")
                 
-                raw_results = all_results[:25]
+                raw_results = all_results[:10]  # OPTIMIZED: Reduced from 15 to 10
                 
                 if not raw_results:
                     logger.warning(f"[RAG] No results from expanded queries, falling back to original query")
-                    raw_results = self.db.similarity_search_with_score(processing_query, k=15, filter=None)
+                    raw_results = self.db.similarity_search_with_score(processing_query, k=10, filter=None)  # OPTIMIZED: Reduced from 15 to 10
                     
             except Exception as filter_error:
                 logger.warning(f"[ChromaDB Error] {filter_error}. Using fallback search.")
@@ -595,20 +627,25 @@ Respond as if you are talking directly to the user, not giving advice on what to
                             break
                     print(f"[DEBUG] similarity_score: {similarity_score}")
                     
-                    if context_used:
-                        should_use_rag = True
-                        logger.info(f"[Context] Using RAG content for contextual query (score: {similarity_score})")
-                        print(f"[DEBUG] Context path - should_use_rag: {should_use_rag}")
-                    else:
-                        score_threshold = 1.1  
-                        should_use_rag = similarity_score is None or similarity_score <= score_threshold
-                        print(f"[DEBUG] Normal path - should_use_rag: {should_use_rag}")
+                    # COMMENTED OUT FOR PERFORMANCE TESTING
+                    # if context_used:
+                    #     should_use_rag = True
+                    #     logger.info(f"[Context] Using RAG content for contextual query (score: {similarity_score})")
+                    #     print(f"[DEBUG] Context path - should_use_rag: {should_use_rag}")
+                    # else:
+                    
+                    # Always use normal path without context for performance testing
+                    score_threshold = 1.1  
+                    should_use_rag = similarity_score is None or similarity_score <= score_threshold
+                    print(f"[DEBUG] Normal path (context disabled) - should_use_rag: {should_use_rag}")
                     
                     if should_use_rag:
                         print(f"[DEBUG] Generating RAG response...")
-                        final_question = question if context_used else processing_query
+                        # final_question = question if context_used else processing_query
+                        final_question = processing_query  # Always use processing_query for performance testing
                         prompt = self.construct_structured_prompt(content, final_question, user_state)
                         
+                        # Use fast model for RAG processing
                         generated_response = run_local_llm(
                             prompt,
                             temperature=0.3,
@@ -618,14 +655,17 @@ Respond as if you are talking directly to the user, not giving advice on what to
                         
                         print(f"[DEBUG] Generated response length: {len(generated_response)}")
                         
-                        if context_used:
-                            logger.info(f"[Context] Response generated with conversation context")
-                            logger.info(f"[SOURCE] RAG Database used with context for question: {question[:50]}...")
-                            final_response = generated_response.strip()
-                        else:
-                            logger.info(f"[RAG] Response generated from RAG database (score: {similarity_score})")
-                            logger.info(f"[SOURCE] RAG Database used for question: {question[:50]}...")
-                            final_response = generated_response.strip()
+                        # COMMENTED OUT FOR PERFORMANCE TESTING
+                        # if context_used:
+                        #     logger.info(f"[Context] Response generated with conversation context")
+                        #     logger.info(f"[SOURCE] RAG Database used with context for question: {question[:50]}...")
+                        #     final_response = generated_response.strip()
+                        # else:
+                        
+                        # Always use normal path without context for performance testing
+                        logger.info(f"[RAG] Response generated from RAG database (score: {similarity_score})")
+                        logger.info(f"[SOURCE] RAG Database used for question: {question[:50]}...")
+                        final_response = generated_response.strip()
                             
                         return final_response
                     else:
@@ -633,23 +673,24 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 else:
                     print(f"[DEBUG] relevant_docs is empty or falsy")
             
-            if context_used:
-                if relevant_docs and relevant_docs[0].page_content.strip():
-                    context = relevant_docs[0].page_content
-                    final_question = question
-                    prompt = self.construct_structured_prompt(context, final_question, user_state)
-                    
-                    generated_response = run_local_llm(
-                        prompt,
-                        temperature=0.3,
-                        max_tokens=1024,
-                        use_fallback=False
-                    )
-                    
-                    logger.info(f"[Context] Used marginal RAG content for contextual query")
-                    logger.info(f"[SOURCE] RAG Database used with marginal content for question: {question[:50]}...")
-                    final_response = generated_response.strip()
-                    return final_response
+            # COMMENTED OUT FOR PERFORMANCE TESTING
+            # if context_used:
+            #     if relevant_docs and relevant_docs[0].page_content.strip():
+            #         context = relevant_docs[0].page_content
+            #         final_question = question
+            #         prompt = self.construct_structured_prompt(context, final_question, user_state)
+            #         
+            #         generated_response = run_local_llm(
+            #             prompt,
+            #             temperature=0.3,
+            #             max_tokens=1024,
+            #             use_fallback=False
+            #         )
+            #         
+            #         logger.info(f"[Context] Used marginal RAG content for contextual query")
+            #         logger.info(f"[SOURCE] RAG Database used with marginal content for question: {question[:50]}...")
+            #         final_response = generated_response.strip()
+            #         return final_response
             
             return "I don't have enough information to answer that."
             
@@ -661,5 +702,7 @@ Respond as if you are talking directly to the user, not giving advice on what to
         """
         Get a brief summary of conversation context for debugging
         """
-        return self.context_manager.get_context_summary(conversation_history)
+        # COMMENTED OUT FOR PERFORMANCE TESTING
+        # return self.context_manager.get_context_summary(conversation_history)
+        return None
 

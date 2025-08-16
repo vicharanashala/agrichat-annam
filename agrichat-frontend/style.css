@@ -182,11 +182,11 @@ body.sidebar-collapsed {
   margin-bottom: 10px;
   overflow: hidden;
   display: -webkit-box;
-  display: box; 
+  display: box;
   -webkit-box-orient: vertical;
   box-orient: vertical;
   -webkit-line-clamp: 2;
-  line-clamp: 2; 
+  line-clamp: 2;
   line-height: 1.4;
   max-height: 2.8em;
 }
@@ -413,6 +413,7 @@ body.sidebar-collapsed {
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -564,7 +565,8 @@ body.sidebar-collapsed {
 
 #start-form .button-row {
   display: flex;
-  justify-content: flex-end; /* Buttons align to the right */
+  justify-content: flex-end;
+  /* Buttons align to the right */
   gap: 12px;
 }
 
@@ -612,7 +614,8 @@ body.sidebar-collapsed {
 
   /* Changes to stil show vertical scrollbar */
   width: 100%;
-  max-width: 100%; /* (optional, for safety) */
+  max-width: 100%;
+  /* (optional, for safety) */
   left: 0;
   box-sizing: border-box;
 
@@ -695,12 +698,13 @@ body.sidebar-collapsed {
   position: absolute;
   z-index: 10;
   left: 50%;
-  bottom: 125%; /* place above the button */
+  bottom: 125%;
+  /* place above the button */
   transform: translateX(-50%);
   font-size: 13px;
   pointer-events: none;
   transition: opacity 0.3s;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
 /* Show tooltip on hover */
@@ -837,7 +841,7 @@ body.sidebar-collapsed {
     padding: 15px 30px 15px 15px !important;
     box-sizing: border-box;
   }
-  
+
   #user-input {
     font-size: 16px;
   }
@@ -1008,10 +1012,10 @@ select option:checked {
 }
 
 .reset-location-btn {
-  background: linear-gradient(135deg, #cde9cd, #b6deb6); 
+  background: linear-gradient(135deg, #cde9cd, #b6deb6);
   color: var(--primary-green);
   border: 1px solid var(--accent-green);
-  padding: 6px 10px; 
+  padding: 6px 10px;
   border-radius: 6px;
   font-weight: 600;
   cursor: pointer;
@@ -1022,10 +1026,10 @@ select option:checked {
   transition: all 0.2s ease;
 }
 
- ::selection {
-   background: var(--accent-green);
-   color: #ffffff;
- }
+::selection {
+  background: var(--accent-green);
+  color: #ffffff;
+}
 
 .reset-location-btn:hover {
   background: #6aa86a;
@@ -1106,7 +1110,8 @@ select option:checked {
     display: block;
     height: auto;
     min-height: 100vh;
-    padding-bottom: 16px; /* prevents chat-form cutoff */
+    padding-bottom: 16px;
+    /* prevents chat-form cutoff */
     overflow: visible;
   }
 
@@ -1129,12 +1134,14 @@ select option:checked {
 
   /* Target the br inside the subheading p */
   .subheading-container p br {
-    display: none; /* hide by default */
+    display: none;
+    /* hide by default */
   }
 
   .chat-window {
     max-width: 75%;
-    overflow-y: auto;      /* enable vertical scrolling */
+    overflow-y: auto;
+    /* enable vertical scrolling */
   }
 
   #start-form {
@@ -1150,7 +1157,8 @@ select option:checked {
   }
 
   #stateSelect {
-    width: 130px;  /* or preferred width (100-160px is typical for mobile) */
+    width: 130px;
+    /* or preferred width (100-160px is typical for mobile) */
     min-width: 0;
     max-width: 60vw;
     padding: 8px;
@@ -1161,7 +1169,7 @@ select option:checked {
     margin-bottom: 40px;
     height: 110px;
   }
-  
+
   /* Optional: space around the select if needed */
   .main-header #stateSelect {
     margin-left: 5px;
@@ -1175,12 +1183,15 @@ select option:checked {
     width: 100vw;
     max-width: 100vw;
     min-width: 0;
-    margin: 0;              /* Remove any centering or left/right margins */
+    margin: 0;
+    /* Remove any centering or left/right margins */
     border-radius: 0;
-    padding-left: 8px;      /* override desktop padding if you want */
+    padding-left: 8px;
+    /* override desktop padding if you want */
     padding-right: 8px;
 
-    margin-top: 110px; /* matching the height of main-header */
+    margin-top: 110px;
+    /* matching the height of main-header */
   }
 
   #chat-form {
@@ -1213,7 +1224,8 @@ select option:checked {
 
   /* Target the br inside the subheading p */
   .subheading-container p br {
-    display: none; /* hide by default */
+    display: none;
+    /* hide by default */
   }
 }
 
@@ -1329,4 +1341,223 @@ select option:checked {
     margin: 0px 10px 0 14% !important;
   }
 
+}
+
+/* ==================== */
+/* Recommendations Section */
+/* ==================== */
+
+.recommendations-container {
+  width: 100%;
+  margin: 0 auto 20px auto;
+}
+
+.recommendations-section {
+  background: var(--white);
+  border-radius: 12px;
+  padding: 20px;
+  margin: 20px auto;
+  border: 1px solid var(--border-light);
+  max-width: 800px;
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 2px 10px var(--shadow);
+  position: fixed;
+  bottom: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 600px;
+  z-index: 999;
+}
+
+.recommendations-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.recommendations-header i {
+  color: var(--accent-green);
+  font-size: 18px;
+}
+
+.recommendations-header h3 {
+  color: var(--primary-green);
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.recommendations-subtitle {
+  color: var(--text-light);
+  font-size: 12px;
+  margin-left: auto;
+}
+
+.recommendations-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.recommendation-item {
+  background: var(--very-light-green);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.recommendation-item:hover {
+  background: #d8f2d8;
+  border-color: var(--accent-green);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 12px var(--shadow);
+}
+
+.recommendation-question {
+  font-weight: 600;
+  color: var(--primary-green);
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+.recommendation-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--text-light);
+}
+
+.recommendation-state {
+  background: var(--accent-green);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 10px;
+}
+
+.recommendation-popularity {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.recommendation-popularity i {
+  color: var(--accent-green);
+}
+
+.recommendation-score {
+  font-size: 0.8em;
+  color: var(--text-light);
+  margin-top: 4px;
+}
+
+/* Inline Recommendations */
+.inline-recommendations {
+  margin: 15px 0;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 3px solid var(--accent-green);
+}
+
+.inline-rec-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-weight: 600;
+  color: var(--text-dark);
+  font-size: 0.9em;
+}
+
+.inline-rec-header i {
+  color: var(--accent-green);
+}
+
+.inline-rec-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inline-rec-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid #e0e0e0;
+}
+
+.inline-rec-item:hover {
+  background: var(--light-green);
+  border-color: var(--accent-green);
+}
+
+.inline-rec-question {
+  flex: 1;
+  font-size: 0.9em;
+  color: var(--text-dark);
+}
+
+.inline-rec-score {
+  font-size: 0.75em;
+  color: var(--text-light);
+  background: #e8f5e8;
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+
+.no-recommendations {
+  text-align: center;
+  color: var(--text-light);
+  padding: 20px;
+  font-style: italic;
+}
+
+.no-recommendations i {
+  color: var(--accent-green);
+  font-size: 24px;
+  margin-bottom: 8px;
+  display: block;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .recommendations-section {
+    margin: 10px 0;
+    padding: 16px;
+    bottom: 140px;
+    width: 95%;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .recommendations-header h3 {
+    font-size: 14px;
+  }
+
+  .recommendation-item {
+    padding: 12px;
+  }
+
+  .recommendation-question {
+    font-size: 14px;
+  }
+
+  .recommendations-container {
+    max-width: 75%;
+  }
 }

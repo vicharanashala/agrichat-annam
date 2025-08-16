@@ -316,6 +316,48 @@ function appendMessage(sender, text, index = null, rating = null) {
   document.getElementById("chatWindow").appendChild(div);
 }
 
+function displayRecommendations(recommendations) {
+  // Remove any existing recommendations first
+  const existingRecs = document.querySelectorAll('.inline-recommendations');
+  existingRecs.forEach(rec => rec.remove());
+
+  if (!recommendations || recommendations.length === 0) {
+    return;
+  }
+
+  // Create inline recommendations div
+  const recDiv = document.createElement("div");
+  recDiv.className = "inline-recommendations";
+  recDiv.innerHTML = `
+    <div class="inline-rec-header">
+      <i class="fas fa-lightbulb"></i>
+      <span>You might also ask:</span>
+    </div>
+    <div class="inline-rec-items">
+      ${recommendations.map(rec => `
+        <div class="inline-rec-item" data-question="${rec.question}">
+          <span class="inline-rec-question">${rec.question}</span>
+          <span class="inline-rec-score">${(rec.similarity_score * 100).toFixed(0)}%</span>
+        </div>
+      `).join('')}
+    </div>
+  `;
+
+  // Add click handlers to recommendation items
+  recDiv.addEventListener('click', (e) => {
+    const item = e.target.closest('.inline-rec-item');
+    if (item) {
+      const question = item.getAttribute('data-question');
+      document.getElementById("user-input").value = question;
+      document.getElementById("user-input").focus();
+    }
+  });
+
+  // Insert after the last bot message
+  const chatWindow = document.getElementById("chatWindow");
+  chatWindow.appendChild(recDiv);
+  chatWindow.scrollTop = chatWindow.scrollHeight;
+}
 
 function loadChat(session) {
   document.getElementById("startScreen").style.display = "none";
@@ -351,6 +393,13 @@ function loadChat(session) {
     appendMessage("bot", msg.answer, idx, msg.rating || null);
   });
 
+  // Show recommendations if available (using new inline style)
+  if (session.recommendations && session.recommendations.length > 0) {
+    displayRecommendations(session.recommendations);
+  }
+
+  // Hide the old recommendations section since we're using inline style
+  document.getElementById("recommendationsSection").style.display = "none";
 
   document.getElementById("chatWindow").scrollTop = document.getElementById("chatWindow").scrollHeight;
 }
@@ -399,7 +448,7 @@ window.addEventListener("DOMContentLoaded", () => {
     //     // }
     //     localStorage.setItem("agrichat_user_state", state); 
     // (NEW) After the audioBlob is ready...
-   const audioBlob = new Blob(audioChunks, { type: 'audio/webm' }); // or another appropriate MIME type
+    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' }); // or another appropriate MIME type
 
 
 
@@ -479,6 +528,14 @@ window.addEventListener("DOMContentLoaded", () => {
     const last = data.session.messages.at(-1);
     hideLoader();
     appendMessage("bot", last.answer);
+
+    // Update current session with new data including recommendations
+    currentSession = data.session;
+
+    // Show updated recommendations if available (using new inline style)
+    if (currentSession.recommendations && currentSession.recommendations.length > 0) {
+      displayRecommendations(currentSession.recommendations);
+    }
   });
 
   document.getElementById("restoreBtn").addEventListener("click", async () => {
@@ -498,7 +555,7 @@ window.addEventListener("DOMContentLoaded", () => {
 function showLoader() {
   const loadingOverlay = document.getElementById("loadingOverlay");
   loadingOverlay.style.display = "flex";
-  
+
   let thinkingText = document.getElementById("thinkingText");
   if (!thinkingText) {
     thinkingText = document.createElement("div");
@@ -512,17 +569,17 @@ function showLoader() {
     `;
     loadingOverlay.appendChild(thinkingText);
   }
-  
+
   const thinkingStates = [
     "Understanding your question...",
-    "Searching agricultural database...", 
+    "Searching agricultural database...",
     "Processing with AI...",
     "Generating response..."
   ];
-  
+
   let currentState = 0;
   thinkingText.textContent = thinkingStates[0];
-  
+
 
   loadingOverlay.thinkingInterval = setInterval(() => {
     currentState = (currentState + 1) % thinkingStates.length;
@@ -533,7 +590,7 @@ function showLoader() {
 function hideLoader() {
   const loadingOverlay = document.getElementById("loadingOverlay");
   loadingOverlay.style.display = "none";
-  
+
   if (loadingOverlay.thinkingInterval) {
     clearInterval(loadingOverlay.thinkingInterval);
     loadingOverlay.thinkingInterval = null;

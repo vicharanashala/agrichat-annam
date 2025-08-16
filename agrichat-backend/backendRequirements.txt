@@ -13,8 +13,9 @@ torchaudio
 numpy
 python-multipart
 gunicorn
+scikit-learn
 certifi
 pytz
 python-dateutil
 crewai
-sarvamai
+openai-whisper
