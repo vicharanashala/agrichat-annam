@@ -12,10 +12,16 @@ from functools import lru_cache
 logger = logging.getLogger("uvicorn.error")
 
 class ChromaQueryHandler:
+
+    REGION_INSTRUCTION = """
+IMPORTANT: If a state or region is mentioned in the query, always give preference to that region over the user's location. If the mentioned region is outside India, politely inform the user that you are only trained on Indian agriculture data and cannot answer for other regions. If the query is not related to Indian agriculture, politely inform the user that you are only trained on Indian agriculture data and can only answer questions related to Indian agriculture.
+"""
+
     STRUCTURED_PROMPT = """
 You are an expert agricultural assistant. Using only the provided context (do not mention or reveal any metadata such as date, district, state, or season unless the user asks for it), answer the user's question in a detailed and structured manner. Stay strictly within the scope of the user's question and do not introduce unrelated information.
 
 The user is located in {user_state}. {region_context}
+{region_instruction}
 
 ### Detailed Explanation
 - Provide a comprehensive, step-by-step explanation using both the context and your own agricultural knowledge, but only as it directly relates to the user's question.
@@ -78,6 +84,8 @@ You are a smart classifier assistant. Categorize the user query strictly into on
 - GREETING: if it is a greeting, salutation, polite conversational opening, or introduction. This includes messages like "hi", "hello", "good morning", "Hello [name]", "Hi there", "How are you", "Nice to meet you", etc.
 - NON_AGRI: if the question is not agriculture-related or contains inappropriate, offensive, or irrelevant content.
 
+{region_instruction}
+
 Important: Greetings can include names or additional polite phrases. Focus on the intent of the message.
 
 Respond with only one of these words: AGRICULTURE, GREETING, or NON_AGRI.
@@ -89,6 +97,8 @@ Respond with only one of these words: AGRICULTURE, GREETING, or NON_AGRI.
 
     GREETING_RESPONSE_PROMPT = """
 You are a friendly agricultural assistant. The user has greeted you with: "{question}"
+
+{region_instruction}
 
 Respond appropriately to their greeting in a warm and natural way, then invite them to ask agricultural questions. 
 
@@ -111,6 +121,8 @@ Now respond to: "{question}"
 
     NON_AGRI_RESPONSE_PROMPT = """
 You are an agriculture assistant responding directly to the user who asked: "{question}"
+
+{region_instruction}
 
 Politely tell them that you can only help with agriculture-related questions. Be friendly and respectful.
 
@@ -166,7 +178,7 @@ Respond as if you are talking directly to the user, not giving advice on what to
         """Get cached query result if available"""
         return self.query_cache.get(cache_key)
 
-    def get_region_context(self, question: str = None, region: str = None)::
+    def get_region_context(self, question: str = None, region: str = None):
         """
         Get region-specific context for greetings and responses
         """
@@ -176,72 +188,214 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 "context": "Andhra Pradesh is known for rice, cotton, sugarcane, and groundnut cultivation. The state has diverse agro-climatic zones with both kharif and rabi seasons being important.",
                 "crops": ["rice", "cotton", "sugarcane", "groundnut", "chili", "turmeric"]
             },
-            "Telangana": {
-                "greeting": "You can use Telugu phrases like 'Namaskaram' if appropriate.",
-                "context": "Telangana is famous for rice, cotton, maize, and various millets. The state promotes sustainable farming with initiatives like Rythu Bandhu.",
-                "crops": ["rice", "cotton", "maize", "millets", "turmeric", "red gram"]
+            "Arunachal Pradesh": {
+                "greeting": "You can use Hindi or local tribal greetings.",
+                "context": "Arunachal Pradesh is known for rice, maize, millet, and horticultural crops. The state has hilly terrain and diverse tribal cultures.",
+                "crops": ["rice", "maize", "millet", "orange", "apple", "ginger"]
             },
-            "Tamil Nadu": {
-                "greeting": "You can use Tamil phrases like 'Vanakkam' if appropriate.",
-                "context": "Tamil Nadu excels in rice, sugarcane, cotton, and coconut cultivation. The state has strong irrigation systems and diverse cropping patterns.",
-                "crops": ["rice", "sugarcane", "cotton", "coconut", "banana", "turmeric"]
+            "Assam": {
+                "greeting": "You can use Assamese phrases like 'Namaskar' if appropriate.",
+                "context": "Assam is famous for tea, rice, jute, and mustard. The state has fertile plains and abundant rainfall.",
+                "crops": ["tea", "rice", "jute", "mustard", "sugarcane", "potato"]
             },
-            "Kerala": {
-                "greeting": "You can use Malayalam phrases like 'Namaskaram' if appropriate.",
-                "context": "Kerala is renowned for spices, coconut, rubber, and rice cultivation. The state has unique farming practices suited to its tropical climate.",
-                "crops": ["coconut", "rubber", "rice", "pepper", "cardamom", "tea"]
+            "Bihar": {
+                "greeting": "You can use Hindi phrases like 'Namaste' if appropriate.",
+                "context": "Bihar is a major producer of rice, wheat, maize, and pulses. The state has fertile alluvial soil and is part of the Indo-Gangetic plain.",
+                "crops": ["rice", "wheat", "maize", "pulses", "sugarcane", "potato"]
             },
-            "Maharashtra": {
-                "greeting": "You can use Marathi phrases like 'Namaskar' if appropriate.",
-                "context": "Maharashtra is a major producer of sugarcane, cotton, soybeans, and various fruits. The state has both rain-fed and irrigated agriculture.",
-                "crops": ["sugarcane", "cotton", "soybeans", "onion", "grapes", "pomegranate"]
+            "Chhattisgarh": {
+                "greeting": "You can use Hindi or Chhattisgarhi greetings.",
+                "context": "Chhattisgarh is known as the 'Rice Bowl of India' and is a major producer of rice, maize, and pulses.",
+                "crops": ["rice", "maize", "pulses", "groundnut", "soybean"]
+            },
+            "Goa": {
+                "greeting": "You can use Konkani or Marathi greetings.",
+                "context": "Goa is known for rice, coconut, cashew, and horticultural crops. The state has a coastal climate.",
+                "crops": ["rice", "coconut", "cashew", "arecanut", "mango"]
+            },
+            "Gujarat": {
+                "greeting": "You can use Gujarati phrases like 'Kem Cho' if appropriate.",
+                "context": "Gujarat is a major producer of cotton, groundnut, tobacco, and various fruits. The state has both irrigated and rain-fed agriculture.",
+                "crops": ["cotton", "groundnut", "tobacco", "wheat", "millet", "cumin"]
             },
             "Haryana": {
                 "greeting": "You can use Hindi phrases like 'Namaste' if appropriate.",
                 "context": "Haryana is known as the 'Granary of India' with extensive wheat and rice cultivation. The state has advanced agricultural practices and infrastructure.",
                 "crops": ["wheat", "rice", "sugarcane", "cotton", "mustard", "barley"]
             },
-            "Uttar Pradesh": {
+            "Himachal Pradesh": {
+                "greeting": "You can use Hindi or Pahari greetings.",
+                "context": "Himachal Pradesh is famous for apples, plums, and other temperate fruits. The state also grows wheat, maize, and barley.",
+                "crops": ["apple", "plum", "wheat", "maize", "barley", "potato"]
+            },
+            "Jharkhand": {
+                "greeting": "You can use Hindi or local tribal greetings.",
+                "context": "Jharkhand is known for rice, maize, pulses, and oilseeds. The state has a mix of plateau and forested areas.",
+                "crops": ["rice", "maize", "pulses", "oilseeds", "wheat"]
+            },
+            "Karnataka": {
+                "greeting": "You can use Kannada phrases like 'Namaskara' if appropriate.",
+                "context": "Karnataka is a major producer of coffee, sugarcane, cotton, and various horticultural crops.",
+                "crops": ["coffee", "sugarcane", "cotton", "millet", "ragi", "turmeric"]
+            },
+            "Kerala": {
+                "greeting": "You can use Malayalam phrases like 'Namaskaram' if appropriate.",
+                "context": "Kerala is renowned for spices, coconut, rubber, and rice cultivation. The state has unique farming practices suited to its tropical climate.",
+                "crops": ["coconut", "rubber", "rice", "pepper", "cardamom", "tea"]
+            },
+            "Madhya Pradesh": {
                 "greeting": "You can use Hindi phrases like 'Namaste' if appropriate.",
-                "context": "Uttar Pradesh is India's largest agricultural state producing wheat, rice, sugarcane, and various other crops across diverse agro-climatic zones.",
-                "crops": ["wheat", "rice", "sugarcane", "potato", "peas", "mustard"]
+                "context": "Madhya Pradesh is known as the 'Soybean State' and is a major producer of wheat, rice, and pulses.",
+                "crops": ["soybean", "wheat", "rice", "pulses", "maize", "gram"]
+            },
+            "Maharashtra": {
+                "greeting": "You can use Marathi phrases like 'Namaskar' if appropriate.",
+                "context": "Maharashtra is a major producer of sugarcane, cotton, soybeans, and various fruits. The state has both rain-fed and irrigated agriculture.",
+                "crops": ["sugarcane", "cotton", "soybeans", "onion", "grapes", "pomegranate"]
+            },
+            "Manipur": {
+                "greeting": "You can use Manipuri or Hindi greetings.",
+                "context": "Manipur is known for rice, maize, pulses, and horticultural crops. The state has hilly terrain and diverse flora.",
+                "crops": ["rice", "maize", "pulses", "pineapple", "orange"]
+            },
+            "Meghalaya": {
+                "greeting": "You can use Khasi or English greetings.",
+                "context": "Meghalaya is famous for oranges, pineapples, and other horticultural crops. The state also grows rice and maize.",
+                "crops": ["orange", "pineapple", "rice", "maize", "potato"]
+            },
+            "Mizoram": {
+                "greeting": "You can use Mizo or English greetings.",
+                "context": "Mizoram is known for rice, maize, and horticultural crops. The state has hilly terrain and shifting cultivation.",
+                "crops": ["rice", "maize", "banana", "ginger", "orange"]
+            },
+            "Nagaland": {
+                "greeting": "You can use Naga or English greetings.",
+                "context": "Nagaland is known for rice, maize, millet, and horticultural crops. The state has hilly terrain and diverse tribal cultures.",
+                "crops": ["rice", "maize", "millet", "orange", "pineapple"]
+            },
+            "Odisha": {
+                "greeting": "You can use Odia phrases like 'Namaskar' if appropriate.",
+                "context": "Odisha is a major producer of rice, pulses, oilseeds, and coconut. The state has a long coastline and fertile plains.",
+                "crops": ["rice", "pulses", "oilseeds", "coconut", "jute", "sugarcane"]
             },
             "Punjab": {
                 "greeting": "You can use Punjabi phrases like 'Sat Sri Akal' or Hindi 'Namaste' if appropriate.",
                 "context": "Punjab is known as the 'Granary of India' and 'Land of Five Rivers', famous for wheat and rice cultivation. The state has excellent irrigation infrastructure and is a major contributor to India's food grain production.",
                 "crops": ["wheat", "rice", "cotton", "maize", "sugarcane", "potato"]
+            },
+            "Rajasthan": {
+                "greeting": "You can use Hindi or Rajasthani greetings.",
+                "context": "Rajasthan is known for millet, wheat, barley, and pulses. The state has arid and semi-arid regions.",
+                "crops": ["millet", "wheat", "barley", "pulses", "mustard", "cotton"]
+            },
+            "Sikkim": {
+                "greeting": "You can use Nepali or English greetings.",
+                "context": "Sikkim is famous for organic farming, cardamom, and horticultural crops. The state is India's first fully organic state.",
+                "crops": ["cardamom", "orange", "ginger", "maize", "potato"]
+            },
+            "Tamil Nadu": {
+                "greeting": "You can use Tamil phrases like 'Vanakkam' if appropriate.",
+                "context": "Tamil Nadu excels in rice, sugarcane, cotton, and coconut cultivation. The state has strong irrigation systems and diverse cropping patterns.",
+                "crops": ["rice", "sugarcane", "cotton", "coconut", "banana", "turmeric"]
+            },
+            "Telangana": {
+                "greeting": "You can use Telugu phrases like 'Namaskaram' if appropriate.",
+                "context": "Telangana is famous for rice, cotton, maize, and various millets. The state promotes sustainable farming with initiatives like Rythu Bandhu.",
+                "crops": ["rice", "cotton", "maize", "millets", "turmeric", "red gram"]
+            },
+            "Tripura": {
+                "greeting": "You can use Bengali or Kokborok greetings.",
+                "context": "Tripura is known for rice, pineapple, and other horticultural crops. The state has hilly terrain and a humid climate.",
+                "crops": ["rice", "pineapple", "potato", "mustard", "jute"]
+            },
+            "Uttar Pradesh": {
+                "greeting": "You can use Hindi phrases like 'Namaste' if appropriate.",
+                "context": "Uttar Pradesh is India's largest agricultural state producing wheat, rice, sugarcane, and various other crops across diverse agro-climatic zones.",
+                "crops": ["wheat", "rice", "sugarcane", "potato", "peas", "mustard"]
+            },
+            "Uttarakhand": {
+                "greeting": "You can use Hindi or Garhwali/Kumaoni greetings.",
+                "context": "Uttarakhand is known for rice, wheat, and horticultural crops. The state has hilly terrain and diverse agro-climatic zones.",
+                "crops": ["rice", "wheat", "mandua", "potato", "apple"]
+            },
+            "West Bengal": {
+                "greeting": "You can use Bengali phrases like 'Nomoskar' if appropriate.",
+                "context": "West Bengal is a major producer of rice, jute, and tea. The state has fertile plains and a humid climate.",
+                "crops": ["rice", "jute", "tea", "potato", "mustard", "sugarcane"]
             }
         }
         
-        detected_region = region
-        
-        if not detected_region and question:
-            question_lower = question.lower()
-            for state_name in self.meta_index.get('State', set()):
-                if state_name.lower() in question_lower:
-                    detected_region = state_name
+        detected_region = None
+        mentioned_region = None
+        question_lower = question.lower() if question else ""
+        for state_name in regional_data.keys():
+            if state_name.lower() in question_lower:
+                mentioned_region = state_name
+                break
+        if not mentioned_region and region:
+            for state_name in regional_data.keys():
+                if state_name.lower() == region.lower():
+                    mentioned_region = state_name
                     break
-            
-            if not detected_region:
-                for district_name in self.meta_index.get('District', set()):
-                    if district_name.lower() in question_lower:
-                        detected_region = f"your region ({district_name})"
-                        break
-
+        non_indian_keywords = [
+            "usa", "america", "united states", "canada", "china", "pakistan", "bangladesh", "nepal", "sri lanka", "africa", "europe", "germany", "france", "uk", "england", "australia", "brazil", "mexico", "russia", "japan", "korea", "thailand", "vietnam", "indonesia", "malaysia", "philippines", "spain", "italy", "egypt", "iran", "iraq", "afghanistan", "turkey", "saudi", "uae", "oman", "qatar", "kuwait", "argentina", "chile", "peru", "colombia", "venezuela", "south africa", "nigeria", "kenya", "tanzania", "uganda", "zimbabwe", "sudan", "morocco", "algeria", "tunisia", "libya", "israel", "palestine", "jordan", "lebanon", "syria", "yemen", "sweden", "norway", "finland", "denmark", "poland", "ukraine", "belarus", "czech", "slovakia", "hungary", "romania", "bulgaria", "greece", "portugal", "switzerland", "austria", "netherlands", "belgium", "luxembourg", "ireland", "iceland", "new zealand", "fiji", "samoa", "tonga", "papua", "guinea", "maldives", "mauritius", "seychelles", "singapore", "hong kong", "taiwan", "mongolia", "kazakhstan", "uzbekistan", "turkmenistan", "kyrgyzstan", "tajikistan", "georgia", "armenia", "azerbaijan", "estonia", "latvia", "lithuania", "croatia", "serbia", "bosnia", "montenegro", "macedonia", "albania", "slovenia", "bulgaria", "cyprus", "malta", "monaco", "liechtenstein", "andorra", "san marino", "vatican", "luxembourg", "moldova", "belgium", "netherlands", "switzerland", "austria", "gibraltar", "jersey", "guernsey", "isle of man", "faroe", "greenland", "bermuda", "bahamas", "cuba", "jamaica", "haiti", "dominican", "puerto rico", "trinidad", "barbados", "saint lucia", "grenada", "antigua", "dominica", "saint kitts", "saint vincent", "aruba", "curacao", "bonaire", "sint maarten", "saba", "statia", "anguilla", "cayman", "turks", "caicos", "british virgin", "us virgin", "saint barthelemy", "saint martin", "saint pierre", "miquelon", "french guiana", "suriname", "guyana", "paraguay", "uruguay", "bolivia", "ecuador", "peru", "chile", "venezuela", "panama", "costa rica", "nicaragua", "honduras", "el salvador", "guatemala", "belize"]
+        for keyword in non_indian_keywords:
+            if keyword in question_lower:
+                return {
+                    "region": "Non-Indian",
+                    "context": "Sorry, I am only trained on Indian agriculture data and can only answer questions related to Indian agriculture. Please ask about Indian states, crops, or farming practices.",
+                    "greeting": "",
+                    "crops": []
+                }
+        if mentioned_region:
+            detected_region = mentioned_region
+        elif region:
+            detected_region = region
+        else:
+            detected_region = None
         normalized_states = {
             "andhra pradesh": "Andhra Pradesh",
-            "telangana": "Telangana", 
-            "tamil nadu": "Tamil Nadu",
-            "kerala": "Kerala",
-            "maharastra": "Maharashtra",
-            "maharashtra": "Maharashtra",
+            "ap": "Andhra Pradesh",
+            "arunachal pradesh": "Arunachal Pradesh",
+            "arunachal": "Arunachal Pradesh",
+            "assam": "Assam",
+            "bihar": "Bihar",
+            "chhattisgarh": "Chhattisgarh",
+            "chattisgarh": "Chhattisgarh",
+            "goa": "Goa",
+            "gujarat": "Gujarat",
             "haryana": "Haryana",
-            "uttar pradesh": "Uttar Pradesh"
+            "himachal pradesh": "Himachal Pradesh",
+            "himachal": "Himachal Pradesh",
+            "jharkhand": "Jharkhand",
+            "karnataka": "Karnataka",
+            "kerala": "Kerala",
+            "madhya pradesh": "Madhya Pradesh",
+            "mp": "Madhya Pradesh",
+            "maharashtra": "Maharashtra",
+            "maharastra": "Maharashtra",
+            "manipur": "Manipur",
+            "meghalaya": "Meghalaya",
+            "mizoram": "Mizoram",
+            "nagaland": "Nagaland",
+            "odisha": "Odisha",
+            "orissa": "Odisha",
+            "punjab": "Punjab",
+            "rajasthan": "Rajasthan",
+            "sikkim": "Sikkim",
+            "tamil nadu": "Tamil Nadu",
+            "tn": "Tamil Nadu",
+            "telangana": "Telangana",
+            "tripura": "Tripura",
+            "uttar pradesh": "Uttar Pradesh",
+            "up": "Uttar Pradesh",
+            "uttarakhand": "Uttarakhand",
+            "uttaranchal": "Uttarakhand",
+            "west bengal": "West Bengal",
+            "wb": "West Bengal"
         }
-        
         if detected_region and detected_region.lower() in normalized_states:
             detected_region = normalized_states[detected_region.lower()]
-        
         if detected_region and detected_region in regional_data:
             return {
                 "region": detected_region,
@@ -270,20 +424,6 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 variants.append(simplified)
         
         return variants[:2]
-    
-    def _extract_agricultural_terms(self, text):
-        """Extract agricultural terms from text"""
-        agricultural_terms = {
-            'crop', 'crops', 'farming', 'agriculture', 'cultivation', 'harvest', 'seeds', 'soil',
-            'fertilizer', 'pesticide', 'irrigation', 'planting', 'sowing', 'yield', 'farm', 'field',
-            'rice', 'wheat', 'corn', 'maize', 'cotton', 'sugarcane', 'vegetables', 'fruits',
-            'organic', 'disease', 'pest', 'insect', 'weed', 'water', 'rain', 'drought', 'season',
-            'growth', 'production', 'farmer', 'agricultural', 'land', 'machinery', 'equipment'
-        }
-        
-        words = text.lower().split()
-        found_terms = [word for word in words if word in agricultural_terms]
-        return found_terms
     
     def _simplify_query(self, query):
         """Create simplified version of query focusing on core terms"""
@@ -317,7 +457,7 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 for val in self.meta_index["State"]:
                     if str(val).lower() == user_state.lower().strip():
                         filt["State"] = val
-                        print(f"[DEBUG] Added State filter: {val} from user_state: {user_state}")
+                        # print(f"[DEBUG] Added State filter: {val} from user_state: {user_state}")
                         break
         
         for field in safe_fields:
@@ -325,13 +465,13 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 for val in self.meta_index[field]:
                     if str(val).lower() in q and str(val).lower() != "other" and str(val).lower() != "-":
                         filt[field] = val
-                        print(f"[DEBUG] Added {field} filter: {val}")
+                        # print(f"[DEBUG] Added {field} filter: {val}")
                         break
         
         if len(filt) > 2:
             filt = dict(list(filt.items())[:2])
             
-        print(f"[DEBUG] Final metadata filter: {filt}")
+    # print(f"[DEBUG] Final metadata filter: {filt}")
         return filt or None
 
     def cosine_sim(self, a, b):

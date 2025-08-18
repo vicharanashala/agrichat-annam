@@ -310,7 +310,7 @@ app = FastAPI(lifespan=lifespan)
 
 origins = [
     "https://agri-annam.vercel.app",
-    "https://90dba25ab8a8.ngrok-free.app",
+    "https://0cd4f335a197.ngrok-free.app",
     "https://localhost:3000",
     "https://127.0.0.1:3000",
     "http://localhost:3000",
@@ -321,13 +321,14 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"]
 )
 
 @app.middleware("http")
 async def add_ngrok_headers(request: Request, call_next):
+    origin = request.headers.get("origin")
     if request.method == "OPTIONS":
         response = JSONResponse(content={})
         response.headers["Access-Control-Allow-Origin"] = "*"
@@ -337,7 +338,6 @@ async def add_ngrok_headers(request: Request, call_next):
         response.headers["Access-Control-Max-Age"] = "86400"
         response.headers["ngrok-skip-browser-warning"] = "true"
         return response
-    
     response = await call_next(request)
     response.headers["ngrok-skip-browser-warning"] = "true"
     response.headers["Access-Control-Allow-Origin"] = "*"
