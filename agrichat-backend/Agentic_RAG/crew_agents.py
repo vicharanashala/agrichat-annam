@@ -35,7 +35,7 @@ print(f"[DEBUG] ChromaDB path exists: {os.path.exists(chroma_path)}")
 rag_tool = RAGTool(chroma_path=chroma_path)
 
 llm = LLM(
-    model=f"ollama/{os.getenv('OLLAMA_MODEL', 'llama3.1-optimized')}",
+    model=f"ollama/{os.getenv('OLLAMA_MODEL', 'llama3.1:latest')}",
     base_url=f"http://{os.getenv('OLLAMA_HOST', 'localhost:11434')}",
     api_key="not-needed",
     temperature=0.0

@@ -33,12 +33,10 @@ agentic_rag_path = os.path.join(current_dir, "Agentic_RAG")
 sys.path.insert(0, agentic_rag_path)
 load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
 
-# Fast mode configuration
 USE_FAST_MODE = os.getenv("USE_FAST_MODE", "false").lower() == "true"
 logger.info(f"[CONFIG] USE_FAST_MODE environment variable: {os.getenv('USE_FAST_MODE', 'not set')}")
 logger.info(f"[CONFIG] Fast Mode Enabled: {USE_FAST_MODE}")
 
-# Try to import fast response handler
 fast_handler = None
 if USE_FAST_MODE:
     try:
@@ -50,7 +48,6 @@ if USE_FAST_MODE:
         logger.info("[CONFIG] Falling back to CrewAI mode")
         USE_FAST_MODE = False
 
-# Import CrewAI components like main.py
 from crewai import Crew
 from Agentic_RAG.crew_agents import (
     Retriever_Agent, Grader_agent,
@@ -66,7 +63,6 @@ chroma_db_path = os.path.join(current_dir, "Agentic_RAG", "chromaDb")
 logger.info(f"[DEBUG] ChromaDB path: {chroma_db_path}")
 logger.info(f"[DEBUG] ChromaDB path exists: {os.path.exists(chroma_db_path)}")
 
-# Initialize query handler for classification
 query_handler = ChromaQueryHandler(chroma_path=chroma_db_path)
 
 def get_answer(question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None) -> str:
@@ -148,7 +144,6 @@ def get_crewai_answer(question: str, conversation_history: Optional[List[Dict]] 
         result = rag_crew.kickoff(inputs=inputs)
         logger.info(f"[DEBUG] CrewAI result: {result}")
         
-        # Clean up any source attribution from the result
         result_str = str(result).strip()
         if "Source: RAG Database" in result_str:
             logger.info(f"[SOURCE] RAG Database used for question: {question[:50]}...")
@@ -167,9 +162,7 @@ def preprocess_question(question: str) -> str:
     """
     Preprocess question text for similarity comparison
     """
-    # Convert to lowercase
     question = question.lower()
-    # Remove special characters and extra spaces
     question = re.sub(r'[^a-zA-Z0-9\s]', '', question)
     question = re.sub(r'\s+', ' ', question).strip()
     return question
@@ -188,13 +181,11 @@ def get_question_recommendations(user_question: str, user_state: str = None, lim
         List of recommended questions with their details (empty if not agriculture-related)
     """
     try:
-        # Use existing classification logic to check if question is agriculture-related
         question_category = query_handler.classify_query(user_question)
         if question_category != "AGRICULTURE":
             logger.info(f"Question classified as {question_category}, skipping recommendations: {user_question}")
             return []
         
-        # Get all unique questions from database
         pipeline = [
             {"$unwind": "$messages"},
             {"$group": {
@@ -205,14 +196,14 @@ def get_question_recommendations(user_question: str, user_state: str = None, lim
                 "count": {"$sum": 1},
                 "sample_answer": {"$first": "$messages.answer"}
             }},
-            {"$match": {"count": {"$gte": 1}}},  # Only questions asked at least once
+            {"$match": {"count": {"$gte": 1}}},
             {"$project": {
                 "question": "$_id.question",
                 "state": "$_id.state",
                 "count": 1,
                 "sample_answer": 1
             }},
-            {"$limit": 200}  # Limit for performance
+            {"$limit": 200}
         ]
         
         questions_data = list(sessions_collection.aggregate(pipeline))
@@ -221,24 +212,19 @@ def get_question_recommendations(user_question: str, user_state: str = None, lim
             logger.info("No questions found in database for recommendations")
             return []
         
-        # Preprocess current question
         processed_user_question = preprocess_question(user_question)
         
-        # Prepare questions for similarity calculation
         questions_list = []
         metadata_list = []
         
         for item in questions_data:
             question = item['question']
-            
-            # Use existing classification logic to filter agriculture-related questions
             question_category = query_handler.classify_query(question)
             if question_category != "AGRICULTURE":
                 continue
                 
             processed_question = preprocess_question(question)
             
-            # Skip if question is too similar to current question (avoid exact matches)
             if processed_question == processed_user_question:
                 continue
                 
@@ -254,7 +240,6 @@ def get_question_recommendations(user_question: str, user_state: str = None, lim
             logger.info("No suitable questions found for recommendations")
             return []
         
-        # Calculate similarity using TF-IDF
         vectorizer = TfidfVectorizer(
             max_features=1000,
             stop_words='english',
@@ -264,23 +249,20 @@ def get_question_recommendations(user_question: str, user_state: str = None, lim
         all_questions = [processed_user_question] + questions_list
         tfidf_matrix = vectorizer.fit_transform(all_questions)
         
-        # Calculate cosine similarity
         similarities = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:]).flatten()
         
-        # Create recommendations with scores
         recommendations = []
         for i, similarity_score in enumerate(similarities):
-            if similarity_score > 0.1:  # Minimum similarity threshold
+            if similarity_score > 0.1:
                 rec = {
                     'question': metadata_list[i]['original_question'],
                     'state': metadata_list[i]['state'],
                     'similarity_score': float(similarity_score),
                     'popularity': metadata_list[i]['count'],
-                    'sample_answer': metadata_list[i]['sample_answer'][:200] + "..."  # Preview
+                    'sample_answer': metadata_list[i]['sample_answer'][:200] + "..." 
                 }
                 recommendations.append(rec)
         
-        # Sort by state match first (if user_state provided), then by similarity score
         if user_state:
             def sort_key(rec):
                 state_boost = 0.2 if rec['state'].lower() == user_state.lower() else 0
@@ -289,7 +271,6 @@ def get_question_recommendations(user_question: str, user_state: str = None, lim
         else:
             recommendations.sort(key=lambda x: x['similarity_score'], reverse=True)
         
-        # Return top recommendations
         top_recommendations = recommendations[:limit]
         
         logger.info(f"Found {len(top_recommendations)} recommendations for question: {user_question[:50]}...")

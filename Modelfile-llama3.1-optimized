@@ -1,4 +1,4 @@
-FROM llama3.1:8b
+FROM llama3.1:latest
 
 # H100-optimized parameters for Llama 3.1 8B
 PARAMETER num_ctx 32768

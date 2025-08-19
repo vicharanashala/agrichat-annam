@@ -13,8 +13,8 @@ class OllamaLLMInterface:
     
     def __init__(self, ollama_endpoint: str = None, model_name: str = None, fallback_model: str = None):
         self.ollama_endpoint = ollama_endpoint or f"http://{os.getenv('OLLAMA_HOST', 'localhost:11434')}"
-        self.model_name = model_name or os.getenv('OLLAMA_MODEL', 'llama3.1-optimized')
-        self.fallback_model = fallback_model or os.getenv('OLLAMA_FALLBACK_MODEL', 'gemma3-optimized')
+        self.model_name = model_name or os.getenv('OLLAMA_MODEL', 'llama3.1:latest')
+        self.fallback_model = fallback_model or os.getenv('OLLAMA_FALLBACK_MODEL', 'gemma3:27b')
         self.session = requests.Session()
 
     def generate_content(self, prompt: str, temperature: float = 0.3, max_tokens: int = 2048, use_fallback: bool = False) -> str:
@@ -71,7 +71,7 @@ class OllamaEmbeddings:
     
     def __init__(self, ollama_endpoint: str = None, embedding_model: str = None):
         self.ollama_endpoint = ollama_endpoint or f"http://{os.getenv('OLLAMA_HOST', 'localhost:11434')}"
-        self.embedding_model = embedding_model or os.getenv('OLLAMA_EMBEDDING_MODEL', 'nomic-embed-text')
+        self.embedding_model = embedding_model or os.getenv('OLLAMA_EMBEDDING_MODEL', 'nomic-embed-text:latest')
     
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
         """Embed multiple documents using Ollama"""
@@ -108,7 +108,7 @@ class OllamaEmbeddings:
             return [0.0] * 768
 
 
-local_llm = OllamaLLMInterface(model_name="llama3.1-optimized")
+local_llm = OllamaLLMInterface(model_name="llama3.1:latest")
 local_embeddings = OllamaEmbeddings(embedding_model="nomic-embed-text")
 
 def run_local_llm(prompt: str, temperature: float = 0.3, max_tokens: int = 1024, use_fallback: bool = False) -> str:

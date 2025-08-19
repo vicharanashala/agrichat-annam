@@ -5,6 +5,8 @@ import logging
 from typing import List, Dict, Optional
 from context_manager import ConversationContext, MemoryStrategy
 from local_llm_interface import local_llm, local_embeddings, run_local_llm
+from datetime import datetime
+import pytz
 import argparse
 import hashlib
 from functools import lru_cache
@@ -22,6 +24,7 @@ You are an expert agricultural assistant. Using only the provided context (do no
 
 The user is located in {user_state}. {region_context}
 {region_instruction}
+Current month: {current_month}
 
 ### Detailed Explanation
 - Provide a comprehensive, step-by-step explanation using both the context and your own agricultural knowledge, but only as it directly relates to the user's question.
@@ -85,6 +88,7 @@ You are a smart classifier assistant. Categorize the user query strictly into on
 - NON_AGRI: if the question is not agriculture-related or contains inappropriate, offensive, or irrelevant content.
 
 {region_instruction}
+Current month: {current_month}
 
 Important: Greetings can include names or additional polite phrases. Focus on the intent of the message.
 
@@ -123,6 +127,7 @@ Now respond to: "{question}"
 You are an agriculture assistant responding directly to the user who asked: "{question}"
 
 {region_instruction}
+Current month: {current_month}
 
 Politely tell them that you can only help with agriculture-related questions. Be friendly and respectful.
 
@@ -546,6 +551,9 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 if doc.page_content.strip() and combined_score > self.min_cosine_threshold]
 
     def construct_structured_prompt(self, context: str, question: str, user_state: str = None) -> str:
+        # Determine current month in IST for prompt context
+        IST = pytz.timezone("Asia/Kolkata")
+        current_month = datetime.now(IST).strftime('%B')
         if user_state:
             region_data = self.get_region_context(None, user_state)
             user_region = region_data["region"]
@@ -555,18 +563,24 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 context=context,
                 question=question,
                 user_state=user_region,
-                region_context=regional_context
+                region_context=regional_context,
+                region_instruction=self.REGION_INSTRUCTION,
+                current_month=current_month
             )
         else:
             return self.STRUCTURED_PROMPT.format(
                 context=context,
                 question=question,
                 user_state="India",
-                region_context="India has diverse agro-climatic zones with rich farming traditions across different states and regions."
+                region_context="India has diverse agro-climatic zones with rich farming traditions across different states and regions.",
+                region_instruction=self.REGION_INSTRUCTION,
+                current_month=current_month
             )
 
     def classify_query(self, question: str, conversation_history: Optional[List[Dict]] = None) -> str:
-        prompt = self.CLASSIFIER_PROMPT.format(question=question)
+    IST = pytz.timezone("Asia/Kolkata")
+    current_month = datetime.now(IST).strftime('%B')
+    prompt = self.CLASSIFIER_PROMPT.format(question=question, region_instruction=self.REGION_INSTRUCTION, current_month=current_month)
         try:
             response_text = run_local_llm(
                 prompt,
@@ -584,10 +598,12 @@ Respond as if you are talking directly to the user, not giving advice on what to
             return "NON_AGRI"
 
     def generate_dynamic_response(self, question: str, mode: str, region: str = None) -> str:
+        IST = pytz.timezone("Asia/Kolkata")
+        current_month = datetime.now(IST).strftime('%B')
         if mode == "GREETING":
-            prompt = self.GREETING_RESPONSE_PROMPT.format(question=question)
+            prompt = self.GREETING_RESPONSE_PROMPT.format(question=question, region_instruction=self.REGION_INSTRUCTION, current_month=current_month)
         else:
-            prompt = self.NON_AGRI_RESPONSE_PROMPT.format(question=question)
+            prompt = self.NON_AGRI_RESPONSE_PROMPT.format(question=question, region_instruction=self.REGION_INSTRUCTION, current_month=current_month)
         try:
             response_text = run_local_llm(
                 prompt,
