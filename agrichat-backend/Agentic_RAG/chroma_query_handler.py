@@ -578,24 +578,24 @@ Respond as if you are talking directly to the user, not giving advice on what to
             )
 
     def classify_query(self, question: str, conversation_history: Optional[List[Dict]] = None) -> str:
-    IST = pytz.timezone("Asia/Kolkata")
-    current_month = datetime.now(IST).strftime('%B')
-    prompt = self.CLASSIFIER_PROMPT.format(question=question, region_instruction=self.REGION_INSTRUCTION, current_month=current_month)
-        try:
-            response_text = run_local_llm(
-                prompt,
-                temperature=0,
-                max_tokens=20,
-                use_fallback=False
-            )
-            category = response_text.strip().upper()
-            if category in {"AGRICULTURE", "GREETING", "NON_AGRI"}:
-                return category
-            else:
+        IST = pytz.timezone("Asia/Kolkata")
+        current_month = datetime.now(IST).strftime('%B')
+        prompt = self.CLASSIFIER_PROMPT.format(question=question, region_instruction=self.REGION_INSTRUCTION, current_month=current_month)
+            try:
+                response_text = run_local_llm(
+                    prompt,
+                    temperature=0,
+                    max_tokens=20,
+                    use_fallback=False
+                )
+                category = response_text.strip().upper()
+                if category in {"AGRICULTURE", "GREETING", "NON_AGRI"}:
+                    return category
+                else:
+                    return "NON_AGRI"
+            except Exception as e:
+                logger.error(f"[Classifier Error] {e}")
                 return "NON_AGRI"
-        except Exception as e:
-            logger.error(f"[Classifier Error] {e}")
-            return "NON_AGRI"
 
     def generate_dynamic_response(self, question: str, mode: str, region: str = None) -> str:
         IST = pytz.timezone("Asia/Kolkata")
