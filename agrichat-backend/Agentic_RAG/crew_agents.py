@@ -28,7 +28,7 @@ Retriever_Agent = Agent(
 
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-chroma_path = os.path.join(current_dir, "chromaDb")
+chroma_path = "/app/chromaDb"
 print(f"[DEBUG] Using ChromaDB path: {chroma_path}")
 print(f"[DEBUG] ChromaDB path exists: {os.path.exists(chroma_path)}")
 

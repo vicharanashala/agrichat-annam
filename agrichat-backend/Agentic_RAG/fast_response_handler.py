@@ -23,7 +23,7 @@ class FastResponseHandler:
     
     def __init__(self):
         """Initialize the fast response handler with direct tool access"""
-        chroma_db_path = os.path.join(current_dir, "chromaDb")
+        chroma_db_path = "/app/chromaDb"
         logger.info(f"[FAST] Initializing with ChromaDB path: {chroma_db_path}")
         
         self.rag_tool = RAGTool(chroma_path=chroma_db_path)

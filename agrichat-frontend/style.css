@@ -1561,3 +1561,88 @@ select option:checked {
     max-width: 75%;
   }
 }
+
+/* Mic notification styles */       
+.notification {
+
+  position: fixed;
+
+  top: 24px;                   /* Notification appears at the top */
+
+  left: 50%;
+
+  transform: translateX(-50%);
+
+  z-index: 9999;
+
+  min-width: 280px;
+
+  padding: 1em 2em;
+
+  margin-bottom: 30px !important;
+
+  background: #fff;
+
+  color: #222;
+
+  border-radius: 6px;
+
+  box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+
+  opacity: 0;
+
+  transition: opacity 0.3s;
+
+  pointer-events: none;
+
+}
+
+ 
+
+.notification.show {
+
+  opacity: 1;
+
+  pointer-events: auto;
+
+}
+
+ 
+
+.notification-close {
+
+  background: #74c68f;
+
+  color: #ffffff;
+
+  width: 20px;
+
+  height: 20px;
+
+  font-size: 18px;
+
+  border: none;
+
+  border-radius: 10%;
+
+  padding-bottom: 5px;
+
+  cursor: pointer;
+
+  transition: color 0.2s;
+
+}
+
+ 
+
+.notification-close:hover {
+
+  background: #0e5c38;
+
+  columns: #74c68f;
+
+}
+
+ 
+
+/* End of Mic notification styles */

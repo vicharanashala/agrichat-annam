@@ -59,7 +59,7 @@ from Agentic_RAG.crew_tasks import (
 )
 from Agentic_RAG.chroma_query_handler import ChromaQueryHandler
 
-chroma_db_path = os.path.join(current_dir, "Agentic_RAG", "chromaDb")
+chroma_db_path = "/app/chromaDb"
 logger.info(f"[DEBUG] ChromaDB path: {chroma_db_path}")
 logger.info(f"[DEBUG] ChromaDB path exists: {os.path.exists(chroma_db_path)}")
 
