@@ -666,22 +666,28 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 for i, entry in enumerate(conversation_history[-2:]):
                     logger.info(f"[Context DEBUG] Entry {i}: Q='{entry.get('question', '')[:50]}...', A='{entry.get('answer', '')[:50]}...'")
                 
-                # COMMENTED OUT FOR PERFORMANCE TESTING
-                # should_use_context = self.context_manager.should_use_context(question, conversation_history)
-                # logger.info(f"[Context DEBUG] Should use context for '{question[:50]}...': {should_use_context}")
+                enhanced_query_result = self.context_manager.enhance_query_with_cot(question, conversation_history)
                 
-                # if should_use_context:
-                #     processing_query = self.context_manager.build_contextual_query(question, conversation_history)
-                #     context_used = True
-                #     logger.info(f"[DEBUG] Using conversation context from last {len(conversation_history[-5:])} messages")
-                #     context_summary = self.context_manager.get_context_summary(conversation_history)
-                #     if context_summary:
-                #         logger.info(f"[DEBUG] Context summary: {context_summary}")
-                # else:
-                #     logger.info(f"[DEBUG] No context needed for this query")
+                logger.info(f"[DEBUG] Context manager enabled and processing query")
                 
-                # Skip context processing for performance testing
-                logger.info(f"[DEBUG] Context manager disabled for performance testing")
+                if enhanced_query_result['requires_cot'] or enhanced_query_result['context_used']:
+                    processing_query = enhanced_query_result['enhanced_query']
+                    context_used = True
+                    logger.info(f"[CoT DEBUG] Using {enhanced_query_result['reasoning_type']} reasoning with context")
+                    logger.info(f"[CoT DEBUG] Memory strategy: {enhanced_query_result['memory_strategy']}")
+                    logger.info(f"[CoT DEBUG] Estimated tokens: {enhanced_query_result['context_tokens']}")
+                    
+                    if enhanced_query_result['tracked_entities']:
+                        entity_summary = []
+                        for entity_type, entities in enhanced_query_result['tracked_entities'].items():
+                            if entities:
+                                entity_summary.append(f"{entity_type}: {len(entities)}")
+                        if entity_summary:
+                            logger.info(f"[CoT DEBUG] Tracked entities: {', '.join(entity_summary)}")
+                else:
+                    logger.info(f"[DEBUG] No context or chain of thought needed for this query")
+                
+                logger.info(f"[DEBUG] Enhanced context manager with CoT enabled")
             else:
                 logger.info(f"[DEBUG] No conversation history available")
             
@@ -772,17 +778,16 @@ Respond as if you are talking directly to the user, not giving advice on what to
                             break
                     print(f"[DEBUG] similarity_score: {similarity_score}")
                     
-                    # COMMENTED OUT FOR PERFORMANCE TESTING
-                    # if context_used:
-                    #     should_use_rag = True
-                    #     logger.info(f"[Context] Using RAG content for contextual query (score: {similarity_score})")
-                    #     print(f"[DEBUG] Context path - should_use_rag: {should_use_rag}")
-                    # else:
-                    
-                    # Always use normal path without context for performance testing
-                    score_threshold = 1.1  
-                    should_use_rag = similarity_score is None or similarity_score <= score_threshold
-                    print(f"[DEBUG] Normal path (context disabled) - should_use_rag: {should_use_rag}")
+                    # Enable context manager functionality
+                    if context_used:
+                        should_use_rag = True
+                        logger.info(f"[Context] Using RAG content for contextual query (score: {similarity_score})")
+                        print(f"[DEBUG] Context path - should_use_rag: {should_use_rag}")
+                    else:
+                        # Use normal threshold logic for non-contextual queries
+                        score_threshold = 1.1  
+                        should_use_rag = similarity_score is None or similarity_score <= score_threshold
+                        print(f"[DEBUG] Normal path - should_use_rag: {should_use_rag}")
                     
                     if should_use_rag:
                         print(f"[DEBUG] Generating RAG response...")
@@ -798,17 +803,15 @@ Respond as if you are talking directly to the user, not giving advice on what to
                         
                         print(f"[DEBUG] Generated response length: {len(generated_response)}")
                         
-                        # COMMENTED OUT FOR PERFORMANCE TESTING
-                        # if context_used:
-                        #     logger.info(f"[Context] Response generated with conversation context")
-                        #     logger.info(f"[SOURCE] RAG Database used with context for question: {question[:50]}...")
-                        #     final_response = generated_response.strip()
-                        # else:
-                        
-                        # Always use normal path without context for performance testing
-                        logger.info(f"[RAG] Response generated from RAG database (score: {similarity_score})")
-                        logger.info(f"[SOURCE] RAG Database used for question: {question[:50]}...")
-                        final_response = generated_response.strip()
+                        # Enable context manager functionality
+                        if context_used:
+                            logger.info(f"[Context] Response generated with conversation context")
+                            logger.info(f"[SOURCE] RAG Database used with context for question: {question[:50]}...")
+                            final_response = generated_response.strip()
+                        else:
+                            logger.info(f"[RAG] Response generated from RAG database (score: {similarity_score})")
+                            logger.info(f"[SOURCE] RAG Database used for question: {question[:50]}...")
+                            final_response = generated_response.strip()
                             
                         return final_response
                     else:
@@ -816,14 +819,36 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 else:
                     print(f"[DEBUG] relevant_docs is empty or falsy")
             
-            # COMMENTED OUT FOR PERFORMANCE TESTING
-            # if context_used:
-            #     if relevant_docs and relevant_docs[0].page_content.strip():
-            #         context = relevant_docs[0].page_content
-            #         final_question = question
-            #         prompt = self.construct_structured_prompt(context, final_question, user_state)
-            #         
-            #         generated_response = run_local_llm(
+            # Enable context manager functionality
+            if context_used:
+                if relevant_docs and relevant_docs[0].page_content.strip():
+                    context = relevant_docs[0].page_content
+                    final_question = question
+                    prompt = self.construct_structured_prompt(context, final_question, user_state)
+                    
+                    generated_response = run_local_llm(
+                        prompt,
+                        temperature=0.3,
+                        max_tokens=1024,
+                        use_fallback=False
+                    )
+                    
+                    logger.info(f"[Context] Fallback response generated with conversation context")
+                    return generated_response.strip()
+                else:
+                    logger.info(f"[Context] No relevant docs found for contextual query, using enhanced query")
+                    # Use enhanced contextual query for LLM
+                    enhanced_prompt = f"Based on the conversation context, please provide detailed agricultural advice for: {processing_query}"
+                    
+                    fallback_response = run_local_llm(
+                        enhanced_prompt,
+                        temperature=0.3,
+                        max_tokens=1024,
+                        use_fallback=True
+                    )
+                    
+                    logger.info(f"[Context] Enhanced contextual response generated")
+                    return fallback_response.strip()
             #             prompt,
             #             temperature=0.3,
             #             max_tokens=1024,

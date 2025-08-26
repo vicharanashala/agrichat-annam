@@ -50,6 +50,72 @@ class ConversationContext:
             'seasons': set()
         }
         
+        self.chain_of_thought_patterns = {
+            'analysis_needed': [
+                'analyze', 'compare', 'evaluate', 'assess', 'explain why',
+                'what causes', 'how does', 'which is better', 'pros and cons'
+            ],
+            'step_by_step': [
+                'how to', 'steps', 'process', 'procedure', 'method',
+                'treatment', 'application', 'prepare', 'grow'
+            ],
+            'problem_solving': [
+                'problem', 'issue', 'disease', 'pest', 'yellowing',
+                'wilting', 'spots', 'cure', 'treat', 'fix'
+            ],
+            'decision_making': [
+                'choose', 'select', 'decide', 'which', 'best',
+                'recommend', 'suggest', 'should i'
+            ]
+        }
+        
+        self.reasoning_templates = {
+            'analysis': """Let me analyze this agricultural question step by step:
+
+1. **Problem Understanding**: {problem_analysis}
+2. **Key Factors to Consider**: {key_factors}
+3. **Available Options**: {options}
+4. **Recommendation**: {recommendation}
+
+Here's my detailed analysis:""",
+            
+            'step_by_step': """I'll guide you through this process step by step:
+
+**Step-by-Step Process:**
+{steps}
+
+**Important Considerations:**
+{considerations}""",
+            
+            'problem_solving': """Let me help you solve this agricultural problem systematically:
+
+**Problem Diagnosis:**
+{diagnosis}
+
+**Root Cause Analysis:**
+{root_cause}
+
+**Solution Strategy:**
+{solution_strategy}
+
+**Implementation Steps:**
+{implementation}""",
+            
+            'decision_making': """Let me help you make an informed decision:
+
+**Available Options:**
+{options}
+
+**Comparison Analysis:**
+{comparison}
+
+**My Recommendation:**
+{recommendation}
+
+**Reasoning:**
+{reasoning}"""
+        }
+        
     def _estimate_tokens(self, text: str) -> int:
         """
         Improved token estimation using multiple heuristics
@@ -249,6 +315,13 @@ class ConversationContext:
             r'^\s*(why|how|when|where|who)\b.*\?',
             r'\b(yes|ok|okay|sure|please)\b.*\b(help|tell|explain|more)\b',
             r'^\s*(yes|ok|okay|sure|please)\s*$',
+            # Summary and context-based patterns
+            r'\b(based on|considering|given|taking into account)\b.*\b(discussed|mentioned|said|talked)\b',
+            r'\b(everything|all|overall|in summary|to summarize)\b.*\b(discussed|mentioned|covered)\b',
+            r'\b(most important|key|main|primary)\b.*\b(from|based on|considering)\b',
+            r'\b(what.*most|which.*best|what.*recommend)\b.*\b(discussed|mentioned|covered)\b',
+            r'\b(conclusion|summary|takeaway|recommendation)\b',
+            r'\b(in general|overall|all things considered)\b',
         ]
         
         current_lower = current_query.lower().strip()
@@ -425,11 +498,11 @@ class ConversationContext:
     def build_contextual_query(self, current_query: str, conversation_history: List[Dict], enable_chain_of_thought: bool = True) -> str:
         """
         Build a contextual query incorporating relevant conversation history
-        Supports chain of thought reasoning and entity tracking
+        Respects existing token limits (max_context_tokens=800) and pair limits (max_context_pairs=5)
         
         Args:
             current_query: The current user question
-            conversation_history: List of previous Q&A pairs
+            conversation_history: List of previous Q&A pairs (limited to max_context_pairs)
             enable_chain_of_thought: Whether to include chain of thought prompting
             
         Returns:
@@ -437,13 +510,15 @@ class ConversationContext:
         """
         if not self.should_use_context(current_query, conversation_history):
             return current_query
-        e
+        
         current_entities = self._extract_agricultural_entities(current_query)
         
+        # Use existing _extract_key_context which already respects token/pair limits
         context = self._extract_key_context(conversation_history)
         
         if not context:
             return current_query
+            
         contextual_parts = []
         
         contextual_parts.append(f"Context from our conversation:\n{context}")
@@ -472,7 +547,187 @@ Respond with detailed, actionable advice relevant to Indian agricultural conditi
         else:
             contextual_parts.append("Please provide a response considering the above conversation context, giving more importance to recent interactions.")
         
-        return "\n\n".join(contextual_parts)
+        # Ensure the final query respects token limits
+        complete_query = "\n\n".join(contextual_parts)
+        query_tokens = self._estimate_tokens(complete_query)
+        
+        # If exceeding limits, trim while preserving structure
+        if query_tokens > self.max_context_tokens:
+            # Reduce recent context to fit within limits
+            base_query_tokens = self._estimate_tokens(current_query) + 150  # Reserve for instructions
+            available_tokens = self.max_context_tokens - base_query_tokens
+            
+            if available_tokens > 100:
+                # Limit conversation history and try again
+                limited_history = conversation_history[-2:] if len(conversation_history) > 2 else conversation_history
+                limited_context = self._extract_key_context(limited_history)
+                
+                if limited_context:
+                    contextual_parts = [
+                        f"Recent context:\n{limited_context}",
+                        f"Current question: {current_query}"
+                    ]
+                    
+                    if enable_chain_of_thought:
+                        contextual_parts.append("Please analyze step by step considering the context.")
+                    else:
+                        contextual_parts.append("Please respond considering the recent context.")
+                    
+                    complete_query = "\n\n".join(contextual_parts)
+                else:
+                    complete_query = current_query
+            else:
+                complete_query = current_query
+        
+        return complete_query
+    
+    def requires_chain_of_thought(self, query: str) -> Tuple[bool, str]:
+        """
+        Determine if a query requires chain of thought reasoning
+        
+        Args:
+            query: User's question
+            
+        Returns:
+            Tuple of (requires_cot, reasoning_type)
+        """
+        query_lower = query.lower()
+        print(f"[CoT DEBUG] Analyzing query: '{query_lower}'")
+        
+        for reasoning_type, patterns in self.chain_of_thought_patterns.items():
+            for pattern in patterns:
+                if pattern in query_lower:
+                    print(f"[CoT DEBUG] Matched pattern '{pattern}' for type '{reasoning_type}'")
+                    return True, reasoning_type
+        
+        if any(word in query_lower for word in ['how do i', 'how can i', 'how should i']):
+            print(f"[CoT DEBUG] Matched flexible 'how do/can/should' pattern for step_by_step")
+            return True, 'step_by_step'
+            
+        if any(word in query_lower for word in ['what are the signs', 'how to identify', 'how to know']):
+            print(f"[CoT DEBUG] Matched identification pattern for analysis_needed")
+            return True, 'analysis_needed'
+        
+        print(f"[CoT DEBUG] No patterns matched - using simple response")
+        return False, 'simple'
+    
+    def generate_chain_of_thought_prompt(self, query: str, context: str, reasoning_type: str) -> str:
+        """
+        Generate a chain of thought prompt based on query type and context
+        
+        Args:
+            query: Original user question
+            context: Conversation context
+            reasoning_type: Type of reasoning required
+            
+        Returns:
+            Enhanced prompt with chain of thought structure
+        """
+        base_prompt = f"Query: {query}\n\nContext: {context}\n\n"
+        
+        if reasoning_type in self.reasoning_templates:
+            cot_template = self.reasoning_templates[reasoning_type]
+            
+            if reasoning_type == 'analysis':
+                enhanced_prompt = base_prompt + cot_template.format(
+                    problem_analysis="{analysis_placeholder}",
+                    key_factors="{factors_placeholder}",
+                    options="{options_placeholder}",
+                    recommendation="{recommendation_placeholder}"
+                )
+            elif reasoning_type == 'step_by_step':
+                enhanced_prompt = base_prompt + cot_template.format(
+                    steps="{steps_placeholder}",
+                    considerations="{considerations_placeholder}"
+                )
+            elif reasoning_type == 'problem_solving':
+                enhanced_prompt = base_prompt + cot_template.format(
+                    diagnosis="{diagnosis_placeholder}",
+                    root_cause="{root_cause_placeholder}",
+                    solution_strategy="{solution_strategy_placeholder}",
+                    implementation="{implementation_placeholder}"
+                )
+            elif reasoning_type == 'decision_making':
+                enhanced_prompt = base_prompt + cot_template.format(
+                    options="{options_placeholder}",
+                    comparison="{comparison_placeholder}",
+                    recommendation="{recommendation_placeholder}",
+                    reasoning="{reasoning_placeholder}"
+                )
+            else:
+                enhanced_prompt = base_prompt + "Please analyze this step by step and provide detailed reasoning."
+        else:
+            enhanced_prompt = base_prompt + "Please think through this systematically and explain your reasoning."
+            
+        return enhanced_prompt
+    
+    def enhance_query_with_cot(self, query: str, conversation_history: Optional[List[Dict]] = None) -> Dict[str, any]:
+        """
+        Enhanced query building with chain of thought integration
+        Respects existing token limits (max_context_tokens=800) and pair limits (max_context_pairs=5)
+        
+        Args:
+            query: Original user question
+            conversation_history: Previous conversation messages
+            
+        Returns:
+            Dictionary with enhanced query and metadata
+        """
+        requires_cot, reasoning_type = self.requires_chain_of_thought(query)
+        
+        context = ""
+        if conversation_history:
+            for msg in conversation_history:
+                self._extract_agricultural_entities(f"{msg.get('question', '')} {msg.get('answer', '')}")
+            
+            if self.should_use_context(query, conversation_history):
+                context = self._extract_key_context(conversation_history)
+        
+        if requires_cot:
+            initial_query = self.generate_chain_of_thought_prompt(query, context, reasoning_type)
+        else:
+            initial_query = self.build_contextual_query(query, conversation_history, enable_chain_of_thought=False)
+        
+        query_tokens = self._estimate_tokens(initial_query)
+        enhanced_query = initial_query
+        
+        if query_tokens > self.max_context_tokens:
+            if context:
+                available_tokens = self.max_context_tokens - self._estimate_tokens(query) - 200
+                
+                if available_tokens > 100:
+                    context_words = context.split()
+                    target_words = max(50, available_tokens // 4)  
+                    if len(context_words) > target_words:
+                        truncated_context = " ".join(context_words[:target_words]) + "..."
+                        
+                        if requires_cot:
+                            enhanced_query = self.generate_chain_of_thought_prompt(query, truncated_context, reasoning_type)
+                        else:
+                            enhanced_query = self.build_contextual_query(query, 
+                                conversation_history[-2:] if conversation_history else [], 
+                                enable_chain_of_thought=False)
+                    else:
+                        enhanced_query = initial_query
+                else:
+                    if requires_cot:
+                        enhanced_query = f"{query}\n\nPlease analyze this step by step."
+                    else:
+                        enhanced_query = query
+            
+            query_tokens = self._estimate_tokens(enhanced_query)
+        
+        return {
+            'enhanced_query': enhanced_query,
+            'original_query': query,
+            'requires_cot': requires_cot,
+            'reasoning_type': reasoning_type,
+            'context_used': bool(context),
+            'tracked_entities': {k: list(v) for k, v in self.tracked_entities.items()},
+            'memory_strategy': self._determine_memory_strategy(len(conversation_history or [])).value,
+            'context_tokens': query_tokens,
+            'within_limits': query_tokens <= self.max_context_tokens
+        }
     
     def get_context_summary(self, conversation_history: List[Dict]) -> Optional[str]:
         """
@@ -504,12 +759,53 @@ Respond with detailed, actionable advice relevant to Indian agricultural conditi
         """
         return self.tracked_entities.copy()
     
+    def _estimate_tokens(self, text: str) -> int:
+        """
+        Simple token estimation for context management
+        
+        Args:
+            text: Text to estimate tokens for
+            
+        Returns:
+            Estimated token count
+        """
+        words = len(text.split())
+        return int(words * 1.3)
+    
     def reset_entity_tracking(self):
         """
         Reset all tracked entities (useful for new conversations)
         """
-        for entity_type in self.tracked_entities:
-            self.tracked_entities[entity_type].clear()
+        for entity_set in self.tracked_entities.values():
+            entity_set.clear()
+    
+    def test_context_enhancement(self, query: str, conversation_history: Optional[List[Dict]] = None) -> Dict[str, any]:
+        """
+        Test method to verify context manager and chain of thought functionality
+        Validates that token limits (800) and pair limits (5) are respected
+        
+        Args:
+            query: Test query
+            conversation_history: Test conversation history
+            
+        Returns:
+            Test results with all enhancement details and limit validation
+        """
+        result = self.enhance_query_with_cot(query, conversation_history)
+        
+        # Add validation information
+        validation = {
+            'respects_token_limit': result['context_tokens'] <= self.max_context_tokens,
+            'respects_pair_limit': len(conversation_history or []) <= self.max_context_pairs or 
+                                  len(conversation_history[-self.max_context_pairs:] if conversation_history else []) <= self.max_context_pairs,
+            'token_limit': self.max_context_tokens,
+            'pair_limit': self.max_context_pairs,
+            'actual_tokens': result['context_tokens'],
+            'actual_pairs_considered': min(len(conversation_history or []), self.max_context_pairs)
+        }
+        
+        result['validation'] = validation
+        return result
     
     def get_memory_strategy_info(self, conversation_length: int) -> Dict:
         """
