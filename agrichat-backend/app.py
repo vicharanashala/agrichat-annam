@@ -23,6 +23,8 @@ from local_whisper_interface import local_whisper
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import re
+from langchain.memory import ConversationBufferWindowMemory, ConversationSummaryBufferMemory
+from langchain.schema import HumanMessage, AIMessage
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -59,25 +61,132 @@ from Agentic_RAG.crew_tasks import (
 )
 from Agentic_RAG.chroma_query_handler import ChromaQueryHandler
 
-chroma_db_path = "/app/chromaDb"
+chroma_db_path = os.path.join(current_dir, "chromaDb")
 logger.info(f"[DEBUG] ChromaDB path: {chroma_db_path}")
 logger.info(f"[DEBUG] ChromaDB path exists: {os.path.exists(chroma_db_path)}")
 
 query_handler = ChromaQueryHandler(chroma_path=chroma_db_path)
 
-def get_answer(question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None) -> str:
+# Session-based memory store using LangChain
+session_memories = {}
+
+def get_session_memory(session_id: str) -> ConversationBufferWindowMemory:
+    """Get or create conversation memory for a session"""
+    if session_id not in session_memories:
+        session_memories[session_id] = ConversationBufferWindowMemory(
+            k=5,  # Keep last 5 exchanges
+            return_messages=True
+        )
+    return session_memories[session_id]
+
+def format_conversation_context(memory: ConversationBufferWindowMemory) -> str:
+    """Format conversation history for RAG context"""
+    if not memory.chat_memory.messages:
+        return "This is the start of the conversation."
+    
+    context_parts = []
+    messages = memory.chat_memory.messages[-10:]  # Last 10 messages (5 exchanges)
+    
+    for i in range(0, len(messages), 2):
+        if i + 1 < len(messages):
+            human_msg = messages[i]
+            ai_msg = messages[i + 1]
+            context_parts.append(f"Previous Q: {human_msg.content}")
+            context_parts.append(f"Previous A: {ai_msg.content[:200]}...")  # Truncate long responses
+    
+    return "\n".join(context_parts)
+
+def get_answer(question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None, session_id: str = None) -> str:
     """
     Main answer function that routes to fast mode or CrewAI based on configuration.
     
     Args:
         question: Current user question
-        conversation_history: List of previous Q&A pairs for context
+        conversation_history: List of previous Q&A pairs for context (legacy)
         user_state: User's state/region detected from frontend location
+        session_id: Session ID for memory management
     """
+    # Get session memory for context
+    if session_id:
+        memory = get_session_memory(session_id)
+        context_str = format_conversation_context(memory)
+        
+        # Check if this is a follow-up question that needs context resolution
+        resolved_question = resolve_context_question(question, context_str)
+        if resolved_question != question:
+            logger.info(f"[CONTEXT] Resolved '{question}' to '{resolved_question}'")
+            question = resolved_question
+    
     if USE_FAST_MODE and fast_handler:
-        return get_fast_answer(question, conversation_history, user_state)
+        response = get_fast_answer(question, conversation_history, user_state)
     else:
-        return get_crewai_answer(question, conversation_history, user_state)
+        response = get_crewai_answer(question, conversation_history, user_state)
+    
+    # Store in memory if session_id provided
+    if session_id:
+        memory.chat_memory.add_user_message(question)
+        memory.chat_memory.add_ai_message(response)
+    
+    return response
+
+def resolve_context_question(question: str, context: str) -> str:
+    """
+    Resolve ambiguous questions using conversation context
+    """
+    question_lower = question.lower().strip()
+    
+    # Common follow-up patterns that need context resolution
+    context_patterns = [
+        "how do i cure it", "how to cure it", "cure it", "treat it", "how to treat it",
+        "what should i do", "how to fix it", "fix it", "prevent it", "how to prevent it",
+        "what medicine", "which medicine", "what treatment", "what chemical", "what spray",
+        "how much", "when to apply", "when should i", "how often", "what dosage",
+        "side effects", "precautions", "what about", "tell me more", "more details"
+    ]
+    
+    if any(pattern in question_lower for pattern in context_patterns):
+        # Extract the most recent topic from context
+        if "late blight" in context.lower():
+            if "cure" in question_lower or "treat" in question_lower:
+                return "How to cure late blight in potato?"
+            elif "prevent" in question_lower:
+                return "How to prevent late blight in potato?"
+            elif "medicine" in question_lower or "chemical" in question_lower:
+                return "What medicines or chemicals to use for late blight in potato?"
+        
+        # Add more context resolution patterns as needed
+        recent_topics = extract_topics_from_context(context)
+        if recent_topics:
+            return f"{question} for {recent_topics[0]}"
+    
+    return question
+
+def extract_topics_from_context(context: str) -> List[str]:
+    """Extract agricultural topics from conversation context"""
+    topics = []
+    context_lower = context.lower()
+    
+    # Common crop diseases and pests
+    disease_patterns = [
+        "late blight", "early blight", "powdery mildew", "downy mildew", 
+        "bacterial wilt", "fungal infection", "leaf spot", "root rot"
+    ]
+    
+    crop_patterns = [
+        "potato", "tomato", "wheat", "rice", "cotton", "sugarcane", "maize", "corn"
+    ]
+    
+    for disease in disease_patterns:
+        if disease in context_lower:
+            for crop in crop_patterns:
+                if crop in context_lower:
+                    topics.append(f"{disease} in {crop}")
+                    break
+            else:
+                topics.append(disease)
+            break
+    
+    return topics
 
 def get_fast_answer(question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None) -> str:
     """
@@ -291,7 +400,7 @@ app = FastAPI(lifespan=lifespan)
 
 origins = [
     "https://agri-annam.vercel.app",
-    "https://dc7e57fb4816.ngrok-free.app",
+    "https://f7387713c09d.ngrok-free.app",
     "https://localhost:3000",
     "https://127.0.0.1:3000",
     "http://localhost:3000",
@@ -374,7 +483,7 @@ async def list_sessions(request: Request):
 async def new_session(question: str = Form(...), device_id: str = Form(...), state: str = Form(...), language: str = Form(...)):
     session_id = str(uuid4())
     try:
-        raw_answer = get_answer(question, conversation_history=None, user_state=state)
+        raw_answer = get_answer(question, conversation_history=None, user_state=state, session_id=session_id)
         logger.info(f"[DEBUG] Raw answer: {raw_answer}")
         logger.info(f"[DEBUG] Raw answer type: {type(raw_answer)}")
         
@@ -446,10 +555,23 @@ async def continue_session(session_id: str, question: str = Form(...), device_id
                     "answer": clean_answer
                 })
         
+        # Initialize session memory with existing conversation history if not already done
+        if session_id not in session_memories:
+            memory = get_session_memory(session_id)
+            
+            # Load existing conversation into memory
+            for msg in messages:
+                if "question" in msg and "answer" in msg:
+                    clean_answer = BeautifulSoup(msg["answer"], "html.parser").get_text()
+                    memory.chat_memory.add_user_message(msg["question"])
+                    memory.chat_memory.add_ai_message(clean_answer)
+        
         logger.info(f"[DEBUG] Using conversation context: {len(conversation_history)} previous interactions")
         
         current_state = state or session.get("state", "unknown")
-        raw_answer = get_answer(question, conversation_history=conversation_history, user_state=current_state)
+        
+        # Use the new session memory system
+        raw_answer = get_answer(question, conversation_history=conversation_history, user_state=current_state, session_id=session_id)
     except Exception as e:
         logger.error(f"[DEBUG] Error in get_answer: {e}")
         return JSONResponse(status_code=500, content={"error": "LLM processing failed."})
