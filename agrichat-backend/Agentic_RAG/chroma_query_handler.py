@@ -462,7 +462,6 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 for val in self.meta_index["State"]:
                     if str(val).lower() == user_state.lower().strip():
                         filt["State"] = val
-                        # print(f"[DEBUG] Added State filter: {val} from user_state: {user_state}")
                         break
         
         for field in safe_fields:
@@ -470,13 +469,11 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 for val in self.meta_index[field]:
                     if str(val).lower() in q and str(val).lower() != "other" and str(val).lower() != "-":
                         filt[field] = val
-                        # print(f"[DEBUG] Added {field} filter: {val}")
                         break
         
         if len(filt) > 2:
             filt = dict(list(filt.items())[:2])
             
-    # print(f"[DEBUG] Final metadata filter: {filt}")
         return filt or None
 
     def cosine_sim(self, a, b):
@@ -551,7 +548,6 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 if doc.page_content.strip() and combined_score > self.min_cosine_threshold]
 
     def construct_structured_prompt(self, context: str, question: str, user_state: str = None) -> str:
-        # Determine current month in IST for prompt context
         IST = pytz.timezone("Asia/Kolkata")
         current_month = datetime.now(IST).strftime('%B')
         if user_state:

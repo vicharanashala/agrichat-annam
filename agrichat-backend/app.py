@@ -67,14 +67,13 @@ logger.info(f"[DEBUG] ChromaDB path exists: {os.path.exists(chroma_db_path)}")
 
 query_handler = ChromaQueryHandler(chroma_path=chroma_db_path)
 
-# Session-based memory store using LangChain
 session_memories = {}
 
 def get_session_memory(session_id: str) -> ConversationBufferWindowMemory:
     """Get or create conversation memory for a session"""
     if session_id not in session_memories:
         session_memories[session_id] = ConversationBufferWindowMemory(
-            k=5,  # Keep last 5 exchanges
+            k=5,
             return_messages=True
         )
     return session_memories[session_id]
@@ -85,14 +84,13 @@ def format_conversation_context(memory: ConversationBufferWindowMemory) -> str:
         return "This is the start of the conversation."
     
     context_parts = []
-    messages = memory.chat_memory.messages[-10:]  # Last 10 messages (5 exchanges)
-    
+    messages = memory.chat_memory.messages[-10:]
     for i in range(0, len(messages), 2):
         if i + 1 < len(messages):
             human_msg = messages[i]
             ai_msg = messages[i + 1]
             context_parts.append(f"Previous Q: {human_msg.content}")
-            context_parts.append(f"Previous A: {ai_msg.content[:200]}...")  # Truncate long responses
+            context_parts.append(f"Previous A: {ai_msg.content[:200]}...")
     
     return "\n".join(context_parts)
 
@@ -106,12 +104,10 @@ def get_answer(question: str, conversation_history: Optional[List[Dict]] = None,
         user_state: User's state/region detected from frontend location
         session_id: Session ID for memory management
     """
-    # Get session memory for context
     if session_id:
         memory = get_session_memory(session_id)
         context_str = format_conversation_context(memory)
         
-        # Check if this is a follow-up question that needs context resolution
         resolved_question = resolve_context_question(question, context_str)
         if resolved_question != question:
             logger.info(f"[CONTEXT] Resolved '{question}' to '{resolved_question}'")
@@ -122,7 +118,6 @@ def get_answer(question: str, conversation_history: Optional[List[Dict]] = None,
     else:
         response = get_crewai_answer(question, conversation_history, user_state)
     
-    # Store in memory if session_id provided
     if session_id:
         memory.chat_memory.add_user_message(question)
         memory.chat_memory.add_ai_message(response)
@@ -135,7 +130,6 @@ def resolve_context_question(question: str, context: str) -> str:
     """
     question_lower = question.lower().strip()
     
-    # Common follow-up patterns that need context resolution
     context_patterns = [
         "how do i cure it", "how to cure it", "cure it", "treat it", "how to treat it",
         "what should i do", "how to fix it", "fix it", "prevent it", "how to prevent it",
@@ -145,7 +139,6 @@ def resolve_context_question(question: str, context: str) -> str:
     ]
     
     if any(pattern in question_lower for pattern in context_patterns):
-        # Extract the most recent topic from context
         if "late blight" in context.lower():
             if "cure" in question_lower or "treat" in question_lower:
                 return "How to cure late blight in potato?"
@@ -154,7 +147,6 @@ def resolve_context_question(question: str, context: str) -> str:
             elif "medicine" in question_lower or "chemical" in question_lower:
                 return "What medicines or chemicals to use for late blight in potato?"
         
-        # Add more context resolution patterns as needed
         recent_topics = extract_topics_from_context(context)
         if recent_topics:
             return f"{question} for {recent_topics[0]}"
@@ -166,7 +158,6 @@ def extract_topics_from_context(context: str) -> List[str]:
     topics = []
     context_lower = context.lower()
     
-    # Common crop diseases and pests
     disease_patterns = [
         "late blight", "early blight", "powdery mildew", "downy mildew", 
         "bacterial wilt", "fungal infection", "leaf spot", "root rot"
@@ -512,7 +503,6 @@ async def new_session(question: str = Form(...), device_id: str = Form(...), sta
     sessions_collection.insert_one(session)
     session.pop("_id", None)
     
-    # Get recommendations for this question
     try:
         recommendations = get_question_recommendations(
             user_question=question,
@@ -555,11 +545,9 @@ async def continue_session(session_id: str, question: str = Form(...), device_id
                     "answer": clean_answer
                 })
         
-        # Initialize session memory with existing conversation history if not already done
         if session_id not in session_memories:
             memory = get_session_memory(session_id)
             
-            # Load existing conversation into memory
             for msg in messages:
                 if "question" in msg and "answer" in msg:
                     clean_answer = BeautifulSoup(msg["answer"], "html.parser").get_text()
@@ -570,7 +558,6 @@ async def continue_session(session_id: str, question: str = Form(...), device_id
         
         current_state = state or session.get("state", "unknown")
         
-        # Use the new session memory system
         raw_answer = get_answer(question, conversation_history=conversation_history, user_state=current_state, session_id=session_id)
     except Exception as e:
         logger.error(f"[DEBUG] Error in get_answer: {e}")
@@ -599,7 +586,6 @@ async def continue_session(session_id: str, question: str = Form(...), device_id
     if updated:
         updated.pop("_id", None)
         
-        # Get recommendations for the latest question
         try:
             recommendations = get_question_recommendations(
                 user_question=question,
@@ -614,7 +600,6 @@ async def continue_session(session_id: str, question: str = Form(...), device_id
     
     return {"session": updated}
 
-# Streaming endpoint for better UX
 @app.post("/api/query/stream")
 async def stream_query(question: str = Form(...), device_id: str = Form(...), state: str = Form(...), language: str = Form(...)):
     """
@@ -624,7 +609,6 @@ async def stream_query(question: str = Form(...), device_id: str = Form(...), st
         import json
         import asyncio
         
-        # Send thinking states
         thinking_states = [
             "Understanding your question...",
             "Searching agricultural database...", 
@@ -634,15 +618,13 @@ async def stream_query(question: str = Form(...), device_id: str = Form(...), st
         
         for i, state in enumerate(thinking_states):
             yield f"data: {json.dumps({'type': 'thinking', 'message': state, 'progress': (i + 1) * 25})}\n\n"
-            await asyncio.sleep(0.5)  # Small delay for better UX
+            await asyncio.sleep(0.5)
         
         try:
-            # Get the actual answer
             raw_answer = get_answer(question, conversation_history=None, user_state=state)
             answer_only = str(raw_answer).strip()
             html_answer = markdown.markdown(answer_only, extensions=["extra", "nl2br"])
             
-            # Send final response
             session_id = str(uuid4())
             session = {
                 "session_id": session_id,
@@ -757,10 +739,8 @@ async def transcribe_audio(file: UploadFile = File(...), language: str = Form("E
 
         logger.info(f"Using language: {language} (Local Whisper)")
 
-        # Transcribe using Local Whisper (GPU-accelerated)
         transcript = local_whisper.transcribe_audio(contents, file.filename)
 
-        # Check if transcription failed
         if transcript.startswith("Error:"):
             logger.error(f"Local Whisper transcription failed: {transcript}")
             return JSONResponse(
@@ -799,11 +779,10 @@ async def get_recommendations(data: dict = Body(...)):
                 content={"error": "Question is required"}
             )
         
-        # Get recommendations
         recommendations = get_question_recommendations(
             user_question=user_question,
             user_state=user_state,
-            limit=min(limit, 5)  # Max 5 recommendations
+            limit=min(limit, 5)
         )
         
         return {
