@@ -35,3 +35,6 @@ chromaDb/
 # Logs
 *.log
 .vercel
+
+# Dataset
+data/
