@@ -65,8 +65,11 @@ IMPORTANT INSTRUCTIONS:
 - Do NOT use placeholder text like [Your Name], [Your Region/Organization], [Company Name], or any text in square brackets
 - Do NOT introduce yourself with a name or organization 
 - Do NOT make assumptions about the user's specific farm, location details, or personal circumstances beyond the provided state
+- Do NOT include your reasoning, thinking process, or assumptions in the answer (e.g., "Since the user is located in...", "I will assume...", "However, since the question does not mention...")
+- Do NOT explain why you're providing certain information or how you interpreted the question
+- Start directly with the agricultural advice and information
 - If this appears to be a follow-up question, acknowledge the previous context naturally
-- Provide direct, helpful advice without template language
+- Provide direct, helpful advice without template language or meta-commentary
 
 **If the context does not contain relevant information, reply exactly:**   
 `I don't have enough information to answer that.`
@@ -547,6 +550,45 @@ Respond as if you are talking directly to the user, not giving advice on what to
         return [doc for doc, combined_score, cosine_score, orig_score in scored[:top_k] 
                 if doc.page_content.strip() and combined_score > self.min_cosine_threshold]
 
+    def filter_response_thinking(self, response: str) -> str:
+        """
+        Filter out LLM internal thinking and assumptions from the response
+        
+        Args:
+            response: Raw response from LLM
+            
+        Returns:
+            Cleaned response without thinking parts
+        """
+        thinking_patterns = [
+            r"Since the user is located in [^,]+, I will provide information specific to that region\.\s*",
+            r"However, since the question does not mention [^,]+, I will assume [^.]+\.\s*",
+            r"Given that the user is in [^,]+, [^.]+\.\s*",
+            r"As the user is located in [^,]+, [^.]+\.\s*",
+            r"Since you are in [^,]+, [^.]+\.\s*",
+            r"Based on your location in [^,]+, [^.]+\.\s*",
+            r"As we discussed earlier, [^.]+\.\s*",
+            r"Since this is a follow-up question, [^.]+\.\s*",
+            r"Given the context of our conversation, [^.]+\.\s*",
+            r"As mentioned in the previous response, [^.]+\.\s*",
+            r"Following up on our discussion about [^,]+, [^.]+\.\s*",
+            r"Since you asked about [^,]+ earlier, [^.]+\.\s*",
+            r"I'll assume you want [^.]+\.\s*",
+            r"I assume you're asking about [^.]+\.\s*",
+            r"Let me assume [^.]+\.\s*",
+            r"I will assume [^.]+\.\s*"
+        ]
+        
+        cleaned_response = response
+        
+        for pattern in thinking_patterns:
+            cleaned_response = re.sub(pattern, "", cleaned_response, flags=re.IGNORECASE)
+        
+        cleaned_response = re.sub(r'\n\s*\n', '\n\n', cleaned_response)
+        cleaned_response = re.sub(r'^\s+', '', cleaned_response)
+        
+        return cleaned_response.strip()
+
     def construct_structured_prompt(self, context: str, question: str, user_state: str = None) -> str:
         IST = pytz.timezone("Asia/Kolkata")
         current_month = datetime.now(IST).strftime('%B')
@@ -607,7 +649,7 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 max_tokens=512,
                 use_fallback=False
             )
-            return response_text.strip()
+            return self.filter_response_thinking(response_text.strip())
         except Exception as e:
             logger.error(f"[Dynamic Response Error] {e}")
             return "Sorry, I can only help with agriculture-related questions."
@@ -674,6 +716,7 @@ Respond as if you are talking directly to the user, not giving advice on what to
                     processing_query = enhanced_query_result['enhanced_query']
                     context_used = True
                     logger.info(f"[CoT DEBUG] Using {enhanced_query_result['reasoning_type']} reasoning with context")
+                    logger.info(f"[CoT DEBUG] Enhanced query: {processing_query[:100]}...")
                     logger.info(f"[CoT DEBUG] Memory strategy: {enhanced_query_result['memory_strategy']}")
                     logger.info(f"[CoT DEBUG] Estimated tokens: {enhanced_query_result['context_tokens']}")
                     
@@ -784,7 +827,6 @@ Respond as if you are talking directly to the user, not giving advice on what to
                         logger.info(f"[Context] Using RAG content for contextual query (score: {similarity_score})")
                         print(f"[DEBUG] Context path - should_use_rag: {should_use_rag}")
                     else:
-                        # Use normal threshold logic for non-contextual queries
                         score_threshold = 1.1  
                         should_use_rag = similarity_score is None or similarity_score <= score_threshold
                         print(f"[DEBUG] Normal path - should_use_rag: {should_use_rag}")
@@ -807,11 +849,11 @@ Respond as if you are talking directly to the user, not giving advice on what to
                         if context_used:
                             logger.info(f"[Context] Response generated with conversation context")
                             logger.info(f"[SOURCE] RAG Database used with context for question: {question[:50]}...")
-                            final_response = generated_response.strip()
+                            final_response = self.filter_response_thinking(generated_response.strip())
                         else:
                             logger.info(f"[RAG] Response generated from RAG database (score: {similarity_score})")
                             logger.info(f"[SOURCE] RAG Database used for question: {question[:50]}...")
-                            final_response = generated_response.strip()
+                            final_response = self.filter_response_thinking(generated_response.strip())
                             
                         return final_response
                     else:
@@ -823,7 +865,7 @@ Respond as if you are talking directly to the user, not giving advice on what to
             if context_used:
                 if relevant_docs and relevant_docs[0].page_content.strip():
                     context = relevant_docs[0].page_content
-                    final_question = question
+                    final_question = processing_query if processing_query != question else question
                     prompt = self.construct_structured_prompt(context, final_question, user_state)
                     
                     generated_response = run_local_llm(
@@ -834,7 +876,7 @@ Respond as if you are talking directly to the user, not giving advice on what to
                     )
                     
                     logger.info(f"[Context] Fallback response generated with conversation context")
-                    return generated_response.strip()
+                    return self.filter_response_thinking(generated_response.strip())
                 else:
                     logger.info(f"[Context] No relevant docs found for contextual query, using enhanced query")
                     # Use enhanced contextual query for LLM
@@ -848,7 +890,7 @@ Respond as if you are talking directly to the user, not giving advice on what to
                     )
                     
                     logger.info(f"[Context] Enhanced contextual response generated")
-                    return fallback_response.strip()
+                    return self.filter_response_thinking(fallback_response.strip())
             #             prompt,
             #             temperature=0.3,
             #             max_tokens=1024,

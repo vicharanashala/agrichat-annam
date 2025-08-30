@@ -489,16 +489,19 @@ Here's my detailed analysis:""",
         Now considers up to 5 previous messages for better context detection
         """
         if not conversation_history:
+            print(f"[Context DEBUG] No conversation history, not using context")
             return False
             
         recent_messages = conversation_history[-5:] if len(conversation_history) >= 5 else conversation_history
         
-        return self._is_followup_query(current_query, recent_messages)
+        is_followup = self._is_followup_query(current_query, recent_messages)
+        print(f"[Context DEBUG] should_use_context for '{current_query}': {is_followup}")
+        return is_followup
     
     def build_contextual_query(self, current_query: str, conversation_history: List[Dict], enable_chain_of_thought: bool = True) -> str:
         """
         Build a contextual query incorporating relevant conversation history
-        Respects existing token limits (max_context_tokens=800) and pair limits (max_context_pairs=5)
+        Enhanced to handle vague pronouns and references more effectively
         
         Args:
             current_query: The current user question
@@ -511,54 +514,219 @@ Here's my detailed analysis:""",
         if not self.should_use_context(current_query, conversation_history):
             return current_query
         
-        current_entities = self._extract_agricultural_entities(current_query)
+        enhanced_query = self._replace_vague_references(current_query, conversation_history)
         
-        # Use existing _extract_key_context which already respects token/pair limits
         context = self._extract_key_context(conversation_history)
         
         if not context:
-            return current_query
+            return enhanced_query
             
-        contextual_parts = []
-        
-        contextual_parts.append(f"Context from our conversation:\n{context}")
-        
-        entity_context = []
-        for entity_type, entities in current_entities.items():
-            if entities and self.tracked_entities[entity_type]:
-                related_entities = self.tracked_entities[entity_type].intersection(entities)
-                if related_entities:
-                    entity_context.append(f"Related {entity_type}: {', '.join(related_entities)}")
-        
-        if entity_context:
-            contextual_parts.append(f"Related entities from our discussion:\n{'; '.join(entity_context)}")
-        
-        contextual_parts.append(f"Current question: {current_query}")
-        
-        if enable_chain_of_thought:
-            contextual_parts.append("""
-Please analyze this question step by step:
-1. Consider the conversation context and related entities discussed
-2. Identify the specific agricultural problem or information need
-3. Draw connections to previous discussions if relevant
-4. Provide a comprehensive response considering the full context
+        contextual_query = f"""
+Previous conversation context:
+{context}
 
-Respond with detailed, actionable advice relevant to Indian agricultural conditions.""")
-        else:
-            contextual_parts.append("Please provide a response considering the above conversation context, giving more importance to recent interactions.")
+Current question: {enhanced_query}
+
+Based on the above conversation context, please provide a detailed response that connects to what we were previously discussing. Consider the agricultural topics, diseases, crops, or issues mentioned in our conversation history.
+"""
         
-        # Ensure the final query respects token limits
+        query_tokens = self._estimate_tokens(contextual_query)
+        if query_tokens > self.max_context_tokens:
+            main_topic = self._extract_main_topic(conversation_history)
+            contextual_query = f"""
+Previous topic: {main_topic}
+Current question: {enhanced_query}
+
+Please answer based on our previous discussion about {main_topic}.
+"""
+        
+        return contextual_query
+        
+        enhanced_query = "\n\n".join(contextual_parts)
+        query_tokens = self._estimate_tokens(enhanced_query)
+        
+        if query_tokens > self.max_context_tokens:
+            minimal_parts = [
+                f"Previous topic: {self._extract_main_topic(conversation_history)}",
+                f"Current question: {enhanced_query}",
+                "Please answer based on the previous topic discussed."
+            ]
+            enhanced_query = "\n\n".join(minimal_parts)
+        
+        return enhanced_query
+
+    def _replace_vague_references(self, query: str, conversation_history: List[Dict]) -> str:
+        """
+        Replace vague pronouns and references with specific context from conversation history
+        
+        Args:
+            query: Current query with potential vague references
+            conversation_history: Previous conversation for context
+            
+        Returns:
+            Enhanced query with pronouns replaced by specific references
+        """
+        if not conversation_history:
+            print(f"[Context DEBUG] No conversation history for pronoun replacement")
+            return query
+        
+        last_interaction = conversation_history[-1]
+        last_question = last_interaction.get('question', '')
+        last_answer = last_interaction.get('answer', '')
+        
+        print(f"[Context DEBUG] Processing pronoun replacement for: '{query}'")
+        print(f"[Context DEBUG] Last question: '{last_question[:50]}...'")
+        
+        main_topics = self._extract_main_agricultural_topics(last_question, last_answer)
+        print(f"[Context DEBUG] Extracted topics: {main_topics}")
+        
+        enhanced_query = query.lower().strip()
+        original_query = enhanced_query
+        
+        if main_topics.get('primary_topic'):
+            primary_topic = main_topics['primary_topic']
+            
+            replacements = [
+                (r'\bit\b', primary_topic),
+                (r'\bthis\b', primary_topic), 
+                (r'\bthat\b', primary_topic),
+                (r'\bthey\b', f"{primary_topic} and related issues"),
+                (r'\bthem\b', f"{primary_topic} and related issues"),
+                (r'^how to (prevent|control|treat|manage|stop|cure)(\s+it|\s+this|\s+that)?\??$', 
+                 f"How to \\1 {primary_topic}?"),
+                (r'^what are the symptoms(\s+of it|\s+of this|\s+of that)?\??$', 
+                 f"What are the symptoms of {primary_topic}?"),
+                (r'^how to treat(\s+it|\s+this|\s+that)?\??$', 
+                 f"How to treat {primary_topic}?"),
+                (r'^what causes(\s+it|\s+this|\s+that)?\??$', 
+                 f"What causes {primary_topic}?"),
+                (r'^is(\s+it|\s+this|\s+that)\s+(serious|dangerous|harmful)\??$', 
+                 f"Is {primary_topic} \\2?"),
+                (r'^what are the symptoms?\??$', 
+                 f"What are the symptoms of {primary_topic}?"),
+                (r'^how to control this disease?\??$', 
+                 f"How to control {primary_topic}?"),
+                (r'^how to treat this disease?\??$', 
+                 f"How to treat {primary_topic}?"),
+            ]
+            
+            for pattern, replacement in replacements:
+                new_query = re.sub(pattern, replacement, enhanced_query, flags=re.IGNORECASE)
+                if new_query != enhanced_query:
+                    enhanced_query = new_query
+                    print(f"[Context DEBUG] Applied pattern '{pattern}' -> '{enhanced_query}'")
+                    break
+        
+        if enhanced_query == original_query and main_topics.get('primary_topic'):
+            enhanced_query = f"{query} (referring to {main_topics['primary_topic']})"
+            print(f"[Context DEBUG] Added explicit context: '{enhanced_query}'")
+        
+        if enhanced_query:
+            enhanced_query = enhanced_query[0].upper() + enhanced_query[1:] if len(enhanced_query) > 1 else enhanced_query.upper()
+        
+        print(f"[Context DEBUG] Final enhanced query: '{enhanced_query}'")
+        return enhanced_query
+
+    def _extract_main_agricultural_topics(self, question: str, answer: str) -> Dict[str, str]:
+        """
+        Extract main agricultural topics from a question-answer pair
+        
+        Args:
+            question: Previous question
+            answer: Previous answer
+            
+        Returns:
+            Dictionary with identified topics
+        """
+        combined_text = f"{question} {answer}".lower()
+        
+        topic_patterns = {
+            'diseases': [
+                r'(rice blast|wheat rust|tomato blight|late blight|early blight|powdery mildew|downy mildew|bacterial wilt|viral mosaic|leaf spot|stem rot|root rot|blight disease|rust disease|blast disease)',
+                r'(\w+\s+(?:disease|blight|rust|rot|spot|wilt|mosaic|mildew))',
+                r'(disease\s+of\s+\w+|blight\s+in\s+\w+|rust\s+on\s+\w+)'
+            ],
+            'pests': [
+                r'(aphids|thrips|whitefly|bollworm|stem borer|leaf miner|caterpillar|beetle|mite|nematode)',
+                r'(\w+\s+(?:borer|worm|fly|mite|beetle|caterpillar))'
+            ],
+            'crops': [
+                r'(rice|wheat|maize|cotton|sugarcane|tomato|potato|onion|garlic|soybean|mustard|gram|pea|lentil|chickpea)',
+                r'(paddy|bajra|jowar|barley|sunflower|groundnut|sesame)'
+            ],
+            'fertilizers': [
+                r'(urea|dap|potash|phosphorus|nitrogen|organic manure|compost|vermicompost|biofertilizer)',
+                r'(\w+\s+fertilizer|\w+\s+manure)'
+            ],
+            'treatments': [
+                r'(fungicide|pesticide|insecticide|herbicide|bactericide|neem oil|copper sulfate)',
+                r'(\w+\s+spray|\w+\s+application)'
+            ]
+        }
+        
+        topics = {
+            'primary_topic': None,
+            'plural_topic': None,
+            'treatment_topic': None
+        }
+        
+        for category, patterns in topic_patterns.items():
+            for pattern in patterns:
+                matches = re.findall(pattern, combined_text)
+                if matches:
+                    topic = matches[0] if isinstance(matches[0], str) else matches[0][0]
+                    if category == 'diseases':
+                        topics['primary_topic'] = topic
+                        topics['plural_topic'] = f"{topic} and related diseases"
+                    elif category == 'pests':
+                        topics['primary_topic'] = topic
+                        topics['plural_topic'] = f"{topic} and related pests"
+                    elif category == 'crops':
+                        if not topics['primary_topic']:
+                            topics['primary_topic'] = f"{topic} cultivation"
+                    elif category == 'treatments':
+                        topics['treatment_topic'] = topic
+                    break
+            if topics['primary_topic']:
+                break
+        
+        if not topics['primary_topic']:
+            if 'crop' in combined_text or 'plant' in combined_text:
+                topics['primary_topic'] = 'the crop issue'
+                topics['plural_topic'] = 'these crop issues'
+            else:
+                topics['primary_topic'] = 'the agricultural issue'
+                topics['plural_topic'] = 'these agricultural issues'
+        
+        return topics
+
+    def _extract_main_topic(self, conversation_history: List[Dict]) -> str:
+        """
+        Extract the main topic from conversation history for minimal context
+        """
+        if not conversation_history:
+            return "agricultural topic"
+        
+        last_interaction = conversation_history[-1]
+        last_question = last_interaction.get('question', '')
+        
+        for disease in ['rice blast', 'wheat rust', 'tomato blight', 'late blight', 'powdery mildew']:
+            if disease in last_question.lower():
+                return disease
+        
+        for crop in ['rice', 'wheat', 'tomato', 'potato', 'cotton', 'maize']:
+            if crop in last_question.lower():
+                return f"{crop} cultivation"
+        
+        return "the previous agricultural topic"
         complete_query = "\n\n".join(contextual_parts)
         query_tokens = self._estimate_tokens(complete_query)
         
-        # If exceeding limits, trim while preserving structure
         if query_tokens > self.max_context_tokens:
-            # Reduce recent context to fit within limits
-            base_query_tokens = self._estimate_tokens(current_query) + 150  # Reserve for instructions
+            base_query_tokens = self._estimate_tokens(current_query) + 150 
             available_tokens = self.max_context_tokens - base_query_tokens
             
             if available_tokens > 100:
-                # Limit conversation history and try again
                 limited_history = conversation_history[-2:] if len(conversation_history) > 2 else conversation_history
                 limited_context = self._extract_key_context(limited_history)
                 
@@ -675,25 +843,33 @@ Respond with detailed, actionable advice relevant to Indian agricultural conditi
         """
         requires_cot, reasoning_type = self.requires_chain_of_thought(query)
         
-        context = ""
-        if conversation_history:
+        enhanced_query = query
+        context_used = False
+        
+        if conversation_history and self.should_use_context(query, conversation_history):
+            enhanced_query = self._replace_vague_references(query, conversation_history)
+            context_used = True
+            context = self._extract_key_context(conversation_history)
+            
             for msg in conversation_history:
                 self._extract_agricultural_entities(f"{msg.get('question', '')} {msg.get('answer', '')}")
-            
-            if self.should_use_context(query, conversation_history):
-                context = self._extract_key_context(conversation_history)
+        else:
+            context = ""
         
         if requires_cot:
-            initial_query = self.generate_chain_of_thought_prompt(query, context, reasoning_type)
+            initial_query = self.generate_chain_of_thought_prompt(enhanced_query, context, reasoning_type)
         else:
-            initial_query = self.build_contextual_query(query, conversation_history, enable_chain_of_thought=False)
+            if context_used:
+                initial_query = self.build_contextual_query(enhanced_query, conversation_history, enable_chain_of_thought=False)
+            else:
+                initial_query = enhanced_query
         
         query_tokens = self._estimate_tokens(initial_query)
-        enhanced_query = initial_query
+        final_enhanced_query = initial_query
         
         if query_tokens > self.max_context_tokens:
             if context:
-                available_tokens = self.max_context_tokens - self._estimate_tokens(query) - 200
+                available_tokens = self.max_context_tokens - self._estimate_tokens(enhanced_query) - 200
                 
                 if available_tokens > 100:
                     context_words = context.split()
@@ -702,27 +878,27 @@ Respond with detailed, actionable advice relevant to Indian agricultural conditi
                         truncated_context = " ".join(context_words[:target_words]) + "..."
                         
                         if requires_cot:
-                            enhanced_query = self.generate_chain_of_thought_prompt(query, truncated_context, reasoning_type)
+                            final_enhanced_query = self.generate_chain_of_thought_prompt(enhanced_query, truncated_context, reasoning_type)
                         else:
-                            enhanced_query = self.build_contextual_query(query, 
+                            final_enhanced_query = self.build_contextual_query(enhanced_query, 
                                 conversation_history[-2:] if conversation_history else [], 
                                 enable_chain_of_thought=False)
                     else:
-                        enhanced_query = initial_query
+                        final_enhanced_query = initial_query
                 else:
                     if requires_cot:
-                        enhanced_query = f"{query}\n\nPlease analyze this step by step."
+                        final_enhanced_query = f"{enhanced_query}\n\nPlease analyze this step by step."
                     else:
-                        enhanced_query = query
+                        final_enhanced_query = enhanced_query
             
-            query_tokens = self._estimate_tokens(enhanced_query)
+            query_tokens = self._estimate_tokens(final_enhanced_query)
         
         return {
-            'enhanced_query': enhanced_query,
+            'enhanced_query': final_enhanced_query,
             'original_query': query,
             'requires_cot': requires_cot,
             'reasoning_type': reasoning_type,
-            'context_used': bool(context),
+            'context_used': context_used,
             'tracked_entities': {k: list(v) for k, v in self.tracked_entities.items()},
             'memory_strategy': self._determine_memory_strategy(len(conversation_history or [])).value,
             'context_tokens': query_tokens,
