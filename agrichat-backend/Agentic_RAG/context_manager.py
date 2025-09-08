@@ -138,7 +138,6 @@ Here's my detailed analysis:""",
         char_based = len(text) // 4
         
         word_based = words + (punctuation_count * 0.3) + (number_count * 0.5) + technical_terms + hyphenated_words
-        mation
         return int(max(char_based, word_based))
     
     def _extract_agricultural_entities(self, text: str) -> Dict[str, Set[str]]:

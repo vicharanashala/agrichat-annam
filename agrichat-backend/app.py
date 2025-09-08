@@ -15,16 +15,17 @@ import certifi
 import pytz
 from dateutil import parser
 from contextlib import asynccontextmanager
-from dotenv import load_dotenv
 import logging
 from typing import Optional, List, Dict
 import requests
+import time
 from local_whisper_interface import local_whisper
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import re
 from langchain.memory import ConversationBufferWindowMemory, ConversationSummaryBufferMemory
 from langchain.schema import HumanMessage, AIMessage
+from Agentic_RAG.fast_response_handler import FastResponseHandler
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -33,7 +34,6 @@ IST = pytz.timezone("Asia/Kolkata")
 current_dir = os.path.dirname(os.path.abspath(__file__))
 agentic_rag_path = os.path.join(current_dir, "Agentic_RAG")
 sys.path.insert(0, agentic_rag_path)
-load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
 
 USE_FAST_MODE = os.getenv("USE_FAST_MODE", "false").lower() == "true"
 logger.info(f"[CONFIG] USE_FAST_MODE environment variable: {os.getenv('USE_FAST_MODE', 'not set')}")
@@ -42,7 +42,6 @@ logger.info(f"[CONFIG] Fast Mode Enabled: {USE_FAST_MODE}")
 fast_handler = None
 if USE_FAST_MODE:
     try:
-        from fast_response_handler import FastResponseHandler
         fast_handler = FastResponseHandler()
         logger.info("[CONFIG] Fast response handler loaded successfully")
     except ImportError as e:
@@ -61,7 +60,7 @@ from Agentic_RAG.crew_tasks import (
 )
 from Agentic_RAG.chroma_query_handler import ChromaQueryHandler
 
-chroma_db_path = os.path.join(current_dir, "chromaDb")
+chroma_db_path = "/app/chromaDb"
 logger.info(f"[DEBUG] ChromaDB path: {chroma_db_path}")
 logger.info(f"[DEBUG] ChromaDB path exists: {os.path.exists(chroma_db_path)}")
 
@@ -104,6 +103,10 @@ def get_answer(question: str, conversation_history: Optional[List[Dict]] = None,
         user_state: User's state/region detected from frontend location
         session_id: Session ID for memory management
     """
+    start_time = time.time()
+    logger.info(f"[TIMING] Starting query processing for: {question[:50]}...")
+    
+    context_resolution_start = time.time()
     if session_id:
         memory = get_session_memory(session_id)
         context_str = format_conversation_context(memory)
@@ -112,15 +115,28 @@ def get_answer(question: str, conversation_history: Optional[List[Dict]] = None,
         if resolved_question != question:
             logger.info(f"[CONTEXT] Resolved '{question}' to '{resolved_question}'")
             question = resolved_question
+    context_resolution_time = time.time() - context_resolution_start
+    logger.info(f"[TIMING] Context resolution took: {context_resolution_time:.3f}s")
     
+    processing_start = time.time()
     if USE_FAST_MODE and fast_handler:
+        logger.info(f"[TIMING] Using FAST MODE processing")
         response = get_fast_answer(question, conversation_history, user_state)
     else:
+        logger.info(f"[TIMING] Using CREWAI processing")
         response = get_crewai_answer(question, conversation_history, user_state)
+    processing_time = time.time() - processing_start
+    logger.info(f"[TIMING] Core processing took: {processing_time:.3f}s")
     
+    memory_update_start = time.time()
     if session_id:
         memory.chat_memory.add_user_message(question)
         memory.chat_memory.add_ai_message(response)
+    memory_update_time = time.time() - memory_update_start
+    logger.info(f"[TIMING] Memory update took: {memory_update_time:.3f}s")
+    
+    total_time = time.time() - start_time
+    logger.info(f"[TIMING] TOTAL query processing took: {total_time:.3f}s")
     
     return response
 
@@ -195,8 +211,10 @@ def get_crewai_answer(question: str, conversation_history: Optional[List[Dict]] 
     """
     CrewAI mode - original multi-agent approach for complex reasoning.
     """
+    crewai_start = time.time()
     logger.info(f"[CREWAI] Processing question with CrewAI approach: {question}")
     
+    greeting_check_start = time.time()
     question_lower = question.lower().strip()
     simple_greetings = [
         'hi', 'hello', 'hey', 'namaste', 'namaskaram', 'vanakkam', 
@@ -205,6 +223,8 @@ def get_crewai_answer(question: str, conversation_history: Optional[List[Dict]] 
     ]
     
     if len(question_lower) < 20 and any(greeting in question_lower for greeting in simple_greetings):
+        greeting_time = time.time() - greeting_check_start
+        logger.info(f"[TIMING] Greeting detection took: {greeting_time:.3f}s")
         logger.info(f"[GREETING] Detected simple greeting: {question}")
         logger.info(f"[SOURCE] Fast pattern matching used for greeting: {question}")
         state_context = f" in {user_state}" if user_state and user_state.lower() != "unknown" else " in India"
@@ -219,6 +239,8 @@ def get_crewai_answer(question: str, conversation_history: Optional[List[Dict]] 
             return f"Good {time_word}! I'm your agricultural assistant specializing in Indian farming practices{state_context}. How can I help you with your crop management, seasonal farming, or any agriculture-related questions specific to Indian conditions today?"
         else:
             return f"Hello! I'm your agricultural assistant specializing in Indian farming and crop management{state_context}. I'm here to help with crops, farming techniques, and agricultural practices tailored to Indian soil, climate, and regional conditions. What would you like to know?"
+    greeting_time = time.time() - greeting_check_start
+    logger.info(f"[TIMING] Greeting check took: {greeting_time:.3f}s")
     
     if conversation_history:
         logger.info(f"[DEBUG] Using conversation context with {len(conversation_history)} previous interactions")
@@ -226,6 +248,7 @@ def get_crewai_answer(question: str, conversation_history: Optional[List[Dict]] 
         logger.info(f"[DEBUG] Using frontend-detected state: {user_state}")
     
     try:
+        crew_setup_start = time.time()
         rag_crew = Crew(
             agents=[
                 Retriever_Agent
@@ -235,15 +258,21 @@ def get_crewai_answer(question: str, conversation_history: Optional[List[Dict]] 
             ],
             verbose=True,
         )
+        crew_setup_time = time.time() - crew_setup_start
+        logger.info(f"[TIMING] CrewAI setup took: {crew_setup_time:.3f}s")
         
+        crew_execution_start = time.time()
         inputs = {
             "question": question,
             "conversation_history": conversation_history or []
         }
         
         result = rag_crew.kickoff(inputs=inputs)
+        crew_execution_time = time.time() - crew_execution_start
+        logger.info(f"[TIMING] CrewAI execution took: {crew_execution_time:.3f}s")
         logger.info(f"[DEBUG] CrewAI result: {result}")
         
+        post_process_start = time.time()
         result_str = str(result).strip()
         if "Source: RAG Database" in result_str:
             logger.info(f"[SOURCE] RAG Database used for question: {question[:50]}...")
@@ -251,6 +280,11 @@ def get_crewai_answer(question: str, conversation_history: Optional[List[Dict]] 
         if "Source: Local LLM" in result_str:
             logger.info(f"[SOURCE] Local LLM used for question: {question[:50]}...")
             result_str = result_str.replace("Source: Local LLM", "").strip()
+        post_process_time = time.time() - post_process_start
+        logger.info(f"[TIMING] Post-processing took: {post_process_time:.3f}s")
+        
+        total_crewai_time = time.time() - crewai_start
+        logger.info(f"[TIMING] TOTAL CrewAI processing took: {total_crewai_time:.3f}s")
         
         return result_str
             
@@ -391,7 +425,7 @@ app = FastAPI(lifespan=lifespan)
 
 origins = [
     "https://agri-annam.vercel.app",
-    "https://2f42acddc6cb.ngrok-free.app",
+    "https://0ba11bb7336e.ngrok-free.app.app",
     "https://localhost:3000",
     "https://127.0.0.1:3000",
     "http://localhost:3000",
@@ -472,9 +506,16 @@ async def list_sessions(request: Request):
 
 @app.post("/api/query")
 async def new_session(question: str = Form(...), device_id: str = Form(...), state: str = Form(...), language: str = Form(...)):
+    api_start_time = time.time()
     session_id = str(uuid4())
+    logger.info(f"[TIMING] API endpoint started for question: {question[:50]}...")
+    
     try:
+        answer_processing_start = time.time()
         raw_answer = get_answer(question, conversation_history=None, user_state=state, session_id=session_id)
+        answer_processing_time = time.time() - answer_processing_start
+        logger.info(f"[TIMING] Answer processing took: {answer_processing_time:.3f}s")
+        
         logger.info(f"[DEBUG] Raw answer: {raw_answer}")
         logger.info(f"[DEBUG] Raw answer type: {type(raw_answer)}")
         
@@ -484,10 +525,14 @@ async def new_session(question: str = Form(...), device_id: str = Form(...), sta
         logger.error(f"[DEBUG] Error in get_answer: {e}")
         return JSONResponse(status_code=500, content={"error": "LLM processing failed."})
 
+    markdown_processing_start = time.time()
     logger.info(f"[DEBUG] Answer after processing: {answer_only}")
     html_answer = markdown.markdown(answer_only, extensions=["extra", "nl2br"])
     logger.info(f"[DEBUG] HTML answer: {html_answer}")
+    markdown_processing_time = time.time() - markdown_processing_start
+    logger.info(f"[TIMING] Markdown processing took: {markdown_processing_time:.3f}s")
 
+    session_creation_start = time.time()
     session = {
         "session_id": session_id,
         "timestamp": datetime.now(IST).isoformat(),
@@ -502,7 +547,10 @@ async def new_session(question: str = Form(...), device_id: str = Form(...), sta
 
     sessions_collection.insert_one(session)
     session.pop("_id", None)
+    session_creation_time = time.time() - session_creation_start
+    logger.info(f"[TIMING] Session creation took: {session_creation_time:.3f}s")
     
+    recommendations_start = time.time()
     try:
         recommendations = get_question_recommendations(
             user_question=question,
@@ -514,6 +562,11 @@ async def new_session(question: str = Form(...), device_id: str = Form(...), sta
     except Exception as e:
         logger.error(f"Failed to get recommendations: {e}")
         session["recommendations"] = []
+    recommendations_time = time.time() - recommendations_start
+    logger.info(f"[TIMING] Recommendations took: {recommendations_time:.3f}s")
+    
+    total_api_time = time.time() - api_start_time
+    logger.info(f"[TIMING] TOTAL API processing took: {total_api_time:.3f}s")
     
     return {"session": session}
 

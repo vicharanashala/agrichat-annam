@@ -28,7 +28,10 @@ Retriever_Agent = Agent(
 
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-chroma_path = "/app/chromaDb"
+if os.path.exists("/app"):
+    chroma_path = "/app/chromaDb"
+else:
+    chroma_path = "/home/ubuntu/agrichat-annam/agrichat-backend/chromaDb"
 print(f"[DEBUG] Using ChromaDB path: {chroma_path}")
 print(f"[DEBUG] ChromaDB path exists: {os.path.exists(chroma_path)}")
 
@@ -158,3 +161,9 @@ answer_grader = Agent(
     llm=llm,
     tools=[fallback_tool],
 )
+
+
+if __name__ == "__main__":
+    test_question = "What are the best practices for rice cultivation in Tamil Nadu during the monsoon season?"
+    response = retriever_response(test_question, conversation_history=[], user_state="Tamil Nadu")
+    print(f"Response: {response}")

@@ -2,6 +2,7 @@ from langchain_community.vectorstores import Chroma
 import numpy as np
 from numpy.linalg import norm
 import logging
+import re
 from typing import List, Dict, Optional
 from context_manager import ConversationContext, MemoryStrategy
 from local_llm_interface import local_llm, local_embeddings, run_local_llm
@@ -453,7 +454,7 @@ Respond as if you are talking directly to the user, not giving advice on what to
     def _create_metadata_filter(self, question, user_state=None):
         """
         Create metadata filter from question and user_state, but avoid overly restrictive filters
-        that might cause ChromaDB query errors
+        that might cause ChromaDB query errors. Use proper ChromaDB filter format.
         """
         q = question.lower()
         filt = {}
@@ -474,10 +475,15 @@ Respond as if you are talking directly to the user, not giving advice on what to
                         filt[field] = val
                         break
         
-        if len(filt) > 2:
-            filt = dict(list(filt.items())[:2])
-            
-        return filt or None
+        if len(filt) == 0:
+            return None
+        elif len(filt) == 1:
+            return filt
+        else:
+            conditions = []
+            for key, value in filt.items():
+                conditions.append({key: value})
+            return {"$and": conditions}
 
     def cosine_sim(self, a, b):
         return np.dot(a, b) / (norm(a) * norm(b))
@@ -560,6 +566,7 @@ Respond as if you are talking directly to the user, not giving advice on what to
         Returns:
             Cleaned response without thinking parts
         """
+        
         thinking_patterns = [
             r"Since the user is located in [^,]+, I will provide information specific to that region\.\s*",
             r"However, since the question does not mention [^,]+, I will assume [^.]+\.\s*",
@@ -656,13 +663,13 @@ Respond as if you are talking directly to the user, not giving advice on what to
 
     def get_answer(self, question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None) -> str:
         """
-        Database-first RAG approach with improved fallback mechanism
+        RAG-only approach - uses only database content, no fallback
         
         Strategy:
-        1. Check database first with multiple search strategies
-        2. Evaluate match quality 
-        3. Use database content if good match found
-        4. Fallback to LLM-only response if no good database match
+        1. Check if greeting - handle with __NO_SOURCE__
+        2. Search database for relevant content
+        3. If good match found, generate response from database content
+        4. If no good match, return __FALLBACK__ for tools.py to handle
         
         Args:
             question: Current user question
@@ -670,9 +677,14 @@ Respond as if you are talking directly to the user, not giving advice on what to
             user_state: User's state/region for regional context
             
         Returns:
-            Generated response
+            Generated response from RAG database or __FALLBACK__ indicator
         """
+        import time
+        chroma_handler_start = time.time()
+        logger.info(f"[TIMING] ChromaQueryHandler.get_answer started for: {question[:50]}...")
+        
         try:
+            greeting_check_start = time.time()
             question_lower = question.lower().strip()
             simple_greetings = [
                 'hi', 'hello', 'hey', 'namaste', 'namaskaram', 'vanakkam', 
@@ -681,6 +693,8 @@ Respond as if you are talking directly to the user, not giving advice on what to
             ]
             
             if len(question_lower) < 20 and any(greeting in question_lower for greeting in simple_greetings):
+                greeting_time = time.time() - greeting_check_start
+                logger.info(f"[TIMING] Greeting detection took: {greeting_time:.3f}s")
                 logger.info(f"[FAST GREETING] Detected simple greeting: {question}")
                 if 'namaste' in question_lower:
                     fast_response = "Namaste! Welcome to AgriChat. I'm here to help you with all your farming and agriculture questions. What would you like to know about?"
@@ -694,50 +708,30 @@ Respond as if you are talking directly to the user, not giving advice on what to
                     fast_response = "Hello! I'm your agricultural assistant. I'm here to help with farming, crops, and agricultural practices. What would you like to know?"
                 
                 return f"__NO_SOURCE__{fast_response}"
+            greeting_time = time.time() - greeting_check_start
+            logger.info(f"[TIMING] Greeting check took: {greeting_time:.3f}s")
             
+            context_processing_start = time.time()
             processing_query = question
             context_used = False
             
+            # Handle conversation context if available
             if conversation_history:
                 logger.info(f"[Context DEBUG] Received conversation history with {len(conversation_history)} entries")
-                logger.info(f"[Context DEBUG] Conversation history structure: {type(conversation_history)}")
-                if len(conversation_history) > 0:
-                    logger.info(f"[Context DEBUG] First entry structure: {type(conversation_history[0])}")
-                    logger.info(f"[Context DEBUG] First entry keys: {list(conversation_history[0].keys()) if isinstance(conversation_history[0], dict) else 'Not a dict'}")
-                
-                for i, entry in enumerate(conversation_history[-2:]):
-                    logger.info(f"[Context DEBUG] Entry {i}: Q='{entry.get('question', '')[:50]}...', A='{entry.get('answer', '')[:50]}...'")
-                
                 enhanced_query_result = self.context_manager.enhance_query_with_cot(question, conversation_history)
-                
-                logger.info(f"[DEBUG] Context manager enabled and processing query")
                 
                 if enhanced_query_result['requires_cot'] or enhanced_query_result['context_used']:
                     processing_query = enhanced_query_result['enhanced_query']
                     context_used = True
-                    logger.info(f"[CoT DEBUG] Using {enhanced_query_result['reasoning_type']} reasoning with context")
-                    logger.info(f"[CoT DEBUG] Enhanced query: {processing_query[:100]}...")
-                    logger.info(f"[CoT DEBUG] Memory strategy: {enhanced_query_result['memory_strategy']}")
-                    logger.info(f"[CoT DEBUG] Estimated tokens: {enhanced_query_result['context_tokens']}")
-                    
-                    if enhanced_query_result['tracked_entities']:
-                        entity_summary = []
-                        for entity_type, entities in enhanced_query_result['tracked_entities'].items():
-                            if entities:
-                                entity_summary.append(f"{entity_type}: {len(entities)}")
-                        if entity_summary:
-                            logger.info(f"[CoT DEBUG] Tracked entities: {', '.join(entity_summary)}")
-                else:
-                    logger.info(f"[DEBUG] No context or chain of thought needed for this query")
-                
-                logger.info(f"[DEBUG] Enhanced context manager with CoT enabled")
-            else:
-                logger.info(f"[DEBUG] No conversation history available")
+                    logger.info(f"[CoT DEBUG] Using enhanced query with context")
+            context_processing_time = time.time() - context_processing_start
+            logger.info(f"[TIMING] Context processing took: {context_processing_time:.3f}s")
             
+            query_classification_start = time.time()
+            # Classify query for non-agricultural content
             category = self.classify_query(question, conversation_history)
-            
-            region_data = self.get_region_context(question, user_state)
-            detected_region = region_data["region"]
+            query_classification_time = time.time() - query_classification_start
+            logger.info(f"[TIMING] Query classification took: {query_classification_time:.3f}s")
             
             if category == "GREETING":
                 response = self.generate_dynamic_response(question, mode="GREETING")
@@ -747,166 +741,123 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 response = self.generate_dynamic_response(question, mode="NON_AGRI")
                 return f"__NO_SOURCE__{response}"
 
+            # Search database for relevant content
+            database_search_start = time.time()
             try:
+                query_expansion_start = time.time()
                 expanded_queries = self.expand_query(processing_query)
-                all_results = []
-                seen_content = set()
-                
                 primary_query = expanded_queries[0]
+                query_expansion_time = time.time() - query_expansion_start
+                logger.info(f"[TIMING] Query expansion took: {query_expansion_time:.3f}s")
+                
+                # Try search with metadata filter first
                 try:
+                    filter_creation_start = time.time()
                     metadata_filter = self._create_metadata_filter(primary_query, user_state)
-                    primary_results = self.db.similarity_search_with_score(primary_query, k=5, filter=metadata_filter)
+                    filter_creation_time = time.time() - filter_creation_start
+                    logger.info(f"[TIMING] Filter creation took: {filter_creation_time:.3f}s")
                     
-                    if len(primary_results) < 2:
-                        primary_results = self.db.similarity_search_with_score(primary_query, k=5, filter=None)
+                    filtered_search_start = time.time()
+                    raw_results = self.db.similarity_search_with_score(primary_query, k=10, filter=metadata_filter)
+                    filtered_search_time = time.time() - filtered_search_start
+                    logger.info(f"[TIMING] Filtered search took: {filtered_search_time:.3f}s")
                     
-                    for doc, score in primary_results:
-                        if doc.page_content not in seen_content:
-                            all_results.append((doc, score))
-                            seen_content.add(doc.page_content)
+                    if len(raw_results) < 3:
+                        # Try without filter if not enough results
+                        unfiltered_search_start = time.time()
+                        raw_results = self.db.similarity_search_with_score(primary_query, k=10, filter=None)
+                        unfiltered_search_time = time.time() - unfiltered_search_start
+                        logger.info(f"[TIMING] Unfiltered search took: {unfiltered_search_time:.3f}s")
+                except Exception as e:
+                    logger.warning(f"[RAG] Error with filtered search: {e}")
+                    fallback_search_start = time.time()
+                    raw_results = self.db.similarity_search_with_score(primary_query, k=10, filter=None)
+                    fallback_search_time = time.time() - fallback_search_start
+                    logger.info(f"[TIMING] Fallback search took: {fallback_search_time:.3f}s")
                 
-                except Exception as primary_error:
-                    logger.warning(f"[RAG] Error with primary query: {primary_error}")
+            except Exception as e:
+                logger.error(f"[RAG] Database search failed: {e}")
+                return "__FALLBACK__"
+            
+            database_search_time = time.time() - database_search_start
+            logger.info(f"[TIMING] Database search total took: {database_search_time:.3f}s")
                 
-                if len(expanded_queries) > 1 and len(all_results) < 3:
-                    fallback_query = expanded_queries[1]
-                    try:
-                        fallback_results = self.db.similarity_search_with_score(fallback_query, k=3, filter=None)
-                        for doc, score in fallback_results:
-                            if doc.page_content not in seen_content:
-                                all_results.append((doc, score))
-                                seen_content.add(doc.page_content)
-                    except Exception as fallback_error:
-                        logger.warning(f"[RAG] Error with fallback query: {fallback_error}")
-                
-                raw_results = all_results[:10]
-                
-                if not raw_results:
-                    logger.warning(f"[RAG] No results from expanded queries, falling back to original query")
-                    raw_results = self.db.similarity_search_with_score(processing_query, k=10, filter=None)
-                    
-            except Exception as filter_error:
-                logger.warning(f"[ChromaDB Error] {filter_error}. Using fallback search.")
-                raw_results = self.db.similarity_search_with_score(processing_query, k=15, filter=None)
-                
+            # Rerank and evaluate results
+            rerank_start = time.time()
             relevant_docs = self.rerank_documents(processing_query, raw_results)
-            print(f"[DEBUG] After rerank: {len(relevant_docs) if relevant_docs else 0} documents")
-
-            if relevant_docs and relevant_docs[0].page_content.strip():
-                print(f"[DEBUG] First document content length: {len(relevant_docs[0].page_content.strip())}")
-                content = relevant_docs[0].page_content.strip()
-                
-                if (content.lower().count('others') > 3 or 
-                    'Question: Others' in content or 
-                    'Answer: Others' in content or
-                    len(content) < 50):
-                    
-                    print(f"[DEBUG] Content failed Others filter")
-                    if context_used:
-                        logger.info(f"[Context] No good RAG content found, but providing contextual response")
-                        return "I understand you're asking about the topic we were discussing, but I don't have specific information in my database to provide a detailed answer. Could you please be more specific about what you'd like to know?"
-                    else:
-                        logger.info(f"[RAG] No useful content found, checking classification")
-                        relevant_docs = [] 
-                        print(f"[DEBUG] Set relevant_docs to empty due to Others filter")
-                else:
-                    print(f"[DEBUG] Content passed Others filter")
-                
-                if relevant_docs:  
-                    print(f"[DEBUG] relevant_docs has {len(relevant_docs)} documents")
-                    similarity_score = None
-                    for doc, score in raw_results:
-                        if doc.page_content.strip() == content:
-                            similarity_score = score
-                            break
-                    print(f"[DEBUG] similarity_score: {similarity_score}")
-                    
-                    # Enable context manager functionality
-                    if context_used:
-                        should_use_rag = True
-                        logger.info(f"[Context] Using RAG content for contextual query (score: {similarity_score})")
-                        print(f"[DEBUG] Context path - should_use_rag: {should_use_rag}")
-                    else:
-                        score_threshold = 1.1  
-                        should_use_rag = similarity_score is None or similarity_score <= score_threshold
-                        print(f"[DEBUG] Normal path - should_use_rag: {should_use_rag}")
-                    
-                    if should_use_rag:
-                        print(f"[DEBUG] Generating RAG response...")
-                        final_question = processing_query
-                        prompt = self.construct_structured_prompt(content, final_question, user_state)
-                        
-                        generated_response = run_local_llm(
-                            prompt,
-                            temperature=0.3,
-                            max_tokens=1024,
-                            use_fallback=False
-                        )
-                        
-                        print(f"[DEBUG] Generated response length: {len(generated_response)}")
-                        
-                        # Enable context manager functionality
-                        if context_used:
-                            logger.info(f"[Context] Response generated with conversation context")
-                            logger.info(f"[SOURCE] RAG Database used with context for question: {question[:50]}...")
-                            final_response = self.filter_response_thinking(generated_response.strip())
-                        else:
-                            logger.info(f"[RAG] Response generated from RAG database (score: {similarity_score})")
-                            logger.info(f"[SOURCE] RAG Database used for question: {question[:50]}...")
-                            final_response = self.filter_response_thinking(generated_response.strip())
-                            
-                        return final_response
-                    else:
-                        print(f"[DEBUG] should_use_rag is False, not generating RAG response")
-                else:
-                    print(f"[DEBUG] relevant_docs is empty or falsy")
+            rerank_time = time.time() - rerank_start
+            logger.info(f"[TIMING] Document reranking took: {rerank_time:.3f}s")
             
-            # Enable context manager functionality
-            if context_used:
-                if relevant_docs and relevant_docs[0].page_content.strip():
-                    context = relevant_docs[0].page_content
-                    final_question = processing_query if processing_query != question else question
-                    prompt = self.construct_structured_prompt(context, final_question, user_state)
-                    
-                    generated_response = run_local_llm(
-                        prompt,
-                        temperature=0.3,
-                        max_tokens=1024,
-                        use_fallback=False
-                    )
-                    
-                    logger.info(f"[Context] Fallback response generated with conversation context")
-                    return self.filter_response_thinking(generated_response.strip())
-                else:
-                    logger.info(f"[Context] No relevant docs found for contextual query, using enhanced query")
-                    # Use enhanced contextual query for LLM
-                    enhanced_prompt = f"Based on the conversation context, please provide detailed agricultural advice for: {processing_query}"
-                    
-                    fallback_response = run_local_llm(
-                        enhanced_prompt,
-                        temperature=0.3,
-                        max_tokens=1024,
-                        use_fallback=True
-                    )
-                    
-                    logger.info(f"[Context] Enhanced contextual response generated")
-                    return self.filter_response_thinking(fallback_response.strip())
-            #             prompt,
-            #             temperature=0.3,
-            #             max_tokens=1024,
-            #             use_fallback=False
-            #         )
-            #         
-            #         logger.info(f"[Context] Used marginal RAG content for contextual query")
-            #         logger.info(f"[SOURCE] RAG Database used with marginal content for question: {question[:50]}...")
-            #         final_response = generated_response.strip()
-            #         return final_response
+            quality_check_start = time.time()
+            if not relevant_docs or not relevant_docs[0].page_content.strip():
+                logger.info(f"[RAG] No relevant documents found")
+                return "__FALLBACK__"
             
-            return "I don't have enough information to answer that."
+            content = relevant_docs[0].page_content.strip()
+            
+            # Filter out poor quality content
+            if (content.lower().count('others') > 3 or 
+                'Question: Others' in content or 
+                'Answer: Others' in content or
+                len(content) < 50):
+                logger.info(f"[RAG] Content failed quality filter")
+                return "__FALLBACK__"
+            
+            # Get similarity score for quality assessment
+            similarity_score = None
+            for doc, score in raw_results:
+                if doc.page_content.strip() == content:
+                    similarity_score = score
+                    break
+            
+            # Check if content quality is good enough
+            score_threshold = 1.1
+            if similarity_score is not None and similarity_score > score_threshold and not context_used:
+                logger.info(f"[RAG] Similarity score too low: {similarity_score}")
+                return "__FALLBACK__"
+            quality_check_time = time.time() - quality_check_start
+            logger.info(f"[TIMING] Quality check took: {quality_check_time:.3f}s")
+            
+            # Generate response from RAG content
+            llm_generation_start = time.time()
+            try:
+                prompt_construction_start = time.time()
+                prompt = self.construct_structured_prompt(content, processing_query, user_state)
+                prompt_construction_time = time.time() - prompt_construction_start
+                logger.info(f"[TIMING] Prompt construction took: {prompt_construction_time:.3f}s")
+                
+                actual_llm_start = time.time()
+                generated_response = run_local_llm(
+                    prompt,
+                    temperature=0.3,
+                    max_tokens=1024,
+                    use_fallback=False
+                )
+                actual_llm_time = time.time() - actual_llm_start
+                logger.info(f"[TIMING] LLM generation took: {actual_llm_time:.3f}s")
+                
+                response_processing_start = time.time()
+                logger.info(f"[RAG] Response generated from database (score: {similarity_score})")
+                final_response = self.filter_response_thinking(generated_response.strip())
+                final_response += "\n\n<small><i>Source: RAG Database</i></small>"
+                response_processing_time = time.time() - response_processing_start
+                logger.info(f"[TIMING] Response processing took: {response_processing_time:.3f}s")
+                
+                llm_generation_time = time.time() - llm_generation_start
+                logger.info(f"[TIMING] Total LLM generation took: {llm_generation_time:.3f}s")
+                
+                total_chroma_time = time.time() - chroma_handler_start
+                logger.info(f"[TIMING] TOTAL ChromaQueryHandler took: {total_chroma_time:.3f}s")
+                
+                return final_response
+                
+            except Exception as e:
+                logger.error(f"[RAG] Response generation failed: {e}")
+                return "__FALLBACK__"
             
         except Exception as e:
-            logger.error(f"[Error] {e}")
-            return "I don't have enough information to answer that."
+            logger.error(f"[RAG] Unexpected error: {e}")
+            return "__FALLBACK__"
 
     def get_context_summary(self, conversation_history: List[Dict]) -> Optional[str]:
         """
@@ -914,4 +865,3 @@ Respond as if you are talking directly to the user, not giving advice on what to
         """
         return None
 
-# Example usage:

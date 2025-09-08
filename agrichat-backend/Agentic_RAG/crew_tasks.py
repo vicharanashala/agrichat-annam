@@ -1,5 +1,5 @@
 from crewai import Task
-from crew_agents import Retriever_Agent, Grader_agent, hallucination_grader, answer_grader
+from crew_agents import Retriever_Agent, Grader_agent, hallucination_grader, answer_grader, retriever_response
 from tools import RAGTool, FallbackAgriTool, FireCrawlWebSearchTool
 
 retriever_task = Task(
@@ -68,6 +68,4 @@ answer_task = Task(
     agent=answer_grader,
     context=[hallucination_task],
 )
-
-
 

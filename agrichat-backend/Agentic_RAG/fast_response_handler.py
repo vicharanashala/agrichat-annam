@@ -25,10 +25,8 @@ class FastResponseHandler:
         """Initialize the fast response handler with direct tool access"""
         chroma_db_path = "/app/chromaDb"
         logger.info(f"[FAST] Initializing with ChromaDB path: {chroma_db_path}")
-        
         self.rag_tool = RAGTool(chroma_path=chroma_db_path)
         self.fallback_tool = FallbackAgriTool()
-        
         self.simple_greetings = [
             'hi', 'hello', 'hey', 'namaste', 'namaskaram', 'vanakkam', 
             'good morning', 'good afternoon', 'good evening', 'good day',

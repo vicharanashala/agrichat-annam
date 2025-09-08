@@ -1,4 +1,3 @@
-
 from pydantic import PrivateAttr, BaseModel, Field
 from crewai.tools import BaseTool
 from chroma_query_handler import ChromaQueryHandler
@@ -58,6 +57,10 @@ class RAGTool(BaseTool):
         Returns:
             Generated response with appropriate source attribution or __FALLBACK__ indicator
         """
+        import time
+        
+        rag_tool_start = time.time()
+        print(f"[TIMING] RAGTool._run started for: {question[:50]}...")
         print(f"[DEBUG] RAGTool._run called with:")
         print(f"  question: {question}")
         print(f"  conversation_history: {conversation_history}")
@@ -67,17 +70,31 @@ class RAGTool(BaseTool):
         sig = inspect.signature(self._handler.get_answer)
         print(f"[DEBUG] get_answer signature: {sig}")
         
+        chroma_query_start = time.time()
         answer = self._handler.get_answer(question, conversation_history, user_state)
+        chroma_query_time = time.time() - chroma_query_start
+        print(f"[TIMING] ChromaDB query took: {chroma_query_time:.3f}s")
         
+        fallback_check_start = time.time()
         if answer.startswith("__FALLBACK__"):
             log_fallback_to_csv(question, "Database search failed - using LLM fallback", "fallback_queries.csv")
+            fallback_check_time = time.time() - fallback_check_start
+            print(f"[TIMING] Fallback check took: {fallback_check_time:.3f}s")
             return "__FALLBACK__"
         
         if answer.strip() == "I don't have enough information to answer that.":
+            fallback_check_time = time.time() - fallback_check_start
+            print(f"[TIMING] Fallback check took: {fallback_check_time:.3f}s")
             return "__FALLBACK__"
         
         if answer.startswith("__NO_SOURCE__"):
-            return answer.replace("__NO_SOURCE__", "")
+            answer = answer.replace("__NO_SOURCE__", "")
+        
+        fallback_check_time = time.time() - fallback_check_start
+        print(f"[TIMING] Fallback check took: {fallback_check_time:.3f}s")
+        
+        total_rag_time = time.time() - rag_tool_start
+        print(f"[TIMING] TOTAL RAGTool processing took: {total_rag_time:.3f}s")
         
         return answer
     
@@ -194,6 +211,10 @@ Please respond naturally, understanding what they're referring to from our conve
         log_fallback_to_csv(question, response_text)
         print(f"[DEBUG] Logged fallback call to CSV")
         
-        return response_text.strip()
+        final_response = response_text.strip()
+        if not any(greeting in question.lower() for greeting in ['hi', 'hello', 'hey', 'namaste', 'good morning', 'good afternoon', 'good evening']):
+            final_response += "\n\n<small><i>Source: LLM Fallback</i></small>"
+        
+        return final_response
 
 
