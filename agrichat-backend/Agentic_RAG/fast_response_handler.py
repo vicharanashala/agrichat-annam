@@ -23,7 +23,15 @@ class FastResponseHandler:
     
     def __init__(self):
         """Initialize the fast response handler with direct tool access"""
-        chroma_db_path = "/app/chromaDb"
+        if os.path.exists("/app"):
+            chroma_db_path = "/app/chromaDb"
+        else:
+            chroma_db_path = "/home/ubuntu/agrichat-annam/agrichat-backend/chromaDb"
+        
+        print(f"[FAST] Environment detection: Docker={os.path.exists('/app')}")
+        print(f"[FAST] Using ChromaDB path: {chroma_db_path}")
+        print(f"[FAST] ChromaDB path exists: {os.path.exists(chroma_db_path)}")
+        
         logger.info(f"[FAST] Initializing with ChromaDB path: {chroma_db_path}")
         self.rag_tool = RAGTool(chroma_path=chroma_db_path)
         self.fallback_tool = FallbackAgriTool()
@@ -65,9 +73,9 @@ class FastResponseHandler:
         Fast rule-based response generation
         
         Decision Logic:
-        1. Check for simple greetings (0.1s) - return immediately
-        2. Try RAG tool first (5-8s) - our knowledge base
-        3. If RAG fails, use fallback tool (5-8s) - LLM knowledge
+        1. Check for simple greetings (0.1s) return immediately
+        2. Try RAG tool first (5-8s) our knowledge base
+        3. If RAG fails, use fallback tool (5-8s) LLM knowledge
         
         Args:
             question: Current user question

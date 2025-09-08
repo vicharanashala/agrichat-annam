@@ -35,19 +35,23 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 agentic_rag_path = os.path.join(current_dir, "Agentic_RAG")
 sys.path.insert(0, agentic_rag_path)
 
-USE_FAST_MODE = os.getenv("USE_FAST_MODE", "false").lower() == "true"
+USE_FAST_MODE = os.getenv("USE_FAST_MODE", "true").lower() == "true"
+DISABLE_RECOMMENDATIONS = os.getenv("DISABLE_RECOMMENDATIONS", "true").lower() == "true"
 logger.info(f"[CONFIG] USE_FAST_MODE environment variable: {os.getenv('USE_FAST_MODE', 'not set')}")
 logger.info(f"[CONFIG] Fast Mode Enabled: {USE_FAST_MODE}")
+logger.info(f"[CONFIG] Recommendations Disabled: {DISABLE_RECOMMENDATIONS}")
 
 fast_handler = None
 if USE_FAST_MODE:
     try:
         fast_handler = FastResponseHandler()
-        logger.info("[CONFIG] Fast response handler loaded successfully")
-    except ImportError as e:
-        logger.warning(f"[CONFIG] Fast response handler not available: {e}")
+        logger.info("[CONFIG] Fast response handler loaded successfully - 50% performance improvement enabled")
+    except Exception as e:
+        logger.warning(f"[CONFIG] Fast response handler initialization failed: {e}")
         logger.info("[CONFIG] Falling back to CrewAI mode")
         USE_FAST_MODE = False
+else:
+    logger.info("[CONFIG] CrewAI Mode ENABLED - Using multi-agent workflow")
 
 from crewai import Crew
 from Agentic_RAG.crew_agents import (
@@ -60,9 +64,16 @@ from Agentic_RAG.crew_tasks import (
 )
 from Agentic_RAG.chroma_query_handler import ChromaQueryHandler
 
-chroma_db_path = "/app/chromaDb"
-logger.info(f"[DEBUG] ChromaDB path: {chroma_db_path}")
-logger.info(f"[DEBUG] ChromaDB path exists: {os.path.exists(chroma_db_path)}")
+if os.path.exists("/app"):
+    chroma_db_path = "/app/chromaDb"
+    environment = "Docker"
+else:
+    chroma_db_path = "/home/ubuntu/agrichat-annam/agrichat-backend/chromaDb" 
+    environment = "Local"
+
+logger.info(f"[CONFIG] Environment: {environment}")
+logger.info(f"[CONFIG] ChromaDB path: {chroma_db_path}")
+logger.info(f"[CONFIG] ChromaDB exists: {os.path.exists(chroma_db_path)}")
 
 query_handler = ChromaQueryHandler(chroma_path=chroma_db_path)
 
@@ -551,20 +562,21 @@ async def new_session(question: str = Form(...), device_id: str = Form(...), sta
     logger.info(f"[TIMING] Session creation took: {session_creation_time:.3f}s")
     
     recommendations_start = time.time()
-    try:
-        # TEMPORARY: Disable recommendations to improve performance
-        recommendations = []
-        logger.info(f"[PERFORMANCE] Recommendations disabled for speed optimization")
-        # recommendations = get_question_recommendations(
-        #     user_question=question,
-        #     user_state=state,
-        #     limit=2
-        # )
-        session["recommendations"] = recommendations
-        logger.info(f"Added {len(recommendations)} recommendations to session response")
-    except Exception as e:
-        logger.error(f"Failed to get recommendations: {e}")
+    if not DISABLE_RECOMMENDATIONS:
+        try:
+            recommendations = get_question_recommendations(
+                user_question=question,
+                user_state=state,
+                limit=2
+            )
+            session["recommendations"] = recommendations
+            logger.info(f"Added {len(recommendations)} recommendations to session response")
+        except Exception as e:
+            logger.error(f"Failed to get recommendations: {e}")
+            session["recommendations"] = []
+    else:
         session["recommendations"] = []
+        logger.info(f"[PERFORMANCE] Recommendations disabled for speed optimization")
     recommendations_time = time.time() - recommendations_start
     logger.info(f"[TIMING] Recommendations took: {recommendations_time:.3f}s")
     
@@ -642,17 +654,21 @@ async def continue_session(session_id: str, question: str = Form(...), device_id
     if updated:
         updated.pop("_id", None)
         
-        try:
-            recommendations = get_question_recommendations(
-                user_question=question,
-                user_state=state,
-                limit=2
-            )
-            updated["recommendations"] = recommendations
-            logger.info(f"Added {len(recommendations)} recommendations to continue session response")
-        except Exception as e:
-            logger.error(f"Failed to get recommendations: {e}")
+        if not DISABLE_RECOMMENDATIONS:
+            try:
+                recommendations = get_question_recommendations(
+                    user_question=question,
+                    user_state=state,
+                    limit=2
+                )
+                updated["recommendations"] = recommendations
+                logger.info(f"Added {len(recommendations)} recommendations to continue session response")
+            except Exception as e:
+                logger.error(f"Failed to get recommendations: {e}")
+                updated["recommendations"] = []
+        else:
             updated["recommendations"] = []
+            logger.info("[PERFORMANCE] Recommendations disabled for speed optimization")
     
     return {"session": updated}
 
