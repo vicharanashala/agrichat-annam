@@ -77,6 +77,11 @@ class FastResponseHandler:
         Returns:
             Generated response using fast rule-based approach
         """
+        import time
+        fast_handler_start = time.time()
+        logger.info(f"[TIMING] FastResponseHandler started for: {question[:50]}...")
+        
+        context_log_start = time.time()
         if conversation_history:
             logger.info(f"[CONTEXT] Conversation history received with {len(conversation_history)} entries:")
             for i, entry in enumerate(conversation_history):
@@ -86,31 +91,58 @@ class FastResponseHandler:
                     logger.info(f"[CONTEXT] Entry {i}: {type(entry)} - {str(entry)[:100]}...")
         else:
             logger.info(f"[CONTEXT] No conversation history provided")
+        context_log_time = time.time() - context_log_start
+        logger.info(f"[TIMING] Context logging took: {context_log_time:.3f}s")
         
         logger.info(f"[FAST] Processing question: {question[:50]}...")
         
+        greeting_check_start = time.time()
         if self.is_simple_greeting(question):
+            greeting_time = time.time() - greeting_check_start
+            logger.info(f"[TIMING] Greeting check took: {greeting_time:.3f}s")
             logger.info(f"[FAST] Detected greeting, returning fast response")
             return self.get_greeting_response(question, user_state)
+        greeting_time = time.time() - greeting_check_start
+        logger.info(f"[TIMING] Greeting check took: {greeting_time:.3f}s")
         
         try:
+            rag_attempt_start = time.time()
             logger.info(f"[FAST] Trying RAG tool first...")
             rag_response = self.rag_tool._run(question, conversation_history, user_state)
+            rag_attempt_time = time.time() - rag_attempt_start
+            logger.info(f"[TIMING] RAG attempt took: {rag_attempt_time:.3f}s")
             
             if rag_response != "__FALLBACK__":
                 logger.info(f"[FAST] RAG tool succeeded")
+                total_fast_time = time.time() - fast_handler_start
+                logger.info(f"[TIMING] TOTAL FastResponseHandler took: {total_fast_time:.3f}s")
                 return rag_response
             
+            fallback_attempt_start = time.time()
             logger.info(f"[FAST] RAG tool failed, using fallback...")
             fallback_response = self.fallback_tool._run(question, conversation_history)
+            fallback_attempt_time = time.time() - fallback_attempt_start
+            logger.info(f"[TIMING] Fallback attempt took: {fallback_attempt_time:.3f}s")
+            
+            total_fast_time = time.time() - fast_handler_start
+            logger.info(f"[TIMING] TOTAL FastResponseHandler took: {total_fast_time:.3f}s")
             return fallback_response
             
         except Exception as e:
             logger.error(f"[FAST] Error in fast processing: {e}")
             try:
-                return self.fallback_tool._run(question, conversation_history)
+                error_fallback_start = time.time()
+                response = self.fallback_tool._run(question, conversation_history)
+                error_fallback_time = time.time() - error_fallback_start
+                logger.info(f"[TIMING] Error fallback took: {error_fallback_time:.3f}s")
+                
+                total_fast_time = time.time() - fast_handler_start
+                logger.info(f"[TIMING] TOTAL FastResponseHandler took: {total_fast_time:.3f}s")
+                return response
             except Exception as fallback_error:
                 logger.error(f"[FAST] Fallback also failed: {fallback_error}")
+                total_fast_time = time.time() - fast_handler_start
+                logger.info(f"[TIMING] TOTAL FastResponseHandler took: {total_fast_time:.3f}s")
                 return "I'm having trouble processing your question right now. Please try again or rephrase your question."
     
     def get_performance_stats(self) -> Dict:

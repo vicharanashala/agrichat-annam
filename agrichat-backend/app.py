@@ -552,11 +552,14 @@ async def new_session(question: str = Form(...), device_id: str = Form(...), sta
     
     recommendations_start = time.time()
     try:
-        recommendations = get_question_recommendations(
-            user_question=question,
-            user_state=state,
-            limit=2
-        )
+        # TEMPORARY: Disable recommendations to improve performance
+        recommendations = []
+        logger.info(f"[PERFORMANCE] Recommendations disabled for speed optimization")
+        # recommendations = get_question_recommendations(
+        #     user_question=question,
+        #     user_state=state,
+        #     limit=2
+        # )
         session["recommendations"] = recommendations
         logger.info(f"Added {len(recommendations)} recommendations to session response")
     except Exception as e:
