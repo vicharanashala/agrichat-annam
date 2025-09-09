@@ -19,6 +19,8 @@ import logging
 from typing import Optional, List, Dict
 import requests
 import time
+import asyncio
+import concurrent.futures
 from local_whisper_interface import local_whisper
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -36,10 +38,12 @@ agentic_rag_path = os.path.join(current_dir, "Agentic_RAG")
 sys.path.insert(0, agentic_rag_path)
 
 USE_FAST_MODE = os.getenv("USE_FAST_MODE", "true").lower() == "true"
-DISABLE_RECOMMENDATIONS = os.getenv("DISABLE_RECOMMENDATIONS", "true").lower() == "true"
+DISABLE_RECOMMENDATIONS = os.getenv("DISABLE_RECOMMENDATIONS", "false").lower() == "true"
+PARALLEL_RECOMMENDATIONS = os.getenv("PARALLEL_RECOMMENDATIONS", "true").lower() == "true"
 logger.info(f"[CONFIG] USE_FAST_MODE environment variable: {os.getenv('USE_FAST_MODE', 'not set')}")
 logger.info(f"[CONFIG] Fast Mode Enabled: {USE_FAST_MODE}")
 logger.info(f"[CONFIG] Recommendations Disabled: {DISABLE_RECOMMENDATIONS}")
+logger.info(f"[CONFIG] Parallel Recommendations Enabled: {PARALLEL_RECOMMENDATIONS}")
 
 fast_handler = None
 if USE_FAST_MODE:
@@ -411,6 +415,23 @@ def get_question_recommendations(user_question: str, user_state: str = None, lim
         logger.error(f"Error generating recommendations: {e}")
         return []
 
+async def get_question_recommendations_async(user_question: str, user_state: str = None, limit: int = 2) -> List[Dict]:
+    """
+    Async version of get_question_recommendations for parallel processing
+    """
+    loop = asyncio.get_event_loop()
+    
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future = loop.run_in_executor(
+            executor, 
+            get_question_recommendations, 
+            user_question, 
+            user_state, 
+            limit
+        )
+        result = await future
+        return result
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("[Startup] App initialized.")
@@ -506,19 +527,65 @@ async def new_session(question: str = Form(...), device_id: str = Form(...), sta
     session_id = str(uuid4())
     logger.info(f"[TIMING] API endpoint started for question: {question[:50]}...")
     
+    # Start both answer processing and recommendations in parallel if enabled
+    async def process_answer():
+        try:
+            answer_processing_start = time.time()
+            # Run answer processing in thread pool to avoid blocking
+            loop = asyncio.get_event_loop()
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                raw_answer = await loop.run_in_executor(
+                    executor, 
+                    get_answer, 
+                    question, 
+                    None,  # conversation_history
+                    state,  # user_state
+                    session_id
+                )
+            answer_processing_time = time.time() - answer_processing_start
+            logger.info(f"[TIMING] Answer processing took: {answer_processing_time:.3f}s")
+            
+            logger.info(f"[DEBUG] Raw answer: {raw_answer}")
+            logger.info(f"[DEBUG] Raw answer type: {type(raw_answer)}")
+            
+            return str(raw_answer).strip()
+            
+        except Exception as e:
+            logger.error(f"[DEBUG] Error in get_answer: {e}")
+            raise e
+    
+    # Create tasks for parallel execution
+    tasks = [process_answer()]
+    
+    # Add recommendations task if enabled and parallel processing is on
+    if not DISABLE_RECOMMENDATIONS and PARALLEL_RECOMMENDATIONS:
+        logger.info("[PARALLEL] Starting recommendations in parallel with answer processing")
+        tasks.append(get_question_recommendations_async(question, state, 2))
+    
     try:
-        answer_processing_start = time.time()
-        raw_answer = get_answer(question, conversation_history=None, user_state=state, session_id=session_id)
-        answer_processing_time = time.time() - answer_processing_start
-        logger.info(f"[TIMING] Answer processing took: {answer_processing_time:.3f}s")
-        
-        logger.info(f"[DEBUG] Raw answer: {raw_answer}")
-        logger.info(f"[DEBUG] Raw answer type: {type(raw_answer)}")
-        
-        answer_only = str(raw_answer).strip()
-        
+        # Execute tasks in parallel
+        if len(tasks) > 1:
+            parallel_start = time.time()
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            parallel_time = time.time() - parallel_start
+            logger.info(f"[TIMING] Parallel processing took: {parallel_time:.3f}s")
+            
+            # Handle results
+            answer_only = results[0]
+            if isinstance(answer_only, Exception):
+                raise answer_only
+                
+            recommendations = results[1] if len(results) > 1 and not isinstance(results[1], Exception) else []
+            if isinstance(results[1], Exception):
+                logger.error(f"Parallel recommendations failed: {results[1]}")
+                recommendations = []
+        else:
+            # Sequential processing if parallel is disabled
+            answer_only = await tasks[0]
+            recommendations = []
+            
     except Exception as e:
-        logger.error(f"[DEBUG] Error in get_answer: {e}")
+        logger.error(f"[DEBUG] Error in parallel processing: {e}")
         return JSONResponse(status_code=500, content={"error": "LLM processing failed."})
 
     markdown_processing_start = time.time()
@@ -546,24 +613,30 @@ async def new_session(question: str = Form(...), device_id: str = Form(...), sta
     session_creation_time = time.time() - session_creation_start
     logger.info(f"[TIMING] Session creation took: {session_creation_time:.3f}s")
     
+    # Handle recommendations - either from parallel processing or sequential
     recommendations_start = time.time()
     if not DISABLE_RECOMMENDATIONS:
-        try:
-            recommendations = get_question_recommendations(
-                user_question=question,
-                user_state=state,
-                limit=2
-            )
-            session["recommendations"] = recommendations
-            logger.info(f"Added {len(recommendations)} recommendations to session response")
-        except Exception as e:
-            logger.error(f"Failed to get recommendations: {e}")
-            session["recommendations"] = []
+        if not PARALLEL_RECOMMENDATIONS:
+            # Sequential recommendations if parallel is disabled
+            try:
+                recommendations = get_question_recommendations(
+                    user_question=question,
+                    user_state=state,
+                    limit=2
+                )
+                logger.info(f"Added {len(recommendations)} recommendations to session response (sequential)")
+            except Exception as e:
+                logger.error(f"Failed to get sequential recommendations: {e}")
+                recommendations = []
+        else:
+            logger.info(f"Added {len(recommendations)} recommendations to session response (parallel)")
+        
+        session["recommendations"] = recommendations
     else:
         session["recommendations"] = []
         logger.info(f"[PERFORMANCE] Recommendations disabled for speed optimization")
     recommendations_time = time.time() - recommendations_start
-    logger.info(f"[TIMING] Recommendations took: {recommendations_time:.3f}s")
+    logger.info(f"[TIMING] Recommendations handling took: {recommendations_time:.3f}s")
     
     total_api_time = time.time() - api_start_time
     logger.info(f"[TIMING] TOTAL API processing took: {total_api_time:.3f}s")
@@ -585,39 +658,63 @@ async def continue_session(session_id: str, question: str = Form(...), device_id
     if not session or session.get("status") == "archived" or session.get("device_id") != device_id:
         return JSONResponse(status_code=403, content={"error": "Session is archived, missing or unauthorized"})
 
+    # Start both answer processing and recommendations in parallel if enabled
+    async def process_session_answer():
+        try:
+            # Simplified conversation history (like main.py)
+            conversation_history = []
+            messages = session.get("messages", [])
+            
+            current_state = state or session.get("state", "unknown")
+            
+            # Run answer processing in thread pool to avoid blocking
+            loop = asyncio.get_event_loop()
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                raw_answer = await loop.run_in_executor(
+                    executor, 
+                    get_answer, 
+                    question, 
+                    [],  # conversation_history
+                    current_state
+                )
+            return str(raw_answer).strip()
+            
+        except Exception as e:
+            logger.error(f"[DEBUG] Error in get_answer: {e}")
+            raise e
+    
+    # Create tasks for parallel execution
+    tasks = [process_session_answer()]
+    
+    # Add recommendations task if enabled and parallel processing is on
+    current_state = state or session.get("state", "unknown")
+    if not DISABLE_RECOMMENDATIONS and PARALLEL_RECOMMENDATIONS:
+        logger.info("[PARALLEL] Starting session recommendations in parallel with answer processing")
+        tasks.append(get_question_recommendations_async(question, current_state, 2))
+    
     try:
-        # Simplified conversation history (like main.py)
-        conversation_history = []
-        messages = session.get("messages", [])
-        
-        # Comment out complex memory processing for speed
-        # for msg in messages[-5:]:
-        #     if "question" in msg and "answer" in msg:
-        #         from bs4 import BeautifulSoup
-        #         clean_answer = BeautifulSoup(msg["answer"], "html.parser").get_text()
-        #         conversation_history.append({
-        #             "question": msg["question"],
-        #             "answer": clean_answer
-        #         })
-        
-        # Comment out session memory management for speed
-        # if session_id not in session_memories:
-        #     memory = get_session_memory(session_id)
-        #     for msg in messages:
-        #         if "question" in msg and "answer" in msg:
-        #             clean_answer = BeautifulSoup(msg["answer"], "html.parser").get_text()
-        #             memory.chat_memory.add_user_message(msg["question"])
-        #             memory.chat_memory.add_ai_message(clean_answer)
-        
-        current_state = state or session.get("state", "unknown")
-        
-        # Direct call like main.py (no session_id parameter)
-        raw_answer = get_answer(question, conversation_history=[], user_state=current_state)
+        # Execute tasks in parallel
+        if len(tasks) > 1:
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Handle results
+            answer_only = results[0]
+            if isinstance(answer_only, Exception):
+                raise answer_only
+                
+            recommendations = results[1] if len(results) > 1 and not isinstance(results[1], Exception) else []
+            if isinstance(results[1], Exception):
+                logger.error(f"Parallel session recommendations failed: {results[1]}")
+                recommendations = []
+        else:
+            # Sequential processing if parallel is disabled
+            answer_only = await tasks[0]
+            recommendations = []
+            
     except Exception as e:
-        logger.error(f"[DEBUG] Error in get_answer: {e}")
+        logger.error(f"[DEBUG] Error in parallel session processing: {e}")
         return JSONResponse(status_code=500, content={"error": "LLM processing failed."})
 
-    answer_only = str(raw_answer).strip()
     html_answer = markdown.markdown(answer_only, extensions=["extra", "nl2br"])
 
     crop = session.get("crop", "unknown")
@@ -640,23 +737,27 @@ async def continue_session(session_id: str, question: str = Form(...), device_id
     if updated:
         updated.pop("_id", None)
         
-        # Comment out recommendations completely for speed (like main.py)
-        updated["recommendations"] = []
-        # if not DISABLE_RECOMMENDATIONS:
-        #     try:
-        #         recommendations = get_question_recommendations(
-        #             user_question=question,
-        #             user_state=state,
-        #             limit=2
-        #         )
-        #         updated["recommendations"] = recommendations
-        #         logger.info(f"Added {len(recommendations)} recommendations to continue session response")
-        #     except Exception as e:
-        #         logger.error(f"Failed to get recommendations: {e}")
-        #         updated["recommendations"] = []
-        # else:
-        #     updated["recommendations"] = []
-        #     logger.info("[PERFORMANCE] Recommendations disabled for speed optimization")
+        # Handle recommendations - either from parallel processing or sequential
+        if not DISABLE_RECOMMENDATIONS:
+            if not PARALLEL_RECOMMENDATIONS:
+                # Sequential recommendations if parallel is disabled
+                try:
+                    recommendations = get_question_recommendations(
+                        user_question=question,
+                        user_state=current_state,
+                        limit=2
+                    )
+                    updated["recommendations"] = recommendations
+                    logger.info(f"Added {len(recommendations)} session recommendations (sequential)")
+                except Exception as e:
+                    logger.error(f"Failed to get sequential session recommendations: {e}")
+                    updated["recommendations"] = []
+            else:
+                updated["recommendations"] = recommendations
+                logger.info(f"Added {len(recommendations)} session recommendations (parallel)")
+        else:
+            updated["recommendations"] = []
+            logger.info(f"[PERFORMANCE] Session recommendations disabled for speed optimization")
     
     return {"session": updated}
 
