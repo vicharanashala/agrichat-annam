@@ -1562,12 +1562,13 @@ select option:checked {
   }
 }
 
-/* Mic notification styles */       
+/* Mic notification styles */
 .notification {
 
   position: fixed;
 
-  top: 24px;                   /* Notification appears at the top */
+  top: 24px;
+  /* Notification appears at the top */
 
   left: 50%;
 
@@ -1587,7 +1588,7 @@ select option:checked {
 
   border-radius: 6px;
 
-  box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
 
   opacity: 0;
 
@@ -1597,7 +1598,7 @@ select option:checked {
 
 }
 
- 
+
 
 .notification.show {
 
@@ -1607,7 +1608,7 @@ select option:checked {
 
 }
 
- 
+
 
 .notification-close {
 
@@ -1633,7 +1634,7 @@ select option:checked {
 
 }
 
- 
+
 
 .notification-close:hover {
 
@@ -1643,6 +1644,18 @@ select option:checked {
 
 }
 
- 
+
 
 /* End of Mic notification styles */
+
+/* Error message styles */
+.error-message {
+  padding: 15px;
+  background-color: #ffebee;
+  color: #c62828;
+  border: 1px solid #ffcdd2;
+  border-radius: 8px;
+  margin: 10px;
+  text-align: center;
+  font-size: 14px;
+}

@@ -93,23 +93,37 @@ let currentSession = null;
 let showingArchived = false;
 
 async function loadSessions() {
-  const res = await apiCall(`${API_BASE}/sessions?device_id=${deviceId}`);
-  const { sessions } = await res.json();
+  try {
+    console.log('[SESSIONS] Loading sessions for device:', deviceId);
+    const res = await apiCall(`${API_BASE}/sessions?device_id=${deviceId}`);
 
-  const activeDiv = document.getElementById("activeSessions");
-  const archivedDiv = document.getElementById("archivedSessions");
-  activeDiv.innerHTML = "";
-  archivedDiv.innerHTML = "";
+    console.log('[SESSIONS] API response status:', res.status);
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    }
 
-  let activeCount = 0;
-  let archivedCount = 0;
+    const data = await res.json();
+    console.log('[SESSIONS] Parsed data:', data);
 
-  sessions.forEach((s) => {
+    const { sessions } = data;
+    if (!sessions || !Array.isArray(sessions)) {
+      throw new Error('Invalid sessions data structure');
+    }
 
-    const isActiveSession = currentSession?.session_id === s.session_id;
-    const container = document.createElement("div");
-    container.className = `session-entry  ${s.status === 'archived' ? 'archived' : ''} ${isActiveSession ? 'active' : ''}`;
-    container.innerHTML = `
+    const activeDiv = document.getElementById("activeSessions");
+    const archivedDiv = document.getElementById("archivedSessions");
+    activeDiv.innerHTML = "";
+    archivedDiv.innerHTML = "";
+
+    let activeCount = 0;
+    let archivedCount = 0;
+
+    sessions.forEach((s) => {
+
+      const isActiveSession = currentSession?.session_id === s.session_id;
+      const container = document.createElement("div");
+      container.className = `session-entry  ${s.status === 'archived' ? 'archived' : ''} ${isActiveSession ? 'active' : ''}`;
+      container.innerHTML = `
     <a href="#" class="session-link">
       <div class="session-date">
         <i class="fas fa-calendar"></i> ${new Date(s.timestamp).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}
@@ -131,23 +145,38 @@ async function loadSessions() {
     </div>
   `;
 
-    container.querySelector(".session-link").addEventListener("click", async () => {
-      const resp = await apiCall(`${API_BASE}/session/${s.session_id}`);
-      const { session } = await resp.json();
-      currentSession = session;
-      loadChat(currentSession);
-      loadSessions();
-    });
+      container.querySelector(".session-link").addEventListener("click", async () => {
+        const resp = await apiCall(`${API_BASE}/session/${s.session_id}`);
+        const { session } = await resp.json();
+        currentSession = session;
+        loadChat(currentSession);
+        loadSessions();
+      });
 
-    if (s.status === "archived") {
-      archivedDiv.appendChild(container);
-      archivedCount++;
-    } else {
-      activeDiv.appendChild(container);
-      activeCount++;
-    }
-  });
-  document.getElementById("noSessions").style.display = (activeCount + archivedCount === 0) ? "block" : "none";
+      if (s.status === "archived") {
+        archivedDiv.appendChild(container);
+        archivedCount++;
+      } else {
+        activeDiv.appendChild(container);
+        activeCount++;
+      }
+    });
+    document.getElementById("noSessions").style.display = (activeCount + archivedCount === 0) ? "block" : "none";
+
+    console.log('[SESSIONS] Successfully loaded', sessions.length, 'sessions');
+  } catch (error) {
+    console.error('[SESSIONS] Failed to load sessions:', error);
+    console.error('[SESSIONS] Error details:', error.message);
+
+    // Show error message to user
+    const activeDiv = document.getElementById("activeSessions");
+    const archivedDiv = document.getElementById("archivedSessions");
+    activeDiv.innerHTML = '<div class="error-message">Failed to load sessions. Please refresh the page.</div>';
+    archivedDiv.innerHTML = '';
+
+    // Still show the no sessions message
+    document.getElementById("noSessions").style.display = "block";
+  }
 }
 
 function toggleView() {
@@ -389,7 +418,7 @@ function loadChat(session) {
   document.getElementById("chatWindow").scrollTop = document.getElementById("chatWindow").scrollHeight;
 }
 
-window.addEventListener("DOMContentLoaded", () => {
+window.addEventListener("DOMContentLoaded", async () => {
   populateStateDropdowns();
   detectLocationAndLanguage();
   const savedState = localStorage.getItem("agrichat_user_state");
@@ -398,7 +427,12 @@ window.addEventListener("DOMContentLoaded", () => {
     if (stateSelect) stateSelect.value = savedState;
   }
 
-  loadSessions();
+  try {
+    await loadSessions();
+  } catch (error) {
+    console.error('[INIT] Failed to load sessions on page load:', error);
+    // Continue with page initialization even if sessions fail to load
+  }
 
   document.getElementById("editLocationBtn").addEventListener("click", () => {
     const locationEdit = document.getElementById("locationEdit");
