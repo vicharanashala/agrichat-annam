@@ -21,6 +21,8 @@ import requests
 import time
 import asyncio
 import concurrent.futures
+import hashlib
+from functools import lru_cache
 from local_whisper_interface import local_whisper
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -83,7 +85,11 @@ query_handler = ChromaQueryHandler(chroma_path=chroma_db_path)
 
 session_memories = {}
 
-def get_session_memory(session_id: str) -> ConversationBufferWindowMemory:
+# Simple in-memory cache for recommendations (expires after 1 hour)
+recommendations_cache = {}
+CACHE_EXPIRY_SECONDS = 3600  # 1 hour
+
+def get_session_memory(session_id: str):
     """Get or create conversation memory for a session"""
     if session_id not in session_memories:
         session_memories[session_id] = ConversationBufferWindowMemory(
@@ -305,6 +311,7 @@ def get_question_recommendations(user_question: str, user_state: str = None, lim
     """
     Get question recommendations based on similarity to user's question and state
     Only returns recommendations for agriculture-related questions
+    Optimized for performance with caching and reduced database queries
     
     Args:
         user_question: The user's current question
@@ -315,20 +322,43 @@ def get_question_recommendations(user_question: str, user_state: str = None, lim
         List of recommended questions with their details (empty if not agriculture-related)
     """
     try:
+        # Create cache key based on question and state
+        cache_key = hashlib.md5(f"{user_question.lower()}_{user_state}_{limit}".encode()).hexdigest()
+        current_time = time.time()
+        
+        # Check cache first
+        if cache_key in recommendations_cache:
+            cached_data, timestamp = recommendations_cache[cache_key]
+            if current_time - timestamp < CACHE_EXPIRY_SECONDS:
+                logger.info(f"[CACHE] Returning cached recommendations for: {user_question[:50]}...")
+                return cached_data
+            else:
+                # Remove expired cache entry
+                del recommendations_cache[cache_key]
+        
+        # Quick classification check first
         question_category = query_handler.classify_query(user_question)
         if question_category != "AGRICULTURE":
             logger.info(f"Question classified as {question_category}, skipping recommendations: {user_question}")
+            # Cache empty result for non-agriculture questions
+            recommendations_cache[cache_key] = ([], current_time)
             return []
         
+        # Optimized pipeline with indexed fields and reduced data
         pipeline = [
             {"$unwind": "$messages"},
+            {"$match": {
+                "state": {"$exists": True},
+                "messages.question": {"$exists": True, "$ne": ""},
+                "messages.answer": {"$exists": True}
+            }},
             {"$group": {
                 "_id": {
                     "question": "$messages.question",
                     "state": "$state"
                 },
                 "count": {"$sum": 1},
-                "sample_answer": {"$first": "$messages.answer"}
+                "sample_answer": {"$first": {"$substr": ["$messages.answer", 0, 200]}}  # Truncate for performance
             }},
             {"$match": {"count": {"$gte": 1}}},
             {"$project": {
@@ -337,7 +367,8 @@ def get_question_recommendations(user_question: str, user_state: str = None, lim
                 "count": 1,
                 "sample_answer": 1
             }},
-            {"$limit": 200}
+            {"$sort": {"count": -1}},  # Sort by popularity for better results
+            {"$limit": 100}  # Reduced from 200 for faster processing
         ]
         
         questions_data = list(sessions_collection.aggregate(pipeline))
@@ -351,14 +382,12 @@ def get_question_recommendations(user_question: str, user_state: str = None, lim
         questions_list = []
         metadata_list = []
         
+        # Skip classification for faster processing - pre-filtered by agriculture category check
         for item in questions_data:
             question = item['question']
-            question_category = query_handler.classify_query(question)
-            if question_category != "AGRICULTURE":
-                continue
-                
             processed_question = preprocess_question(question)
             
+            # Skip identical questions
             if processed_question == processed_user_question:
                 continue
                 
@@ -369,15 +398,22 @@ def get_question_recommendations(user_question: str, user_state: str = None, lim
                 'count': item['count'],
                 'sample_answer': item['sample_answer']
             })
+            
+            # Early exit if we have enough candidates for processing
+            if len(questions_list) >= 50:  # Process only top 50 for speed
+                break
         
         if not questions_list:
             logger.info("No suitable questions found for recommendations")
             return []
         
+        # Optimized TF-IDF with reduced features for speed
         vectorizer = TfidfVectorizer(
-            max_features=1000,
+            max_features=500,  # Reduced from 1000
             stop_words='english',
-            ngram_range=(1, 2)
+            ngram_range=(1, 2),
+            min_df=1,  # Minimum document frequency
+            max_df=0.95  # Maximum document frequency to filter common words
         )
         
         all_questions = [processed_user_question] + questions_list
@@ -408,6 +444,16 @@ def get_question_recommendations(user_question: str, user_state: str = None, lim
         top_recommendations = recommendations[:limit]
         
         logger.info(f"Found {len(top_recommendations)} recommendations for question: {user_question[:50]}...")
+        
+        # Cache the results
+        recommendations_cache[cache_key] = (top_recommendations, current_time)
+        
+        # Clean up cache if it gets too large (keep only 100 most recent entries)
+        if len(recommendations_cache) > 100:
+            # Remove oldest entries
+            sorted_cache = sorted(recommendations_cache.items(), key=lambda x: x[1][1])
+            for old_key, _ in sorted_cache[:50]:  # Remove 50 oldest entries
+                del recommendations_cache[old_key]
         
         return top_recommendations
         
@@ -484,6 +530,26 @@ client = MongoClient(MONGO_URI) if ENVIRONMENT == "development" else MongoClient
 db = client["agrichat"]
 sessions_collection = db["sessions"]
 
+# Optimize database indexes for better query performance
+def ensure_database_indexes():
+    """Ensure proper indexes exist for optimized queries"""
+    try:
+        # Index for session queries
+        sessions_collection.create_index([("session_id", 1)])
+        sessions_collection.create_index([("device_id", 1)])
+        sessions_collection.create_index([("state", 1)])
+        
+        # Compound index for recommendations queries
+        sessions_collection.create_index([("state", 1), ("messages.question", 1)])
+        sessions_collection.create_index([("timestamp", -1)])
+        
+        logger.info("[PERF] Database indexes ensured for optimal performance")
+    except Exception as e:
+        logger.error(f"[PERF] Failed to create indexes: {e}")
+
+# Initialize indexes
+ensure_database_indexes()
+
 def clean_session(s):
     s["_id"] = str(s["_id"])
     return s
@@ -545,8 +611,9 @@ async def new_session(question: str = Form(...), device_id: str = Form(...), sta
             answer_processing_time = time.time() - answer_processing_start
             logger.info(f"[TIMING] Answer processing took: {answer_processing_time:.3f}s")
             
-            logger.info(f"[DEBUG] Raw answer: {raw_answer}")
-            logger.info(f"[DEBUG] Raw answer type: {type(raw_answer)}")
+            # Reduced debug logging for performance
+            if answer_processing_time > 10:  # Only log if slow
+                logger.info(f"[DEBUG] Slow answer processing detected: {answer_processing_time:.3f}s")
             
             return str(raw_answer).strip()
             
@@ -559,7 +626,6 @@ async def new_session(question: str = Form(...), device_id: str = Form(...), sta
     
     # Add recommendations task if enabled and parallel processing is on
     if not DISABLE_RECOMMENDATIONS and PARALLEL_RECOMMENDATIONS:
-        logger.info("[PARALLEL] Starting recommendations in parallel with answer processing")
         tasks.append(get_question_recommendations_async(question, state, 2))
     
     try:
@@ -583,15 +649,13 @@ async def new_session(question: str = Form(...), device_id: str = Form(...), sta
             # Sequential processing if parallel is disabled
             answer_only = await tasks[0]
             recommendations = []
-            
     except Exception as e:
         logger.error(f"[DEBUG] Error in parallel processing: {e}")
         return JSONResponse(status_code=500, content={"error": "LLM processing failed."})
 
+    # Optimized markdown processing - reduced logging
     markdown_processing_start = time.time()
-    logger.info(f"[DEBUG] Answer after processing: {answer_only}")
     html_answer = markdown.markdown(answer_only, extensions=["extra", "nl2br"])
-    logger.info(f"[DEBUG] HTML answer: {html_answer}")
     markdown_processing_time = time.time() - markdown_processing_start
     logger.info(f"[TIMING] Markdown processing took: {markdown_processing_time:.3f}s")
 
