@@ -2,5 +2,4 @@
 .DS_Store
 Thumbs.db
 Dockerfile
-ssl-override.js
 .git/

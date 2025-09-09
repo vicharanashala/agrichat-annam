@@ -1,6 +1,3 @@
-// SSL Certificate Override Helper
-// This script helps users bypass ngrok's SSL certificate issues
-
 function handleSSLError() {
     const modal = document.createElement('div');
     modal.innerHTML = `
@@ -35,10 +32,8 @@ function handleSSLError() {
     document.body.appendChild(modal);
 }
 
-// Auto-detect SSL errors and show helper
 window.addEventListener('load', () => {
     setTimeout(() => {
-        // Check if API calls are failing
         fetch(currentConfig.API_BASE.replace('/api', '/health'))
             .catch(error => {
                 if (error.message.includes('certificate') ||
