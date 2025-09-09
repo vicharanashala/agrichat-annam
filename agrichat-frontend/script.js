@@ -1,13 +1,12 @@
-// API_BASE is now defined in config.js and automatically loaded
-
-// Helper function for API calls with ngrok support
 async function apiCall(url, options = {}) {
-  const headers = options.headers || {};
+  const headers = { ...(options.headers || {}) };
 
-  // Add ngrok bypass header if using ngrok
   if (API_BASE.includes('ngrok')) {
     headers["ngrok-skip-browser-warning"] = "true";
   }
+
+  console.log('[API] Making request to:', url);
+  console.log('[API] Headers:', headers);
 
   return fetch(url, {
     ...options,
@@ -173,7 +172,6 @@ async function toggleSessionStatus(session_id, currentStatus) {
     document.getElementById("startScreen").style.display = "block";
   } else {
     const headers = {};
-    // Add ngrok bypass header if using ngrok
     if (API_BASE.includes('ngrok')) {
       headers["ngrok-skip-browser-warning"] = "true";
     }
@@ -196,7 +194,6 @@ async function deleteSession(session_id) {
   if (!confirmed) return;
 
   const headers = {};
-  // Add ngrok bypass header if using ngrok
   if (API_BASE.includes('ngrok')) {
     headers["ngrok-skip-browser-warning"] = "true";
   }
@@ -224,7 +221,6 @@ async function rateAnswer(index, rating, btn) {
   formData.append("rating", rating);
 
   const headers = {};
-  // Add ngrok bypass header if using ngrok
   if (API_BASE.includes('ngrok')) {
     headers["ngrok-skip-browser-warning"] = "true";
   }
@@ -252,10 +248,8 @@ async function rateAnswer(index, rating, btn) {
 function copyToClipboard(button) {
   const answer = button.closest(".message").querySelector(".bot-answer").innerText;
   navigator.clipboard.writeText(answer).then(() => {
-    // Add the selected class to flash grey
     button.classList.add('selected');
 
-    // Swap icon for checkmark SVG (optional, but users like feedback)
     button.innerHTML = `
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 512 512">
         <path fill="currentColor" d="M504.5 75.5c-10-10-26.2-10-36.2 0L184 359.8l-140.3-140.3
@@ -267,7 +261,6 @@ function copyToClipboard(button) {
     setTimeout(() => {
       button.classList.remove('selected');
 
-      // Restore the Copy svg icon
       button.innerHTML = `
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 448 512">
           <path fill="currentColor" d="M320 448v40c0 13.255-10.745 24-24 24H24c-13.255 0-24-10.745-24-24V120c0-13.255
@@ -277,7 +270,7 @@ function copyToClipboard(button) {
           24 0 0 0-7.029-16.97z"/>
         </svg>
       `;
-    }, 800); // stays grey for 0.8 seconds
+    }, 800);
   });
 }
 
@@ -317,7 +310,6 @@ function appendMessage(sender, text, index = null, rating = null) {
 }
 
 function displayRecommendations(recommendations) {
-  // Remove any existing recommendations first
   const existingRecs = document.querySelectorAll('.inline-recommendations');
   existingRecs.forEach(rec => rec.remove());
 
@@ -325,7 +317,6 @@ function displayRecommendations(recommendations) {
     return;
   }
 
-  // Create inline recommendations div
   const recDiv = document.createElement("div");
   recDiv.className = "inline-recommendations";
   recDiv.innerHTML = `
@@ -343,7 +334,6 @@ function displayRecommendations(recommendations) {
     </div>
   `;
 
-  // Add click handlers to recommendation items
   recDiv.addEventListener('click', (e) => {
     const item = e.target.closest('.inline-rec-item');
     if (item) {
@@ -353,7 +343,6 @@ function displayRecommendations(recommendations) {
     }
   });
 
-  // Insert after the last bot message
   const chatWindow = document.getElementById("chatWindow");
   chatWindow.appendChild(recDiv);
   chatWindow.scrollTop = chatWindow.scrollHeight;
@@ -366,15 +355,13 @@ function loadChat(session) {
   document.getElementById("exportBtn").style.display = "inline-block";
   document.getElementById("locationEdit").style.display = "none";
 
-  // Only add the classes if NOT mobile screen width
-  if (window.innerWidth > 768) {  // Define mobile breakpoint here
+  if (window.innerWidth > 768) {
     document.querySelector('.main-header').classList.add('chat-active-width');
   } else {
-    // On mobile, ensure classes are removed in case they existed
+
     document.querySelector('.main-header').classList.remove('chat-active-width');
   }
 
-  // new
   if (!session || typeof session.status === "undefined" || !Array.isArray(session.messages)) {
     alert("Could not load chat session (data missing or malformed).");
     return;
@@ -393,12 +380,10 @@ function loadChat(session) {
     appendMessage("bot", msg.answer, idx, msg.rating || null);
   });
 
-  // Show recommendations if available (using new inline style)
   if (session.recommendations && session.recommendations.length > 0) {
     displayRecommendations(session.recommendations);
   }
 
-  // Hide the old recommendations section since we're using inline style
   document.getElementById("recommendationsSection").style.display = "none";
 
   document.getElementById("chatWindow").scrollTop = document.getElementById("chatWindow").scrollHeight;
@@ -448,7 +433,7 @@ window.addEventListener("DOMContentLoaded", () => {
     //     // }
     //     localStorage.setItem("agrichat_user_state", state); 
     // (NEW) After the audioBlob is ready...
-    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' }); // or another appropriate MIME type
+    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
 
 
 
@@ -476,21 +461,15 @@ window.addEventListener("DOMContentLoaded", () => {
     formData.append("state", state);
     formData.append("language", lang);
     formData.append("file", audioBlob, "recording.webm");
-    const headers = {};
-    // Add ngrok bypass header if using ngrok
-    if (API_BASE.includes('ngrok')) {
-      headers["ngrok-skip-browser-warning"] = "true";
-    }
 
     showLoader();
-    const res = await fetch(`${API_BASE}/query`, {
+    const res = await apiCall(`${API_BASE}/query`, {
       method: "POST",
-      headers: headers,
       body: formData,
     });
 
     const data = await res.json();
-    console.log('API response:', data); // new line to log data
+    console.log('API response:', data);
     currentSession = data.session;
     loadChat(currentSession);
     hideLoader();
@@ -512,16 +491,9 @@ window.addEventListener("DOMContentLoaded", () => {
     formData.append("device_id", deviceId);
     formData.append("state", localStorage.getItem("agrichat_user_state") || "");
 
-    const headers = {};
-    // Add ngrok bypass header if using ngrok
-    if (API_BASE.includes('ngrok')) {
-      headers["ngrok-skip-browser-warning"] = "true";
-    }
-
     showLoader();
-    const res = await fetch(`${API_BASE}/session/${currentSession.session_id}/query`, {
+    const res = await apiCall(`${API_BASE}/session/${currentSession.session_id}/query`, {
       method: "POST",
-      headers: headers,
       body: formData,
     });
     const data = await res.json();
@@ -529,10 +501,8 @@ window.addEventListener("DOMContentLoaded", () => {
     hideLoader();
     appendMessage("bot", last.answer);
 
-    // Update current session with new data including recommendations
     currentSession = data.session;
 
-    // Show updated recommendations if available (using new inline style)
     if (currentSession.recommendations && currentSession.recommendations.length > 0) {
       displayRecommendations(currentSession.recommendations);
     }
@@ -635,18 +605,11 @@ function updateLocationUI(state, language) {
 
 async function updateLanguageInBackend(state, language) {
   try {
-    const headers = {
-      "Content-Type": "application/json"
-    };
-
-    // Add ngrok bypass header if using ngrok
-    if (API_BASE.includes('ngrok')) {
-      headers["ngrok-skip-browser-warning"] = "true";
-    }
-
-    const response = await fetch(`${API_BASE}/update-language`, {
+    const response = await apiCall(`${API_BASE}/update-language`, {
       method: "POST",
-      headers: headers,
+      headers: {
+        "Content-Type": "application/json"
+      },
       body: JSON.stringify({
         device_id: deviceId,
         state: state,
@@ -812,7 +775,6 @@ async function transcribeAudio(audioBlob) {
   formData.append('file', audioBlob, 'recording.webm');
 
   const headers = {};
-  // Add ngrok bypass header if using ngrok
   if (API_BASE.includes('ngrok')) {
     headers["ngrok-skip-browser-warning"] = "true";
   }
