@@ -31,6 +31,7 @@ services:
       - MONGO_URI=mongodb://localhost:27017/agrichat
       - USE_HTTPS=${USE_HTTPS:-false}
       - USE_FAST_MODE=${USE_FAST_MODE:-true}
+      - DISABLE_RECOMMENDATIONS=${DISABLE_RECOMMENDATIONS:-true}
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - OLLAMA_HOST=localhost:11434

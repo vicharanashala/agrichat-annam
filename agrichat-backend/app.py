@@ -107,47 +107,32 @@ def format_conversation_context(memory: ConversationBufferWindowMemory) -> str:
 def get_answer(question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None, session_id: str = None) -> str:
     """
     Main answer function that routes to fast mode or CrewAI based on configuration.
-    
-    Args:
-        question: Current user question
-        conversation_history: List of previous Q&A pairs for context (legacy)
-        user_state: User's state/region detected from frontend location
-        session_id: Session ID for memory management
+    Simplified to match main.py performance.
     """
-    start_time = time.time()
-    logger.info(f"[TIMING] Starting query processing for: {question[:50]}...")
+    # Comment out context resolution for speed (like main.py)
+    # context_resolution_start = time.time()
+    # if session_id:
+    #     memory = get_session_memory(session_id)
+    #     context_str = format_conversation_context(memory)
+    #     resolved_question = resolve_context_question(question, context_str)
+    #     if resolved_question != question:
+    #         logger.info(f"[CONTEXT] Resolved '{question}' to '{resolved_question}'")
+    #         question = resolved_question
+    # context_resolution_time = time.time() - context_resolution_start
+    # logger.info(f"[TIMING] Context resolution took: {context_resolution_time:.3f}s")
     
-    context_resolution_start = time.time()
-    if session_id:
-        memory = get_session_memory(session_id)
-        context_str = format_conversation_context(memory)
-        
-        resolved_question = resolve_context_question(question, context_str)
-        if resolved_question != question:
-            logger.info(f"[CONTEXT] Resolved '{question}' to '{resolved_question}'")
-            question = resolved_question
-    context_resolution_time = time.time() - context_resolution_start
-    logger.info(f"[TIMING] Context resolution took: {context_resolution_time:.3f}s")
-    
-    processing_start = time.time()
     if USE_FAST_MODE and fast_handler:
-        logger.info(f"[TIMING] Using FAST MODE processing")
         response = get_fast_answer(question, conversation_history, user_state)
     else:
-        logger.info(f"[TIMING] Using CREWAI processing")
         response = get_crewai_answer(question, conversation_history, user_state)
-    processing_time = time.time() - processing_start
-    logger.info(f"[TIMING] Core processing took: {processing_time:.3f}s")
     
-    memory_update_start = time.time()
-    if session_id:
-        memory.chat_memory.add_user_message(question)
-        memory.chat_memory.add_ai_message(response)
-    memory_update_time = time.time() - memory_update_start
-    logger.info(f"[TIMING] Memory update took: {memory_update_time:.3f}s")
-    
-    total_time = time.time() - start_time
-    logger.info(f"[TIMING] TOTAL query processing took: {total_time:.3f}s")
+    # Comment out memory update for speed (like main.py)
+    # memory_update_start = time.time()
+    # if session_id:
+    #     memory.chat_memory.add_user_message(question)
+    #     memory.chat_memory.add_ai_message(response)
+    # memory_update_time = time.time() - memory_update_start
+    # logger.info(f"[TIMING] Memory update took: {memory_update_time:.3f}s")
     
     return response
 
@@ -436,7 +421,7 @@ app = FastAPI(lifespan=lifespan)
 
 origins = [
     "https://agri-annam.vercel.app",
-    "https://816804e2fe41.ngrok-free.app",
+    "https://65e483edd1bf.ngrok-free.app",
     "https://localhost:3000",
     "https://127.0.0.1:3000",
     "http://localhost:3000",
@@ -601,32 +586,33 @@ async def continue_session(session_id: str, question: str = Form(...), device_id
         return JSONResponse(status_code=403, content={"error": "Session is archived, missing or unauthorized"})
 
     try:
+        # Simplified conversation history (like main.py)
         conversation_history = []
         messages = session.get("messages", [])
         
-        for msg in messages[-5:]:
-            if "question" in msg and "answer" in msg:
-                from bs4 import BeautifulSoup
-                clean_answer = BeautifulSoup(msg["answer"], "html.parser").get_text()
-                conversation_history.append({
-                    "question": msg["question"],
-                    "answer": clean_answer
-                })
+        # Comment out complex memory processing for speed
+        # for msg in messages[-5:]:
+        #     if "question" in msg and "answer" in msg:
+        #         from bs4 import BeautifulSoup
+        #         clean_answer = BeautifulSoup(msg["answer"], "html.parser").get_text()
+        #         conversation_history.append({
+        #             "question": msg["question"],
+        #             "answer": clean_answer
+        #         })
         
-        if session_id not in session_memories:
-            memory = get_session_memory(session_id)
-            
-            for msg in messages:
-                if "question" in msg and "answer" in msg:
-                    clean_answer = BeautifulSoup(msg["answer"], "html.parser").get_text()
-                    memory.chat_memory.add_user_message(msg["question"])
-                    memory.chat_memory.add_ai_message(clean_answer)
-        
-        logger.info(f"[DEBUG] Using conversation context: {len(conversation_history)} previous interactions")
+        # Comment out session memory management for speed
+        # if session_id not in session_memories:
+        #     memory = get_session_memory(session_id)
+        #     for msg in messages:
+        #         if "question" in msg and "answer" in msg:
+        #             clean_answer = BeautifulSoup(msg["answer"], "html.parser").get_text()
+        #             memory.chat_memory.add_user_message(msg["question"])
+        #             memory.chat_memory.add_ai_message(clean_answer)
         
         current_state = state or session.get("state", "unknown")
         
-        raw_answer = get_answer(question, conversation_history=conversation_history, user_state=current_state, session_id=session_id)
+        # Direct call like main.py (no session_id parameter)
+        raw_answer = get_answer(question, conversation_history=[], user_state=current_state)
     except Exception as e:
         logger.error(f"[DEBUG] Error in get_answer: {e}")
         return JSONResponse(status_code=500, content={"error": "LLM processing failed."})
@@ -654,21 +640,23 @@ async def continue_session(session_id: str, question: str = Form(...), device_id
     if updated:
         updated.pop("_id", None)
         
-        if not DISABLE_RECOMMENDATIONS:
-            try:
-                recommendations = get_question_recommendations(
-                    user_question=question,
-                    user_state=state,
-                    limit=2
-                )
-                updated["recommendations"] = recommendations
-                logger.info(f"Added {len(recommendations)} recommendations to continue session response")
-            except Exception as e:
-                logger.error(f"Failed to get recommendations: {e}")
-                updated["recommendations"] = []
-        else:
-            updated["recommendations"] = []
-            logger.info("[PERFORMANCE] Recommendations disabled for speed optimization")
+        # Comment out recommendations completely for speed (like main.py)
+        updated["recommendations"] = []
+        # if not DISABLE_RECOMMENDATIONS:
+        #     try:
+        #         recommendations = get_question_recommendations(
+        #             user_question=question,
+        #             user_state=state,
+        #             limit=2
+        #         )
+        #         updated["recommendations"] = recommendations
+        #         logger.info(f"Added {len(recommendations)} recommendations to continue session response")
+        #     except Exception as e:
+        #         logger.error(f"Failed to get recommendations: {e}")
+        #         updated["recommendations"] = []
+        # else:
+        #     updated["recommendations"] = []
+        #     logger.info("[PERFORMANCE] Recommendations disabled for speed optimization")
     
     return {"session": updated}
 
