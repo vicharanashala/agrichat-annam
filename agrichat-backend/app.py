@@ -30,6 +30,7 @@ import re
 from langchain.memory import ConversationBufferWindowMemory, ConversationSummaryBufferMemory
 from langchain.schema import HumanMessage, AIMessage
 from Agentic_RAG.fast_response_handler import FastResponseHandler
+from Agentic_RAG.context_manager import ConversationContext
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -71,10 +72,10 @@ from Agentic_RAG.crew_tasks import (
 from Agentic_RAG.chroma_query_handler import ChromaQueryHandler
 
 if os.path.exists("/app"):
-    chroma_db_path = "/app/chromaDb"
+    chroma_db_path = "/app/Agentic_RAG/Knowledge_base/chromaDb"
     environment = "Docker"
 else:
-    chroma_db_path = "/home/ubuntu/agrichat-annam/agrichat-backend/chromaDb" 
+    chroma_db_path = "/home/ubuntu/agrichat-annam/agrichat-backend/Agentic_RAG/Knowledge_base/chromaDb" 
     environment = "Local"
 
 logger.info(f"[CONFIG] Environment: {environment}")
@@ -85,9 +86,8 @@ query_handler = ChromaQueryHandler(chroma_path=chroma_db_path)
 
 session_memories = {}
 
-# Simple in-memory cache for recommendations (expires after 1 hour)
 recommendations_cache = {}
-CACHE_EXPIRY_SECONDS = 3600  # 1 hour
+CACHE_EXPIRY_SECONDS = 3600
 
 def get_session_memory(session_id: str):
     """Get or create conversation memory for a session"""
@@ -99,96 +99,187 @@ def get_session_memory(session_id: str):
     return session_memories[session_id]
 
 def format_conversation_context(memory: ConversationBufferWindowMemory) -> str:
-    """Format conversation history for RAG context"""
+    """Enhanced formatting of conversation history for better context"""
     if not memory.chat_memory.messages:
         return "This is the start of the conversation."
     
     context_parts = []
-    messages = memory.chat_memory.messages[-10:]
+    messages = memory.chat_memory.messages[-10:]  # Last 10 messages
+    
     for i in range(0, len(messages), 2):
         if i + 1 < len(messages):
             human_msg = messages[i]
             ai_msg = messages[i + 1]
-            context_parts.append(f"Previous Q: {human_msg.content}")
-            context_parts.append(f"Previous A: {ai_msg.content[:200]}...")
+            
+            human_content = human_msg.content
+            ai_content = ai_msg.content[:300] + "..." if len(ai_msg.content) > 300 else ai_msg.content
+            
+            context_parts.append(f"Previous Q: {human_content}")
+            context_parts.append(f"Previous A: {ai_content}")
+    
+    all_content = " ".join([msg.content for msg in messages])
+    topics = extract_topics_from_context(all_content)
+    
+    if topics:
+        context_parts.append(f"Main topics discussed: {', '.join(topics[:3])}")
     
     return "\n".join(context_parts)
 
 def get_answer(question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None, session_id: str = None) -> str:
     """
     Main answer function that routes to fast mode or CrewAI based on configuration.
-    Simplified to match main.py performance.
+    Enhanced with context resolution for follow-up questions.
     """
-    # Comment out context resolution for speed (like main.py)
-    # context_resolution_start = time.time()
-    # if session_id:
-    #     memory = get_session_memory(session_id)
-    #     context_str = format_conversation_context(memory)
-    #     resolved_question = resolve_context_question(question, context_str)
-    #     if resolved_question != question:
-    #         logger.info(f"[CONTEXT] Resolved '{question}' to '{resolved_question}'")
-    #         question = resolved_question
-    # context_resolution_time = time.time() - context_resolution_start
-    # logger.info(f"[TIMING] Context resolution took: {context_resolution_time:.3f}s")
+    # Context resolution for follow-up questions
+    context_resolution_start = time.time()
+    if session_id:
+        memory = get_session_memory(session_id)
+        context_str = format_conversation_context(memory)
+        resolved_question = resolve_context_question(question, context_str)
+        if resolved_question != question:
+            logger.info(f"[CONTEXT] Resolved '{question[:50]}...' to '{resolved_question[:50]}...'")
+            question = resolved_question
+    context_resolution_time = time.time() - context_resolution_start
+    logger.info(f"[TIMING] Context resolution took: {context_resolution_time:.3f}s")
     
     if USE_FAST_MODE and fast_handler:
         response = get_fast_answer(question, conversation_history, user_state)
     else:
         response = get_crewai_answer(question, conversation_history, user_state)
     
-    # Comment out memory update for speed (like main.py)
-    # memory_update_start = time.time()
-    # if session_id:
-    #     memory.chat_memory.add_user_message(question)
-    #     memory.chat_memory.add_ai_message(response)
-    # memory_update_time = time.time() - memory_update_start
-    # logger.info(f"[TIMING] Memory update took: {memory_update_time:.3f}s")
+    # Update conversation memory for context tracking
+    memory_update_start = time.time()
+    if session_id:
+        memory.chat_memory.add_user_message(question)
+        memory.chat_memory.add_ai_message(response)
+        logger.info(f"[CONTEXT] Updated memory for session {session_id[:8]}...")
+    memory_update_time = time.time() - memory_update_start
+    logger.info(f"[TIMING] Memory update took: {memory_update_time:.3f}s")
     
     return response
 
 def resolve_context_question(question: str, context: str) -> str:
     """
-    Resolve ambiguous questions using conversation context
+    Enhanced context resolution for agricultural follow-up questions
     """
     question_lower = question.lower().strip()
+    context_lower = context.lower()
     
+    # Context patterns for follow-up questions
     context_patterns = [
         "how do i cure it", "how to cure it", "cure it", "treat it", "how to treat it",
         "what should i do", "how to fix it", "fix it", "prevent it", "how to prevent it",
         "what medicine", "which medicine", "what treatment", "what chemical", "what spray",
         "how much", "when to apply", "when should i", "how often", "what dosage",
-        "side effects", "precautions", "what about", "tell me more", "more details"
+        "side effects", "precautions", "what about", "tell me more", "more details",
+        "how to grow it", "grow it", "plant it", "sow it", "when to sow", "when to plant",
+        "what fertilizer", "which fertilizer", "fertilizer for it", "nutrients needed",
+        "watering schedule", "how much water", "irrigation", "harvest time", "when to harvest",
+        "what variety", "which variety", "best variety", "seed rate", "spacing",
+        "market price", "selling price", "profit", "yield", "production"
     ]
     
+    # Check if it's a follow-up question
     if any(pattern in question_lower for pattern in context_patterns):
-        if "late blight" in context.lower():
-            if "cure" in question_lower or "treat" in question_lower:
-                return "How to cure late blight in potato?"
-            elif "prevent" in question_lower:
-                return "How to prevent late blight in potato?"
-            elif "medicine" in question_lower or "chemical" in question_lower:
-                return "What medicines or chemicals to use for late blight in potato?"
-        
+        # Extract recent topics from context
         recent_topics = extract_topics_from_context(context)
+        
         if recent_topics:
-            return f"{question} for {recent_topics[0]}"
+            topic = recent_topics[0]
+            
+            # Enhanced pattern matching for specific agricultural contexts
+            if "cure" in question_lower or "treat" in question_lower:
+                if "disease" in topic or "blight" in topic or "spot" in topic or "rot" in topic:
+                    return f"How to cure {topic}?"
+                elif "pest" in topic or "insect" in topic or "worm" in topic:
+                    return f"How to control {topic}?"
+                else:
+                    return f"How to treat {topic}?"
+            
+            elif "prevent" in question_lower:
+                return f"How to prevent {topic}?"
+            
+            elif "medicine" in question_lower or "chemical" in question_lower or "spray" in question_lower:
+                return f"What medicines or chemicals to use for {topic}?"
+            
+            elif "fertilizer" in question_lower or "nutrient" in question_lower:
+                return f"What fertilizer is best for {topic}?"
+            
+            elif "grow" in question_lower or "cultivation" in question_lower:
+                return f"How to grow {topic}?"
+            
+            elif "plant" in question_lower or "sow" in question_lower:
+                return f"When and how to plant {topic}?"
+            
+            elif "water" in question_lower or "irrigation" in question_lower:
+                return f"Watering schedule and irrigation for {topic}?"
+            
+            elif "harvest" in question_lower:
+                return f"When to harvest {topic} and harvesting methods?"
+            
+            elif "variety" in question_lower or "seed" in question_lower:
+                return f"Best varieties and seeds for {topic}?"
+            
+            elif "price" in question_lower or "market" in question_lower or "profit" in question_lower:
+                return f"Market price and profitability of {topic}?"
+            
+            elif "yield" in question_lower or "production" in question_lower:
+                return f"How to increase yield and production of {topic}?"
+            
+            elif "dosage" in question_lower or "how much" in question_lower or "quantity" in question_lower:
+                return f"Dosage and application rates for {topic}?"
+            
+            else:
+                # Generic follow-up
+                return f"{question} for {topic}"
     
     return question
 
 def extract_topics_from_context(context: str) -> List[str]:
-    """Extract agricultural topics from conversation context"""
+    """Enhanced extraction of agricultural topics from conversation context"""
     topics = []
     context_lower = context.lower()
     
+    # Enhanced disease patterns
     disease_patterns = [
         "late blight", "early blight", "powdery mildew", "downy mildew", 
-        "bacterial wilt", "fungal infection", "leaf spot", "root rot"
+        "bacterial wilt", "fungal infection", "leaf spot", "root rot", "stem rot",
+        "collar rot", "blast", "sheath blight", "rust", "smut", "mosaic virus",
+        "yellowing", "wilting", "damping off", "canker", "scab"
     ]
     
+    # Enhanced crop patterns
     crop_patterns = [
-        "potato", "tomato", "wheat", "rice", "cotton", "sugarcane", "maize", "corn"
+        "potato", "tomato", "wheat", "rice", "cotton", "sugarcane", "maize", "corn",
+        "onion", "garlic", "chili", "pepper", "brinjal", "eggplant", "okra", "cucumber",
+        "cabbage", "cauliflower", "carrot", "radish", "beans", "peas", "groundnut",
+        "soybean", "mustard", "sesame", "sunflower", "mango", "banana", "guava",
+        "papaya", "coconut", "tea", "coffee", "spices", "turmeric", "ginger"
     ]
     
+    # Pest patterns
+    pest_patterns = [
+        "aphid", "thrips", "whitefly", "bollworm", "stem borer", "fruit borer",
+        "leaf miner", "scale insect", "mealybug", "spider mite", "nematode",
+        "caterpillar", "grub", "weevil", "beetle", "locust", "grasshopper"
+    ]
+    
+    # Problem patterns
+    problem_patterns = [
+        "nutrient deficiency", "nitrogen deficiency", "phosphorus deficiency",
+        "potassium deficiency", "iron deficiency", "zinc deficiency", "magnesium deficiency",
+        "water stress", "drought stress", "waterlogging", "poor growth", "stunted growth",
+        "low yield", "poor germination", "flower drop", "fruit drop"
+    ]
+    
+    # Practice patterns
+    practice_patterns = [
+        "organic farming", "crop rotation", "intercropping", "mulching", "pruning",
+        "grafting", "seed treatment", "soil preparation", "land preparation",
+        "transplanting", "direct sowing", "drip irrigation", "sprinkler irrigation"
+    ]
+    
+    # Look for disease + crop combinations first
     for disease in disease_patterns:
         if disease in context_lower:
             for crop in crop_patterns:
@@ -198,6 +289,49 @@ def extract_topics_from_context(context: str) -> List[str]:
             else:
                 topics.append(disease)
             break
+    
+    # Look for pest + crop combinations
+    if not topics:
+        for pest in pest_patterns:
+            if pest in context_lower:
+                for crop in crop_patterns:
+                    if crop in context_lower:
+                        topics.append(f"{pest} in {crop}")
+                        break
+                else:
+                    topics.append(pest)
+                break
+    
+    # Look for problem + crop combinations
+    if not topics:
+        for problem in problem_patterns:
+            if problem in context_lower:
+                for crop in crop_patterns:
+                    if crop in context_lower:
+                        topics.append(f"{problem} in {crop}")
+                        break
+                else:
+                    topics.append(problem)
+                break
+    
+    # Look for practice + crop combinations
+    if not topics:
+        for practice in practice_patterns:
+            if practice in context_lower:
+                for crop in crop_patterns:
+                    if crop in context_lower:
+                        topics.append(f"{practice} for {crop}")
+                        break
+                else:
+                    topics.append(practice)
+                break
+    
+    # If no specific combinations found, look for individual crops
+    if not topics:
+        for crop in crop_patterns:
+            if crop in context_lower:
+                topics.append(crop)
+                break
     
     return topics
 
@@ -338,8 +472,9 @@ def get_question_recommendations(user_question: str, user_state: str = None, lim
         
         # Quick classification check first
         question_category = query_handler.classify_query(user_question)
+        logger.info(f"[REC] Question classified as: {question_category} for: {user_question[:50]}...")
         if question_category != "AGRICULTURE":
-            logger.info(f"Question classified as {question_category}, skipping recommendations: {user_question}")
+            logger.info(f"[REC] Question classified as {question_category}, skipping recommendations: {user_question}")
             # Cache empty result for non-agriculture questions
             recommendations_cache[cache_key] = ([], current_time)
             return []
@@ -349,8 +484,8 @@ def get_question_recommendations(user_question: str, user_state: str = None, lim
             {"$unwind": "$messages"},
             {"$match": {
                 "state": {"$exists": True},
-                "messages.question": {"$exists": True, "$ne": ""},
-                "messages.answer": {"$exists": True}
+                "messages.question": {"$exists": True, "$ne": "", "$type": "string"},
+                "messages.answer": {"$exists": True, "$type": "string"}
             }},
             {"$group": {
                 "_id": {
@@ -358,7 +493,7 @@ def get_question_recommendations(user_question: str, user_state: str = None, lim
                     "state": "$state"
                 },
                 "count": {"$sum": 1},
-                "sample_answer": {"$first": {"$substr": ["$messages.answer", 0, 200]}}  # Truncate for performance
+                "sample_answer": {"$first": "$messages.answer"}  # Keep full answer, truncate in Python
             }},
             {"$match": {"count": {"$gte": 1}}},
             {"$project": {
@@ -371,10 +506,41 @@ def get_question_recommendations(user_question: str, user_state: str = None, lim
             {"$limit": 100}  # Reduced from 200 for faster processing
         ]
         
-        questions_data = list(sessions_collection.aggregate(pipeline))
+        try:
+            questions_data = list(sessions_collection.aggregate(pipeline))
+            logger.info(f"[REC] Found {len(questions_data)} questions in database for recommendations")
+        except Exception as db_error:
+            logger.error(f"[REC] Database aggregation failed: {db_error}")
+            # Fallback to simple query without aggregation
+            try:
+                logger.info("[REC] Attempting fallback simple query...")
+                simple_docs = list(sessions_collection.find(
+                    {"state": {"$exists": True}, "messages.question": {"$exists": True}},
+                    {"messages.question": 1, "state": 1}
+                ).limit(50))
+                
+                questions_data = []
+                for doc in simple_docs:
+                    for msg in doc.get("messages", []):
+                        if msg.get("question"):
+                            questions_data.append({
+                                "question": msg["question"],
+                                "state": doc.get("state", "unknown"),
+                                "count": 1,
+                                "sample_answer": "Answer available on request..."
+                            })
+                
+                logger.info(f"[REC] Fallback query found {len(questions_data)} questions")
+            except Exception as fallback_error:
+                logger.error(f"[REC] Fallback query also failed: {fallback_error}")
+                # Cache empty result for database errors
+                recommendations_cache[cache_key] = ([], current_time)
+                return []
         
         if not questions_data:
-            logger.info("No questions found in database for recommendations")
+            logger.info("[REC] No questions found in database for recommendations")
+            # Cache empty result for no data
+            recommendations_cache[cache_key] = ([], current_time)
             return []
         
         processed_user_question = preprocess_question(user_question)
@@ -396,7 +562,7 @@ def get_question_recommendations(user_question: str, user_state: str = None, lim
                 'original_question': question,
                 'state': item.get('state', 'unknown'),
                 'count': item['count'],
-                'sample_answer': item['sample_answer']
+                'sample_answer': item['sample_answer'][:200] + "..." if len(item['sample_answer']) > 200 else item['sample_answer']
             })
             
             # Early exit if we have enough candidates for processing
@@ -404,22 +570,34 @@ def get_question_recommendations(user_question: str, user_state: str = None, lim
                 break
         
         if not questions_list:
-            logger.info("No suitable questions found for recommendations")
+            logger.info("[REC] No suitable questions found for recommendations after filtering")
+            # Cache empty result for no suitable questions
+            recommendations_cache[cache_key] = ([], current_time)
             return []
         
+        logger.info(f"[REC] Processing {len(questions_list)} questions for similarity matching")
+        
         # Optimized TF-IDF with reduced features for speed
-        vectorizer = TfidfVectorizer(
-            max_features=500,  # Reduced from 1000
-            stop_words='english',
-            ngram_range=(1, 2),
-            min_df=1,  # Minimum document frequency
-            max_df=0.95  # Maximum document frequency to filter common words
-        )
-        
-        all_questions = [processed_user_question] + questions_list
-        tfidf_matrix = vectorizer.fit_transform(all_questions)
-        
-        similarities = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:]).flatten()
+        try:
+            vectorizer = TfidfVectorizer(
+                max_features=500,  # Reduced from 1000
+                stop_words='english',
+                ngram_range=(1, 2),
+                min_df=1,  # Minimum document frequency
+                max_df=0.95  # Maximum document frequency to filter common words
+            )
+            
+            all_questions = [processed_user_question] + questions_list
+            tfidf_matrix = vectorizer.fit_transform(all_questions)
+            
+            similarities = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:]).flatten()
+            logger.info(f"[REC] TF-IDF vectorization successful, computed {len(similarities)} similarities")
+            
+        except Exception as tfidf_error:
+            logger.error(f"[REC] TF-IDF vectorization failed: {tfidf_error}")
+            # Cache empty result for TF-IDF errors
+            recommendations_cache[cache_key] = ([], current_time)
+            return []
         
         recommendations = []
         for i, similarity_score in enumerate(similarities):
@@ -429,7 +607,7 @@ def get_question_recommendations(user_question: str, user_state: str = None, lim
                     'state': metadata_list[i]['state'],
                     'similarity_score': float(similarity_score),
                     'popularity': metadata_list[i]['count'],
-                    'sample_answer': metadata_list[i]['sample_answer'][:200] + "..." 
+                    'sample_answer': metadata_list[i]['sample_answer'][:200] + "..." if len(metadata_list[i]['sample_answer']) > 200 else metadata_list[i]['sample_answer']
                 }
                 recommendations.append(rec)
         
@@ -443,7 +621,9 @@ def get_question_recommendations(user_question: str, user_state: str = None, lim
         
         top_recommendations = recommendations[:limit]
         
-        logger.info(f"Found {len(top_recommendations)} recommendations for question: {user_question[:50]}...")
+        logger.info(f"[REC] Generated {len(top_recommendations)} recommendations from {len(recommendations)} candidates for question: {user_question[:50]}...")
+        if top_recommendations:
+            logger.info(f"[REC] Top recommendation similarity scores: {[rec['similarity_score'] for rec in top_recommendations]}")
         
         # Cache the results
         recommendations_cache[cache_key] = (top_recommendations, current_time)
@@ -725,7 +905,7 @@ async def continue_session(session_id: str, question: str = Form(...), device_id
     # Start both answer processing and recommendations in parallel if enabled
     async def process_session_answer():
         try:
-            # Simplified conversation history (like main.py)
+            # Enhanced conversation history with context resolution
             conversation_history = []
             messages = session.get("messages", [])
             
@@ -739,7 +919,8 @@ async def continue_session(session_id: str, question: str = Form(...), device_id
                     get_answer, 
                     question, 
                     [],  # conversation_history
-                    current_state
+                    current_state,
+                    session_id  # Pass session_id for context resolution
                 )
             return str(raw_answer).strip()
             

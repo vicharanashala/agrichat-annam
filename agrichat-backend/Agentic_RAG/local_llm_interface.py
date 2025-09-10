@@ -111,7 +111,7 @@ class OllamaEmbeddings:
 local_llm = OllamaLLMInterface(model_name="llama3.1:latest")
 local_embeddings = OllamaEmbeddings(embedding_model="nomic-embed-text")
 
-def run_local_llm(prompt: str, temperature: float = 0.3, max_tokens: int = 1024, use_fallback: bool = False) -> str:
+def run_local_llm(prompt: str, temperature: float = 0.1, max_tokens: int = 1024, use_fallback: bool = False) -> str:
     """
     Convenience function for LLM inference with dual-model support
     - use_fallback=False: Uses fast Llama 3.1 8B for RAG pipeline

@@ -28,10 +28,9 @@ Retriever_Agent = Agent(
 
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-if os.path.exists("/app"):
-    chroma_path = "/app/chromaDb"
+if os.path.exists("/app"):    chroma_path = "/app/Agentic_RAG/Knowledge_base/chromaDb"
 else:
-    chroma_path = "/home/ubuntu/agrichat-annam/agrichat-backend/chromaDb"
+    chroma_path = "/home/ubuntu/agrichat-annam/agrichat-backend/Agentic_RAG/Knowledge_base/chromaDb"
 print(f"[DEBUG] Using ChromaDB path: {chroma_path}")
 print(f"[DEBUG] ChromaDB path exists: {os.path.exists(chroma_path)}")
 

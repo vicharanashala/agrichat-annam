@@ -23,6 +23,8 @@ IMPORTANT: If a state or region is mentioned in the query, always give preferenc
     STRUCTURED_PROMPT = """
 You are an expert agricultural assistant. Using only the provided context (do not mention or reveal any metadata such as date, district, state, or season unless the user asks for it), answer the user's question in a detailed and structured manner. Stay strictly within the scope of the user's question and do not introduce unrelated information.
 
+IMPORTANT: Always respond in the same language in which the query has been asked.
+
 The user is located in {user_state}. {region_context}
 {region_instruction}
 Current month: {current_month}
@@ -72,8 +74,10 @@ IMPORTANT INSTRUCTIONS:
 - If this appears to be a follow-up question, acknowledge the previous context naturally
 - Provide direct, helpful advice without template language or meta-commentary
 
-**If the context does not contain relevant information, reply exactly:**   
+**CRITICAL: If the context does not contain relevant information to properly answer the question, reply exactly:**   
 `I don't have enough information to answer that.`
+
+**Do NOT attempt to provide general agricultural advice or information if it's not specifically supported by the context provided above.**
 
 ### Context
 {context}
@@ -105,6 +109,8 @@ Respond with only one of these words: AGRICULTURE, GREETING, or NON_AGRI.
 
     GREETING_RESPONSE_PROMPT = """
 You are a friendly agricultural assistant. The user has greeted you with: "{question}"
+
+IMPORTANT: Always respond in the same language in which the query has been asked.
 
 {region_instruction}
 
@@ -156,8 +162,8 @@ Respond as if you are talking directly to the user, not giving advice on what to
             memory_strategy=MemoryStrategy.AUTO
         )
         
-        self.min_cosine_threshold = 0.15 
-        self.good_match_threshold = 0.4
+        self.min_cosine_threshold = 0.5
+        self.good_match_threshold = 0.7
         
         self.query_cache = {}
         self.cache_max_size = 100
@@ -520,7 +526,7 @@ Respond as if you are talking directly to the user, not giving advice on what to
         return 'NO_MATCH'
 
     def rerank_documents(self, question: str, results, top_k: int = 5):
-        """Enhanced reranking with better similarity scoring and lowered threshold for database-first approach"""
+        """Enhanced reranking with stricter similarity scoring for RAG-only approach"""
         query_embedding = self.embedding_function.embed_query(question)
         scored = []
         question_lower = question.lower()
@@ -533,7 +539,7 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 'Question: Others' in content or 
                 'Answer: Others' in content or
                 content.count('Others') > 5 or
-                len(content.strip()) < 20):
+                len(content.strip()) < 50):
                 continue
             
             d_emb = self.embedding_function.embed_query(content)
@@ -547,12 +553,14 @@ Respond as if you are talking directly to the user, not giving advice on what to
             content_agri_terms = content_words.intersection(agri_terms)
             agri_overlap = len(question_agri_terms.intersection(content_agri_terms)) / max(len(question_agri_terms), 1)
             
-            combined_score = (cosine_score * 0.6) + (keyword_overlap * 0.25) + (agri_overlap * 0.15)
+            # More conservative scoring for stricter filtering
+            combined_score = (cosine_score * 0.7) + (keyword_overlap * 0.2) + (agri_overlap * 0.1)
             
             scored.append((doc, combined_score, cosine_score, original_score))
         
         scored.sort(key=lambda x: x[1], reverse=True)
         
+        # Use stricter threshold for filtering documents
         return [doc for doc, combined_score, cosine_score, orig_score in scored[:top_k] 
                 if doc.page_content.strip() and combined_score > self.min_cosine_threshold]
 
@@ -715,7 +723,6 @@ Respond as if you are talking directly to the user, not giving advice on what to
             processing_query = question
             context_used = False
             
-            # Handle conversation context if available
             if conversation_history:
                 logger.info(f"[Context DEBUG] Received conversation history with {len(conversation_history)} entries")
                 enhanced_query_result = self.context_manager.enhance_query_with_cot(question, conversation_history)
@@ -728,7 +735,6 @@ Respond as if you are talking directly to the user, not giving advice on what to
             logger.info(f"[TIMING] Context processing took: {context_processing_time:.3f}s")
             
             query_classification_start = time.time()
-            # Classify query for non-agricultural content
             category = self.classify_query(question, conversation_history)
             query_classification_time = time.time() - query_classification_start
             logger.info(f"[TIMING] Query classification took: {query_classification_time:.3f}s")
@@ -741,7 +747,6 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 response = self.generate_dynamic_response(question, mode="NON_AGRI")
                 return f"__NO_SOURCE__{response}"
 
-            # Search database for relevant content
             database_search_start = time.time()
             try:
                 query_expansion_start = time.time()
@@ -750,7 +755,6 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 query_expansion_time = time.time() - query_expansion_start
                 logger.info(f"[TIMING] Query expansion took: {query_expansion_time:.3f}s")
                 
-                # Try search with metadata filter first
                 try:
                     filter_creation_start = time.time()
                     metadata_filter = self._create_metadata_filter(primary_query, user_state)
@@ -763,7 +767,6 @@ Respond as if you are talking directly to the user, not giving advice on what to
                     logger.info(f"[TIMING] Filtered search took: {filtered_search_time:.3f}s")
                     
                     if len(raw_results) < 3:
-                        # Try without filter if not enough results
                         unfiltered_search_start = time.time()
                         raw_results = self.db.similarity_search_with_score(primary_query, k=10, filter=None)
                         unfiltered_search_time = time.time() - unfiltered_search_start
@@ -782,7 +785,6 @@ Respond as if you are talking directly to the user, not giving advice on what to
             database_search_time = time.time() - database_search_start
             logger.info(f"[TIMING] Database search total took: {database_search_time:.3f}s")
                 
-            # Rerank and evaluate results
             rerank_start = time.time()
             relevant_docs = self.rerank_documents(processing_query, raw_results)
             rerank_time = time.time() - rerank_start
@@ -795,7 +797,6 @@ Respond as if you are talking directly to the user, not giving advice on what to
             
             content = relevant_docs[0].page_content.strip()
             
-            # Filter out poor quality content
             if (content.lower().count('others') > 3 or 
                 'Question: Others' in content or 
                 'Answer: Others' in content or
@@ -803,22 +804,62 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 logger.info(f"[RAG] Content failed quality filter")
                 return "__FALLBACK__"
             
-            # Get similarity score for quality assessment
             similarity_score = None
             for doc, score in raw_results:
                 if doc.page_content.strip() == content:
                     similarity_score = score
                     break
             
-            # Check if content quality is good enough
-            score_threshold = 1.1
-            if similarity_score is not None and similarity_score > score_threshold and not context_used:
-                logger.info(f"[RAG] Similarity score too low: {similarity_score}")
+            # Much stricter threshold - similarity scores are distances (lower is better)
+            # ChromaDB returns distances, not similarities, so lower values indicate better matches
+            max_distance_threshold = 0.5  # Maximum allowed distance for RAG response
+            
+            if similarity_score is not None and similarity_score > max_distance_threshold and not context_used:
+                logger.info(f"[RAG] Document distance too high: {similarity_score:.3f} > {max_distance_threshold}")
+                return "__FALLBACK__"
+            
+            # Additional check: ensure document has sufficient relevance through combined scoring
+            query_embedding = self.embedding_function.embed_query(processing_query)
+            content_embedding = self.embedding_function.embed_query(content)
+            cosine_score = self.cosine_sim(query_embedding, content_embedding)
+            
+            min_relevance_threshold = 0.3  # Minimum cosine similarity for relevance
+            if cosine_score < min_relevance_threshold and not context_used:
+                logger.info(f"[RAG] Content relevance too low: {cosine_score:.3f} < {min_relevance_threshold}")
+                return "__FALLBACK__"
+            
+            # NEW: Check if the content actually contains information about the queried crop/topic
+            question_lower = processing_query.lower()
+            content_lower = content.lower()
+            
+            # Extract key topics from the question
+            question_keywords = set()
+            for word in question_lower.split():
+                if len(word) > 3 and word not in {'what', 'are', 'the', 'improved', 'varieties', 'which', 'how', 'when', 'where', 'why', 'can', 'should'}:
+                    question_keywords.add(word)
+            
+            # Check if any important keywords from question appear in content
+            content_keywords = set(content_lower.split())
+            keyword_match = bool(question_keywords.intersection(content_keywords))
+            
+            # Special check for crop-specific queries
+            if not keyword_match and any(crop_word in question_lower for crop_word in ['apple', 'mango', 'orange', 'banana', 'grape', 'pomegranate']):
+                # For fruit queries, ensure the content mentions the same fruit
+                fruits_in_question = [fruit for fruit in ['apple', 'mango', 'orange', 'banana', 'grape', 'pomegranate'] if fruit in question_lower]
+                fruits_in_content = [fruit for fruit in ['apple', 'mango', 'orange', 'banana', 'grape', 'pomegranate'] if fruit in content_lower]
+                
+                if not any(fruit in fruits_in_content for fruit in fruits_in_question):
+                    logger.info(f"[RAG] Content topic mismatch - Question fruits: {fruits_in_question}, Content fruits: {fruits_in_content}")
+                    return "__FALLBACK__"
+            
+            elif not keyword_match and not context_used:
+                logger.info(f"[RAG] No keyword overlap between question and content")
+                logger.info(f"[RAG] Question keywords: {question_keywords}")
+                logger.info(f"[RAG] Content preview: {content[:100]}...")
                 return "__FALLBACK__"
             quality_check_time = time.time() - quality_check_start
             logger.info(f"[TIMING] Quality check took: {quality_check_time:.3f}s")
             
-            # Generate response from RAG content
             llm_generation_start = time.time()
             try:
                 prompt_construction_start = time.time()
@@ -837,8 +878,16 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 logger.info(f"[TIMING] LLM generation took: {actual_llm_time:.3f}s")
                 
                 response_processing_start = time.time()
-                logger.info(f"[RAG] Response generated from database (score: {similarity_score})")
+                logger.info(f"[RAG] Response generated from database (distance: {similarity_score:.3f}, relevance: {cosine_score:.3f})")
                 final_response = self.filter_response_thinking(generated_response.strip())
+                
+                # Check if the generated response is meaningful
+                if (len(final_response.strip()) < 20 or 
+                    "I don't have enough information" in final_response or
+                    final_response.strip().lower() in ["sorry", "i cannot", "not available"]):
+                    logger.info(f"[RAG] Generated response insufficient, falling back to tools")
+                    return "__FALLBACK__"
+                
                 final_response += "\n\n<small><i>Source: RAG Database</i></small>"
                 response_processing_time = time.time() - response_processing_start
                 logger.info(f"[TIMING] Response processing took: {response_processing_time:.3f}s")
@@ -865,3 +914,10 @@ Respond as if you are talking directly to the user, not giving advice on what to
         """
         return None
 
+
+
+if __name__ == "__main__":
+    handler = ChromaQueryHandler(chroma_path=r"/home/ubuntu/agrichat-annam/agrichat-backend/Agentic_RAG/Knowledge_base/chromaDb")
+    test_question = "What are the improved varieties of Apple?"
+    response = handler.get_answer(test_question, user_state="haryana")
+    print(response)

@@ -21,9 +21,8 @@ class ChromaDBBuilder:
         df = pd.read_csv(self.csv_path)
         column_map = {
         "DistrictName": "District",
-        "StateName": "State",
-        "QueryText": "Question",
-        "KccAns": "Answer"
+        "QUESTION (by AT)": "Question",
+        "Final Answer": "Answer"
         }
         df.rename(columns=column_map, inplace=True)
         standard_columns = [
@@ -72,17 +71,9 @@ class ChromaDBBuilder:
         print(f"[SUCCESS] Stored {len(self.documents)} agricultural Q/A pairs in ChromaDB at: {self.persist_dir}")
 
 if __name__ == "__main__":
-    data_folder = r"data/embedded_data"
-    completed_folder = r"data/completed"
-    storage_dir = r"data/chromaDb"
-    os.makedirs(completed_folder, exist_ok=True)
-
-    for filename in os.listdir(data_folder):
-        if filename.lower().endswith(".csv"):
-            csv_file = os.path.join(data_folder, filename)
-            builder = ChromaDBBuilder(csv_path=csv_file, persist_dir=storage_dir)
-            builder.load_csv_to_documents()
-            builder.store_documents_to_chroma()
-            shutil.move(csv_file, os.path.join(completed_folder, filename))
-            print(f"[INFO] Moved {filename} to {completed_folder}")
+    storage_dir = r"/home/ubuntu/agrichat-annam/agrichat-backend/Agentic_RAG/Knowledge_base/chromaDb"
+    csv_file = r"/home/ubuntu/agrichat-annam/agrichat-backend/Agentic_RAG/knowledge base.csv"
+    builder = ChromaDBBuilder(csv_path=csv_file, persist_dir=storage_dir)
+    builder.load_csv_to_documents()
+    builder.store_documents_to_chroma()
 
