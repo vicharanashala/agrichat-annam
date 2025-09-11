@@ -14,7 +14,7 @@ class OllamaLLMInterface:
     def __init__(self, ollama_endpoint: str = None, model_name: str = None, fallback_model: str = None):
         self.ollama_endpoint = ollama_endpoint or f"http://{os.getenv('OLLAMA_HOST', 'localhost:11434')}"
         self.model_name = model_name or os.getenv('OLLAMA_MODEL', 'llama3.1:latest')
-        self.fallback_model = fallback_model or os.getenv('OLLAMA_FALLBACK_MODEL', 'gemma3:27b')
+        self.fallback_model = fallback_model or os.getenv('OLLAMA_FALLBACK_MODEL', 'llama3.1:8b')
         self.session = requests.Session()
 
     def generate_content(self, prompt: str, temperature: float = 0.3, max_tokens: int = 2048, use_fallback: bool = False) -> str:

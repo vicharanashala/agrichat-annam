@@ -71,7 +71,7 @@ class ChromaDBBuilder:
         print(f"[SUCCESS] Stored {len(self.documents)} agricultural Q/A pairs in ChromaDB at: {self.persist_dir}")
 
 if __name__ == "__main__":
-    storage_dir = r"/home/ubuntu/agrichat-annam/agrichat-backend/Agentic_RAG/Knowledge_base/chromaDb"
+    storage_dir = r"/home/ubuntu/agrichat-annam/agrichat-backend/chromaDb"
     csv_file = r"/home/ubuntu/agrichat-annam/agrichat-backend/Agentic_RAG/knowledge base.csv"
     builder = ChromaDBBuilder(csv_path=csv_file, persist_dir=storage_dir)
     builder.load_csv_to_documents()

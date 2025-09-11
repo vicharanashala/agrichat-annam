@@ -16,10 +16,10 @@ from crew_tasks import (
 USE_FAST_MODE = os.getenv("USE_FAST_MODE", "true").lower() == "true"
 
 if os.path.exists("/app"):
-    chroma_path = "/app/Agentic_RAG/Knowledge_base/chromaDb"
+    chroma_path = "/app/chromaDb"
     environment = "Docker"
 else:
-    chroma_path = "/home/ubuntu/agrichat-annam/agrichat-backend/Agentic_RAG/Knowledge_base/chromaDb" 
+    chroma_path = "/home/ubuntu/agrichat-annam/agrichat-backend/chromaDb" 
     environment = "Local"
 
 print(f"[CONFIG] Environment: {environment}")

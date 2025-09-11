@@ -47,7 +47,7 @@ class RAGTool(BaseTool):
 
     def _run(self, question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = "") -> str:
         """
-        Run RAG tool with improved fallback detection
+        Run RAG tool with improved fallback detection and source attribution
         
         Args:
             question: Current user question
@@ -66,27 +66,29 @@ class RAGTool(BaseTool):
         print(f"  conversation_history: {conversation_history}")
         print(f"  user_state: {user_state}")
         
-        import inspect
-        sig = inspect.signature(self._handler.get_answer)
-        print(f"[DEBUG] get_answer signature: {sig}")
-        
         chroma_query_start = time.time()
-        answer = self._handler.get_answer(question, conversation_history, user_state)
+        result = self._handler.get_answer_with_source(question, conversation_history, user_state)
         chroma_query_time = time.time() - chroma_query_start
         print(f"[TIMING] ChromaDB query took: {chroma_query_time:.3f}s")
         
+        print(f"[DEBUG] Query result:")
+        print(f"  Source: {result['source']}")
+        print(f"  Cosine Similarity: {result['cosine_similarity']:.3f}")
+        print(f"  Document Metadata: {result['document_metadata']}")
+        
         fallback_check_start = time.time()
-        if answer.startswith("__FALLBACK__"):
-            log_fallback_to_csv(question, "Database search failed - using LLM fallback", "fallback_queries.csv")
+        if result['answer'].startswith("__FALLBACK__"):
+            log_fallback_to_csv(question, f"Database search failed - using LLM fallback (Source: {result['source']})", "fallback_queries.csv")
             fallback_check_time = time.time() - fallback_check_start
             print(f"[TIMING] Fallback check took: {fallback_check_time:.3f}s")
             return "__FALLBACK__"
         
-        if answer.strip() == "I don't have enough information to answer that.":
+        if result['answer'].strip() == "I don't have enough information to answer that.":
             fallback_check_time = time.time() - fallback_check_start
             print(f"[TIMING] Fallback check took: {fallback_check_time:.3f}s")
             return "__FALLBACK__"
         
+        answer = result['answer']
         if answer.startswith("__NO_SOURCE__"):
             answer = answer.replace("__NO_SOURCE__", "")
         

@@ -24,9 +24,9 @@ class FastResponseHandler:
     def __init__(self):
         """Initialize the fast response handler with direct tool access"""
         if os.path.exists("/app"):
-            chroma_db_path = "/app/Agentic_RAG/Knowledge_base/chromaDb"
+            chroma_db_path = "/app/chromaDb"
         else:
-            chroma_db_path = "/home/ubuntu/agrichat-annam/agrichat-backend/Agentic_RAG/Knowledge_base/chromaDb"
+            chroma_db_path = "/home/ubuntu/agrichat-annam/agrichat-backend/chromaDb"
         
         print(f"[FAST] Environment detection: Docker={os.path.exists('/app')}")
         print(f"[FAST] Using ChromaDB path: {chroma_db_path}")

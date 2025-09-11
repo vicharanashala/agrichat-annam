@@ -617,7 +617,50 @@ Please answer based on our previous discussion about {main_topic}.
                     break
         
         if enhanced_query == original_query and main_topics.get('primary_topic'):
-            enhanced_query = f"{query} (referring to {main_topics['primary_topic']})"
+            # Only add topic reference if the new question seems related to the previous topic
+            primary_topic = main_topics['primary_topic']
+            query_lower = query.lower()
+            
+            # Check if the new question is actually about the same domain/topic
+            is_related_followup = False
+            
+            # Check for semantic relatedness (same disease family, same crop, etc.)
+            if primary_topic:
+                primary_words = set(primary_topic.lower().split())
+                query_words = set(query_lower.split())
+                
+                # If there's word overlap, it might be related
+                if primary_words.intersection(query_words):
+                    is_related_followup = True
+                
+                # Check for generic follow-up patterns that should use context
+                generic_patterns = [
+                    r'^what is (\w+)$',  # "What is X?" where X might be related
+                    r'^how do you (\w+)',  # "How do you..."
+                    r'^tell me about',  # "Tell me about..."
+                    r'^explain',  # "Explain..."
+                ]
+                
+                # Don't add context for these patterns unless there's clear relationship
+                for pattern in generic_patterns:
+                    if re.match(pattern, query_lower):
+                        # For generic questions, only add context if there's strong word overlap
+                        if len(primary_words.intersection(query_words)) >= 1:
+                            is_related_followup = True
+                        else:
+                            is_related_followup = False
+                        break
+            
+            # Special case: Don't link different diseases/pests unless explicitly related
+            disease_keywords = ['blight', 'rust', 'mildew', 'rot', 'wilt', 'spot', 'mosaic', 'disease']
+            if any(keyword in query_lower for keyword in disease_keywords):
+                # This is asking about a specific disease - only link if it's the same disease
+                if primary_topic and primary_topic.lower() not in query_lower:
+                    is_related_followup = False
+            
+            if is_related_followup:
+                enhanced_query = f"{query} (referring to {primary_topic})"
+                print(f"[Context DEBUG] Added explicit context: '{enhanced_query}'")
             print(f"[Context DEBUG] Added explicit context: '{enhanced_query}'")
         
         if enhanced_query:

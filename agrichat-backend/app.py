@@ -72,10 +72,10 @@ from Agentic_RAG.crew_tasks import (
 from Agentic_RAG.chroma_query_handler import ChromaQueryHandler
 
 if os.path.exists("/app"):
-    chroma_db_path = "/app/Agentic_RAG/Knowledge_base/chromaDb"
+    chroma_db_path = "/app/chromaDb"
     environment = "Docker"
 else:
-    chroma_db_path = "/home/ubuntu/agrichat-annam/agrichat-backend/Agentic_RAG/Knowledge_base/chromaDb" 
+    chroma_db_path = "/home/ubuntu/agrichat-annam/agrichat-backend/chromaDb" 
     environment = "Local"
 
 logger.info(f"[CONFIG] Environment: {environment}")
@@ -128,33 +128,33 @@ def format_conversation_context(memory: ConversationBufferWindowMemory) -> str:
 def get_answer(question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None, session_id: str = None) -> str:
     """
     Main answer function that routes to fast mode or CrewAI based on configuration.
-    Enhanced with context resolution for follow-up questions.
+    Simplified structure aligned with main.py pipeline.
     """
-    # Context resolution for follow-up questions
-    context_resolution_start = time.time()
-    if session_id:
-        memory = get_session_memory(session_id)
-        context_str = format_conversation_context(memory)
-        resolved_question = resolve_context_question(question, context_str)
-        if resolved_question != question:
-            logger.info(f"[CONTEXT] Resolved '{question[:50]}...' to '{resolved_question[:50]}...'")
-            question = resolved_question
-    context_resolution_time = time.time() - context_resolution_start
-    logger.info(f"[TIMING] Context resolution took: {context_resolution_time:.3f}s")
+    # Comment out complex context resolution - now handled by enhanced FastResponseHandler
+    # context_resolution_start = time.time()
+    # if session_id:
+    #     memory = get_session_memory(session_id)
+    #     context_str = format_conversation_context(memory)
+    #     resolved_question = resolve_context_question(question, context_str)
+    #     if resolved_question != question:
+    #         logger.info(f"[CONTEXT] Resolved '{question[:50]}...' to '{resolved_question[:50]}...'")
+    #         question = resolved_question
+    # context_resolution_time = time.time() - context_resolution_start
+    # logger.info(f"[TIMING] Context resolution took: {context_resolution_time:.3f}s")
     
     if USE_FAST_MODE and fast_handler:
         response = get_fast_answer(question, conversation_history, user_state)
     else:
         response = get_crewai_answer(question, conversation_history, user_state)
     
-    # Update conversation memory for context tracking
-    memory_update_start = time.time()
-    if session_id:
-        memory.chat_memory.add_user_message(question)
-        memory.chat_memory.add_ai_message(response)
-        logger.info(f"[CONTEXT] Updated memory for session {session_id[:8]}...")
-    memory_update_time = time.time() - memory_update_start
-    logger.info(f"[TIMING] Memory update took: {memory_update_time:.3f}s")
+    # Comment out memory update - handled by enhanced handlers
+    # memory_update_start = time.time()
+    # if session_id:
+    #     memory.chat_memory.add_user_message(question)
+    #     memory.chat_memory.add_ai_message(response)
+    #     logger.info(f"[CONTEXT] Updated memory for session {session_id[:8]}...")
+    # memory_update_time = time.time() - memory_update_start
+    # logger.info(f"[TIMING] Memory update took: {memory_update_time:.3f}s")
     
     return response
 
@@ -165,7 +165,6 @@ def resolve_context_question(question: str, context: str) -> str:
     question_lower = question.lower().strip()
     context_lower = context.lower()
     
-    # Context patterns for follow-up questions
     context_patterns = [
         "how do i cure it", "how to cure it", "cure it", "treat it", "how to treat it",
         "what should i do", "how to fix it", "fix it", "prevent it", "how to prevent it",
@@ -179,15 +178,12 @@ def resolve_context_question(question: str, context: str) -> str:
         "market price", "selling price", "profit", "yield", "production"
     ]
     
-    # Check if it's a follow-up question
     if any(pattern in question_lower for pattern in context_patterns):
-        # Extract recent topics from context
         recent_topics = extract_topics_from_context(context)
         
         if recent_topics:
             topic = recent_topics[0]
             
-            # Enhanced pattern matching for specific agricultural contexts
             if "cure" in question_lower or "treat" in question_lower:
                 if "disease" in topic or "blight" in topic or "spot" in topic or "rot" in topic:
                     return f"How to cure {topic}?"
@@ -337,9 +333,9 @@ def extract_topics_from_context(context: str) -> List[str]:
 
 def get_fast_answer(question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None) -> str:
     """
-    Fast mode using FastResponseHandler for 10-15x faster responses.
+    Fast mode using enhanced FastResponseHandler with source attribution.
     """
-    logger.info(f"[FAST] Processing question with fast handler: {question}")
+    logger.info(f"[FAST] Processing question with enhanced fast handler: {question}")
     try:
         return fast_handler.get_answer(question, conversation_history, user_state)
     except Exception as e:
@@ -351,44 +347,45 @@ def get_crewai_answer(question: str, conversation_history: Optional[List[Dict]] 
     """
     CrewAI mode - original multi-agent approach for complex reasoning.
     """
-    crewai_start = time.time()
     logger.info(f"[CREWAI] Processing question with CrewAI approach: {question}")
     
-    greeting_check_start = time.time()
-    question_lower = question.lower().strip()
-    simple_greetings = [
-        'hi', 'hello', 'hey', 'namaste', 'namaskaram', 'vanakkam', 
-        'good morning', 'good afternoon', 'good evening', 'good day',
-        'howdy', 'greetings', 'salaam', 'adaab', 'hi there', 'hello there'
-    ]
-    
-    if len(question_lower) < 20 and any(greeting in question_lower for greeting in simple_greetings):
-        greeting_time = time.time() - greeting_check_start
-        logger.info(f"[TIMING] Greeting detection took: {greeting_time:.3f}s")
-        logger.info(f"[GREETING] Detected simple greeting: {question}")
-        logger.info(f"[SOURCE] Fast pattern matching used for greeting: {question}")
-        state_context = f" in {user_state}" if user_state and user_state.lower() != "unknown" else " in India"
-        if 'namaste' in question_lower:
-            return f"Namaste! Welcome to AgriChat, your trusted agricultural assistant for Indian farming{state_context}. I specialize in crop management, soil health, weather patterns, and farming practices specific to Indian conditions. What agricultural challenge can I help you with today?"
-        elif 'namaskaram' in question_lower:
-            return f"Namaskaram! I'm your specialized agricultural assistant for Indian farmers{state_context}. Feel free to ask me about Indian crop varieties, monsoon farming, soil management, or any farming techniques suited to Indian climate and conditions."
-        elif 'vanakkam' in question_lower:
-            return f"Vanakkam! I'm here to assist you with Indian farming and agriculture{state_context}. What regional agricultural topic would you like to discuss - from rice cultivation to spice farming, I'm here to help with India-specific guidance!"
-        elif any(time in question_lower for time in ['morning', 'afternoon', 'evening']):
-            time_word = next(time for time in ['morning', 'afternoon', 'evening'] if time in question_lower)
-            return f"Good {time_word}! I'm your agricultural assistant specializing in Indian farming practices{state_context}. How can I help you with your crop management, seasonal farming, or any agriculture-related questions specific to Indian conditions today?"
-        else:
-            return f"Hello! I'm your agricultural assistant specializing in Indian farming and crop management{state_context}. I'm here to help with crops, farming techniques, and agricultural practices tailored to Indian soil, climate, and regional conditions. What would you like to know?"
-    greeting_time = time.time() - greeting_check_start
-    logger.info(f"[TIMING] Greeting check took: {greeting_time:.3f}s")
-    
-    if conversation_history:
-        logger.info(f"[DEBUG] Using conversation context with {len(conversation_history)} previous interactions")
-    if user_state:
-        logger.info(f"[DEBUG] Using frontend-detected state: {user_state}")
+    # Comment out greeting handling - now handled by enhanced FastResponseHandler
+    # greeting_check_start = time.time()
+    # question_lower = question.lower().strip()
+    # simple_greetings = [
+    #     'hi', 'hello', 'hey', 'namaste', 'namaskaram', 'vanakkam', 
+    #     'good morning', 'good afternoon', 'good evening', 'good day',
+    #     'howdy', 'greetings', 'salaam', 'adaab', 'hi there', 'hello there'
+    # ]
+    # 
+    # if len(question_lower) < 20 and any(greeting in question_lower for greeting in simple_greetings):
+    #     greeting_time = time.time() - greeting_check_start
+    #     logger.info(f"[TIMING] Greeting detection took: {greeting_time:.3f}s")
+    #     logger.info(f"[GREETING] Detected simple greeting: {question}")
+    #     logger.info(f"[SOURCE] Fast pattern matching used for greeting: {question}")
+    #     state_context = f" in {user_state}" if user_state and user_state.lower() != "unknown" else " in India"
+    #     if 'namaste' in question_lower:
+    #         return f"Namaste! Welcome to AgriChat, your trusted agricultural assistant for Indian farming{state_context}. I specialize in crop management, soil health, weather patterns, and farming practices specific to Indian conditions. What agricultural challenge can I help you with today?"
+    #     elif 'namaskaram' in question_lower:
+    #         return f"Namaskaram! I'm your specialized agricultural assistant for Indian farmers{state_context}. Feel free to ask me about Indian crop varieties, monsoon farming, soil management, or any farming techniques suited to Indian climate and conditions."
+    #     elif 'vanakkam' in question_lower:
+    #         return f"Vanakkam! I'm here to assist you with Indian farming and agriculture{state_context}. What regional agricultural topic would you like to discuss - from rice cultivation to spice farming, I'm here to help with India-specific guidance!"
+    #     elif any(time in question_lower for time in ['morning', 'afternoon', 'evening']):
+    #         time_word = next(time for time in ['morning', 'afternoon', 'evening'] if time in question_lower)
+    #         return f"Good {time_word}! I'm your agricultural assistant specializing in Indian farming practices{state_context}. How can I help you with your crop management, seasonal farming, or any agriculture-related questions specific to Indian conditions today?"
+    #     else:
+    #         return f"Hello! I'm your agricultural assistant specializing in Indian farming and crop management{state_context}. I'm here to help with crops, farming techniques, and agricultural practices tailored to Indian soil, climate, and regional conditions. What would you like to know?"
+    # greeting_time = time.time() - greeting_check_start
+    # logger.info(f"[TIMING] Greeting check took: {greeting_time:.3f}s")
+    # 
+    # if conversation_history:
+    #     logger.info(f"[DEBUG] Using conversation context with {len(conversation_history)} previous interactions")
+    # if user_state:
+    #     logger.info(f"[DEBUG] Using frontend-detected state: {user_state}")
     
     try:
-        crew_setup_start = time.time()
+        # Comment out detailed timing - keep essential CrewAI functionality
+        # crew_setup_start = time.time()
         rag_crew = Crew(
             agents=[
                 Retriever_Agent
@@ -398,21 +395,22 @@ def get_crewai_answer(question: str, conversation_history: Optional[List[Dict]] 
             ],
             verbose=True,
         )
-        crew_setup_time = time.time() - crew_setup_start
-        logger.info(f"[TIMING] CrewAI setup took: {crew_setup_time:.3f}s")
+        # crew_setup_time = time.time() - crew_setup_start
+        # logger.info(f"[TIMING] CrewAI setup took: {crew_setup_time:.3f}s")
         
-        crew_execution_start = time.time()
+        # crew_execution_start = time.time()
         inputs = {
             "question": question,
             "conversation_history": conversation_history or []
         }
         
         result = rag_crew.kickoff(inputs=inputs)
-        crew_execution_time = time.time() - crew_execution_start
-        logger.info(f"[TIMING] CrewAI execution took: {crew_execution_time:.3f}s")
+        # crew_execution_time = time.time() - crew_execution_start
+        # logger.info(f"[TIMING] CrewAI execution took: {crew_execution_time:.3f}s")
         logger.info(f"[DEBUG] CrewAI result: {result}")
         
-        post_process_start = time.time()
+        # Clean up source tags from CrewAI result
+        # post_process_start = time.time()
         result_str = str(result).strip()
         if "Source: RAG Database" in result_str:
             logger.info(f"[SOURCE] RAG Database used for question: {question[:50]}...")
@@ -420,11 +418,11 @@ def get_crewai_answer(question: str, conversation_history: Optional[List[Dict]] 
         if "Source: Local LLM" in result_str:
             logger.info(f"[SOURCE] Local LLM used for question: {question[:50]}...")
             result_str = result_str.replace("Source: Local LLM", "").strip()
-        post_process_time = time.time() - post_process_start
-        logger.info(f"[TIMING] Post-processing took: {post_process_time:.3f}s")
+        # post_process_time = time.time() - post_process_start
+        # logger.info(f"[TIMING] Post-processing took: {post_process_time:.3f}s")
         
-        total_crewai_time = time.time() - crewai_start
-        logger.info(f"[TIMING] TOTAL CrewAI processing took: {total_crewai_time:.3f}s")
+        # total_crewai_time = time.time() - crewai_start
+        # logger.info(f"[TIMING] TOTAL CrewAI processing took: {total_crewai_time:.3f}s")
         
         return result_str
             
@@ -668,7 +666,7 @@ app = FastAPI(lifespan=lifespan)
 
 origins = [
     "https://agri-annam.vercel.app",
-    "https://a4d298ad5662.ngrok-free.app",
+    "https://443c63b57774.ngrok-free.app",
     "https://localhost:3000",
     "https://127.0.0.1:3000",
     "http://localhost:3000",

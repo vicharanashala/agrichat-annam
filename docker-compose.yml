@@ -50,7 +50,7 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-info}
     volumes:
       - ./agrichat-backend/logs:/app/logs
-      - ./agrichat-backend/chromaDb:/app/Agentic_RAG/Knowledge_base/chromaDb
+      - ./agrichat-backend/chromaDb:/app/chromaDb
       - ./agrichat-backend/ssl:/app/ssl
     restart: unless-stopped
     # GPU Support

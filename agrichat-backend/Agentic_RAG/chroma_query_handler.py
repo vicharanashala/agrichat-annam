@@ -1,9 +1,8 @@
 from langchain_community.vectorstores import Chroma
 import numpy as np
 from numpy.linalg import norm
-import logging
 import re
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 from context_manager import ConversationContext, MemoryStrategy
 from local_llm_interface import local_llm, local_embeddings, run_local_llm
 from datetime import datetime
@@ -12,80 +11,46 @@ import argparse
 import hashlib
 from functools import lru_cache
 
-logger = logging.getLogger("uvicorn.error")
-
 class ChromaQueryHandler:
 
     REGION_INSTRUCTION = """
-IMPORTANT: If a state or region is mentioned in the query, always give preference to that region over the user's location. If the mentioned region is outside India, politely inform the user that you are only trained on Indian agriculture data and cannot answer for other regions. If the query is not related to Indian agriculture, politely inform the user that you are only trained on Indian agriculture data and can only answer questions related to Indian agriculture.
+IMPORTANT: If a state or region is mentioned in the query, always give preference to that region. If the mentioned region is outside India, politely inform the user that you are only trained on Indian agriculture data and cannot answer for other regions. If the query is not related to Indian agriculture, politely inform the user that you are only trained on Indian agriculture data and can only answer questions related to Indian agriculture.
+
+LOCATION FLEXIBILITY: Provide agricultural information from the available context regardless of specific location, as agricultural practices are generally applicable across similar climatic conditions in India. Only mention specific regional context if it's directly relevant to the user's query.
 """
 
     STRUCTURED_PROMPT = """
-You are an expert agricultural assistant. Using only the provided context (do not mention or reveal any metadata such as date, district, state, or season unless the user asks for it), answer the user's question in a detailed and structured manner. Stay strictly within the scope of the user's question and do not introduce unrelated information.
+You are an agricultural assistant. Answer the user's question using ONLY the information provided in the context below. Do not add any external knowledge or information.
 
 IMPORTANT: Always respond in the same language in which the query has been asked.
 
-The user is located in {user_state}. {region_context}
 {region_instruction}
 Current month: {current_month}
 
-### Detailed Explanation
-- Provide a comprehensive, step-by-step explanation using both the context and your own agricultural knowledge, but only as it directly relates to the user's question.
-- Use bullet points, sub-headings, or tables to clarify complex information.
-- Reference and explain all relevant data points from the context.
-- Briefly define technical terms inline if needed.
-- Avoid botanical or scientific explanations that are not relevant to farmers unless explicitly asked.
-- While focusing on {user_state} conditions, you can also provide information about crops not typically grown in {user_state} if the user specifically asks about them.
+INSTRUCTIONS:
+- Use ONLY the information from the provided context
+- If context has sufficient information, provide a clear and helpful answer
+- Provide agricultural information from the available context regardless of specific location, as practices are generally applicable across India
+- Do NOT add any information from external sources or your own knowledge
+- Do NOT mention metadata (dates, districts, states, seasons) unless specifically asked or relevant
+- Structure your response clearly with bullet points or short paragraphs
+- If context is insufficient, respond exactly: "I don't have enough information to answer that."
 
-### Special Instructions for Disease, Fertilizer, Fungicide, or Tonic Queries
-- Whenever a question relates to disease, pest attacks, use of fertilizers, fungicides, plant tonics, or similar agricultural inputs—even if not explicitly stated—include both:
-- Standard recommendations involving chemical fertilizers, fungicides, or plant protection chemicals.
-- Quick low-cost household/natural solutions suitable for farmers seeking alternative approaches.
-- For each method, explain when and why it may be preferable, and note any precautions if relevant.
-- Ensure both professional and practical solutions are always offered unless the question strictly forbids one or the other.
+CRITICAL - For High Similarity Matches (Golden Database):
+- When the context directly answers the user's question (indicating a high similarity match), provide the COMPLETE information from the context
+- Do NOT truncate, summarize, or omit ANY part of the database content - include EVERY detail provided
+- Include ALL practical information such as varieties, timing, spacing, irrigation details, yield information, management practices, precautions, and any other relevant data
+- Ensure EVERY sentence and detail from the database content is included in your response
+- Present the complete information in a well-structured, readable format
+- NEVER leave out yield data, management practices, or cautionary information that appears in the context
 
-### Additional Guidance for General Crop Management Questions (e.g., maximizing yield, disease prevention, necessary precautions)
-- If a general question is asked about growing a particular crop and the database contains information related to that crop, analyze the context of the user's question (such as disease prevention, yield maximization, or best practices).
-- Retrieve and provide all relevant guidance from the database about that crop, including:
-    - Disease management
-    - Best agronomic practices to maximize yield
-    - Important precautions and crop requirements
-    - Fertilizer and input recommendations
-    - Any risks and general crop care tips
-
-### To keep responses concise and focused, the answer should:
-    - Only address the specific question asked, using clear bullet points, tables, or short sub-headings as needed.
-    - Make sure explanations are actionable, practical, and relevant for farmers—avoiding lengthy background or scientific context unless requested.
-    - For questions about diseases, fertilizers, fungicides, or tonics:
-    - Briefly provide both standard (chemical) and quick low-cost/natural solutions, each with a very short explanation and clear usage or caution notes.
-    - For broader crop management questions, summarize key data points (disease management, input use, care tips, risks) in a succinct, easy-to-use manner—only including what's relevant to the query.
-    - Never add unrelated information, avoid detailed paragraphs unless multiple issues are asked, and always keep the response direct and farmer-friendly.
-
-- Even if the database information does not directly match the question, use context and reasoning to include all data points from the database that could help answer the user's general query about that crop.
-- Your response should synthesize the relevant parts of the database connected to the user's request, offering a complete, actionable answer.
-
-IMPORTANT INSTRUCTIONS:
-- Do NOT use placeholder text like [Your Name], [Your Region/Organization], [Company Name], or any text in square brackets
-- Do NOT introduce yourself with a name or organization 
-- Do NOT make assumptions about the user's specific farm, location details, or personal circumstances beyond the provided state
-- Do NOT include your reasoning, thinking process, or assumptions in the answer (e.g., "Since the user is located in...", "I will assume...", "However, since the question does not mention...")
-- Do NOT explain why you're providing certain information or how you interpreted the question
-- Start directly with the agricultural advice and information
-- If this appears to be a follow-up question, acknowledge the previous context naturally
-- Provide direct, helpful advice without template language or meta-commentary
-
-**CRITICAL: If the context does not contain relevant information to properly answer the question, reply exactly:**   
-`I don't have enough information to answer that.`
-
-**Do NOT attempt to provide general agricultural advice or information if it's not specifically supported by the context provided above.**
-
-### Context
+### Context from Database:
 {context}
 
-### User Question
+### User Question:
 {question}
----
-### Your Answer:
+
+### Answer:
 """
 
     CLASSIFIER_PROMPT = """
@@ -181,6 +146,66 @@ Respond as if you are talking directly to the user, not giving advice on what to
         """Generate cache key for query results"""
         cache_data = f"{query}|{user_state or ''}|{str(filter_dict or {})}"
         return hashlib.md5(cache_data.encode()).hexdigest()
+
+    def extract_location_from_query(self, query: str) -> Optional[str]:
+        """Extract location mentioned in the query that should take priority over user location"""
+        indian_states = {
+            'andhra pradesh': 'Andhra Pradesh', 'arunachal pradesh': 'Arunachal Pradesh', 
+            'assam': 'Assam', 'bihar': 'Bihar', 'chhattisgarh': 'Chhattisgarh',
+            'goa': 'Goa', 'gujarat': 'Gujarat', 'haryana': 'Haryana',
+            'himachal pradesh': 'Himachal Pradesh', 'jharkhand': 'Jharkhand',
+            'karnataka': 'Karnataka', 'kerala': 'Kerala', 'madhya pradesh': 'Madhya Pradesh',
+            'maharashtra': 'Maharashtra', 'manipur': 'Manipur', 'meghalaya': 'Meghalaya',
+            'mizoram': 'Mizoram', 'nagaland': 'Nagaland', 'odisha': 'Odisha',
+            'punjab': 'Punjab', 'rajasthan': 'Rajasthan', 'sikkim': 'Sikkim',
+            'tamil nadu': 'Tamil Nadu', 'telangana': 'Telangana', 'tripura': 'Tripura',
+            'uttar pradesh': 'Uttar Pradesh', 'uttarakhand': 'Uttarakhand',
+            'west bengal': 'West Bengal', 'delhi': 'Delhi', 'chandigarh': 'Chandigarh',
+            'andaman and nicobar islands': 'Andaman and Nicobar Islands',
+            'dadra and nagar haveli and daman and diu': 'Dadra and Nagar Haveli and Daman and Diu',
+            'jammu and kashmir': 'Jammu and Kashmir', 'ladakh': 'Ladakh',
+            'lakshadweep': 'Lakshadweep', 'puducherry': 'Puducherry',
+            'ap': 'Andhra Pradesh', 'tn': 'Tamil Nadu', 'up': 'Uttar Pradesh',
+            'mp': 'Madhya Pradesh', 'hp': 'Himachal Pradesh', 'wb': 'West Bengal',
+            'orissa': 'Odisha'
+        }
+        
+        query_lower = query.lower()
+        location_patterns = [
+            r'\bin\s+([a-zA-Z\s]+?)(?:\s|$)',
+            r'\bfrom\s+([a-zA-Z\s]+?)(?:\s|$)',
+            r'\bat\s+([a-zA-Z\s]+?)(?:\s|$)',
+            r'\bof\s+([a-zA-Z\s]+?)(?:\s|$)',
+            r'\b([a-zA-Z\s]+?)\s+state(?:\s|$)',
+            r'\b([a-zA-Z\s]+?)\s+district(?:\s|$)',
+        ]
+        
+        potential_locations = []
+        for pattern in location_patterns:
+            matches = re.findall(pattern, query_lower, re.IGNORECASE)
+            for match in matches:
+                location = match.strip()
+                if len(location) > 2 and location not in ['the', 'and', 'for', 'with', 'can', 'you', 'are', 'how', 'what', 'when', 'where']:
+                    potential_locations.append(location)
+        
+        for location_key, standard_name in indian_states.items():
+            if location_key in query_lower:
+                if re.search(r'\b' + re.escape(location_key) + r'\b', query_lower):
+                    potential_locations.append(standard_name)
+        
+        for location in potential_locations:
+            normalized_location = location.lower().strip()
+            if normalized_location in indian_states:
+                return indian_states[normalized_location]
+        
+        return None
+
+    def determine_effective_location(self, query: str, user_state: str = None) -> str:
+        """Determine the effective location to use for the query"""
+        query_location = self.extract_location_from_query(query)
+        if query_location:
+            return query_location
+        return user_state or "India"
     
     def _cache_query_result(self, cache_key: str, results: list):
         """Cache query results with size limit"""
@@ -494,6 +519,117 @@ Respond as if you are talking directly to the user, not giving advice on what to
     def cosine_sim(self, a, b):
         return np.dot(a, b) / (norm(a) * norm(b))
 
+    def extract_crop_from_query(self, query: str) -> Optional[str]:
+        """
+        Extract specific crop mentioned in the query
+        
+        Args:
+            query: User's question
+            
+        Returns:
+            Crop name if found, None otherwise
+        """
+        query_lower = query.lower()
+        
+        # Define comprehensive crop list
+        crops = [
+            # Fruits
+            'apple', 'mango', 'orange', 'banana', 'grape', 'pomegranate', 'guava', 'papaya',
+            'strawberry', 'cherry', 'peach', 'plum', 'apricot', 'kiwi', 'lemon', 'lime',
+            
+            # Vegetables  
+            'potato', 'tomato', 'onion', 'garlic', 'carrot', 'cabbage', 'cauliflower', 
+            'brinjal', 'eggplant', 'okra', 'radish', 'turnip', 'beetroot', 'capsicum',
+            'pepper', 'chili', 'cucumber', 'bottle gourd', 'bitter gourd', 'pumpkin',
+            'spinach', 'lettuce', 'beans', 'peas',
+            
+            # Cereals
+            'rice', 'wheat', 'maize', 'corn', 'barley', 'oats', 'millet', 'bajra', 
+            'jowar', 'sorghum', 'ragi', 'finger millet',
+            
+            # Pulses
+            'arhar', 'pigeon pea', 'gram', 'chickpea', 'lentil', 'masoor', 'moong', 
+            'urad', 'black gram', 'cowpea', 'field pea',
+            
+            # Cash crops
+            'cotton', 'sugarcane', 'tobacco', 'jute', 'sunflower', 'mustard', 'rapeseed',
+            'groundnut', 'peanut', 'sesame', 'soybean', 'safflower',
+            
+            # Others
+            'ginger', 'turmeric', 'coriander', 'cumin', 'fenugreek', 'fennel'
+        ]
+        
+        # Sort by length (descending) to match longer names first
+        crops.sort(key=len, reverse=True)
+        
+        for crop in crops:
+            if crop in query_lower:
+                return crop
+                
+        return None
+
+    def validate_crop_specificity(self, query: str, documents: List) -> List:
+        """
+        Validate that retrieved documents match the specific crop mentioned in query
+        
+        Args:
+            query: User's question  
+            documents: List of retrieved documents
+            
+        Returns:
+            Filtered list of documents that match the crop specificity
+        """
+        query_crop = self.extract_crop_from_query(query)
+        
+        if not query_crop:
+            # No specific crop mentioned, return all documents
+            return documents
+            
+        
+        crop_matched_docs = []
+        
+        for doc in documents:
+            doc_crop = doc.metadata.get('Crop', '').lower()
+            doc_content = doc.page_content.lower()
+            
+            # Check if document is about the same crop
+            crop_match = False
+            
+            # Direct metadata match
+            if query_crop in doc_crop:
+                crop_match = True
+                
+            # Content-based match (for compound crop names)
+            elif query_crop in doc_content:
+                crop_match = True
+                
+            # Handle common aliases
+            crop_aliases = {
+                'corn': 'maize',
+                'eggplant': 'brinjal', 
+                'peanut': 'groundnut',
+                'chickpea': 'gram',
+                'pigeon pea': 'arhar',
+                'finger millet': 'ragi'
+            }
+            
+            for alias, standard in crop_aliases.items():
+                if (query_crop == alias and standard in doc_crop) or \
+                   (query_crop == standard and alias in doc_crop):
+                    crop_match = True
+                    break
+            
+            if crop_match:
+                crop_matched_docs.append(doc)
+            else:
+                if doc_crop in ['', 'various', 'multiple', 'others', '-']:
+                    crop_matched_docs.append(doc)
+                else:
+                    if query_crop in doc_content:
+                        crop_matched_docs.append(doc)
+        
+        return crop_matched_docs
+
     def evaluate_database_match_quality(self, question: str, docs: List, scores: List[float]) -> str:
         """
         Evaluate the quality of database matches and determine response strategy
@@ -607,28 +743,14 @@ Respond as if you are talking directly to the user, not giving advice on what to
     def construct_structured_prompt(self, context: str, question: str, user_state: str = None) -> str:
         IST = pytz.timezone("Asia/Kolkata")
         current_month = datetime.now(IST).strftime('%B')
-        if user_state:
-            region_data = self.get_region_context(None, user_state)
-            user_region = region_data["region"]
-            regional_context = region_data["context"]
-            
-            return self.STRUCTURED_PROMPT.format(
-                context=context,
-                question=question,
-                user_state=user_region,
-                region_context=regional_context,
-                region_instruction=self.REGION_INSTRUCTION,
-                current_month=current_month
-            )
-        else:
-            return self.STRUCTURED_PROMPT.format(
-                context=context,
-                question=question,
-                user_state="India",
-                region_context="India has diverse agro-climatic zones with rich farming traditions across different states and regions.",
-                region_instruction=self.REGION_INSTRUCTION,
-                current_month=current_month
-            )
+        
+        # Simplified prompt construction without location specificity
+        return self.STRUCTURED_PROMPT.format(
+            context=context,
+            question=question,
+            region_instruction=self.REGION_INSTRUCTION,
+            current_month=current_month
+        )
 
     def classify_query(self, question: str, conversation_history: Optional[List[Dict]] = None) -> str:
         IST = pytz.timezone("Asia/Kolkata")
@@ -647,7 +769,6 @@ Respond as if you are talking directly to the user, not giving advice on what to
             else:
                 return "NON_AGRI"
         except Exception as e:
-            logger.error(f"[Classifier Error] {e}")
             return "NON_AGRI"
 
     def generate_dynamic_response(self, question: str, mode: str, region: str = None) -> str:
@@ -666,7 +787,6 @@ Respond as if you are talking directly to the user, not giving advice on what to
             )
             return self.filter_response_thinking(response_text.strip())
         except Exception as e:
-            logger.error(f"[Dynamic Response Error] {e}")
             return "Sorry, I can only help with agriculture-related questions."
 
     def get_answer(self, question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None) -> str:
@@ -687,9 +807,24 @@ Respond as if you are talking directly to the user, not giving advice on what to
         Returns:
             Generated response from RAG database or __FALLBACK__ indicator
         """
+        result = self.get_answer_with_source(question, conversation_history, user_state)
+        return result['answer']
+
+    def get_answer_with_source(self, question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None) -> Dict[str, any]:
+        """
+        Enhanced RAG approach that returns answer with source information and cosine similarity
+        
+        Returns:
+            Dict containing:
+            - answer: Generated response
+            - source: "Golden Database", "RAG Database", or "Fallback LLM"
+            - cosine_similarity: Similarity score (0.0-1.0)
+            - document_metadata: Metadata of the source document (if applicable)
+        """
         import time
         chroma_handler_start = time.time()
-        logger.info(f"[TIMING] ChromaQueryHandler.get_answer started for: {question[:50]}...")
+        
+        effective_location = self.determine_effective_location(question, user_state)
         
         try:
             greeting_check_start = time.time()
@@ -702,8 +837,6 @@ Respond as if you are talking directly to the user, not giving advice on what to
             
             if len(question_lower) < 20 and any(greeting in question_lower for greeting in simple_greetings):
                 greeting_time = time.time() - greeting_check_start
-                logger.info(f"[TIMING] Greeting detection took: {greeting_time:.3f}s")
-                logger.info(f"[FAST GREETING] Detected simple greeting: {question}")
                 if 'namaste' in question_lower:
                     fast_response = "Namaste! Welcome to AgriChat. I'm here to help you with all your farming and agriculture questions. What would you like to know about?"
                 elif 'namaskaram' in question_lower:
@@ -715,37 +848,47 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 else:
                     fast_response = "Hello! I'm your agricultural assistant. I'm here to help with farming, crops, and agricultural practices. What would you like to know?"
                 
-                return f"__NO_SOURCE__{fast_response}"
+                return {
+                    'answer': f"__NO_SOURCE__{fast_response}",
+                    'source': "Fallback LLM",
+                    'cosine_similarity': 0.0,
+                    'document_metadata': None
+                }
             greeting_time = time.time() - greeting_check_start
-            logger.info(f"[TIMING] Greeting check took: {greeting_time:.3f}s")
             
             context_processing_start = time.time()
             processing_query = question
             context_used = False
             
             if conversation_history:
-                logger.info(f"[Context DEBUG] Received conversation history with {len(conversation_history)} entries")
                 enhanced_query_result = self.context_manager.enhance_query_with_cot(question, conversation_history)
                 
                 if enhanced_query_result['requires_cot'] or enhanced_query_result['context_used']:
                     processing_query = enhanced_query_result['enhanced_query']
                     context_used = True
-                    logger.info(f"[CoT DEBUG] Using enhanced query with context")
             context_processing_time = time.time() - context_processing_start
-            logger.info(f"[TIMING] Context processing took: {context_processing_time:.3f}s")
             
             query_classification_start = time.time()
             category = self.classify_query(question, conversation_history)
             query_classification_time = time.time() - query_classification_start
-            logger.info(f"[TIMING] Query classification took: {query_classification_time:.3f}s")
             
             if category == "GREETING":
                 response = self.generate_dynamic_response(question, mode="GREETING")
-                return f"__NO_SOURCE__{response}"
+                return {
+                    'answer': f"__NO_SOURCE__{response}",
+                    'source': "Fallback LLM",
+                    'cosine_similarity': 0.0,
+                    'document_metadata': None
+                }
             
             if category == "NON_AGRI":
                 response = self.generate_dynamic_response(question, mode="NON_AGRI")
-                return f"__NO_SOURCE__{response}"
+                return {
+                    'answer': f"__NO_SOURCE__{response}",
+                    'source': "Fallback LLM",
+                    'cosine_similarity': 0.0,
+                    'document_metadata': None
+                }
 
             database_search_start = time.time()
             try:
@@ -753,47 +896,69 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 expanded_queries = self.expand_query(processing_query)
                 primary_query = expanded_queries[0]
                 query_expansion_time = time.time() - query_expansion_start
-                logger.info(f"[TIMING] Query expansion took: {query_expansion_time:.3f}s")
                 
                 try:
                     filter_creation_start = time.time()
-                    metadata_filter = self._create_metadata_filter(primary_query, user_state)
+                    metadata_filter = self._create_metadata_filter(primary_query, effective_location)
                     filter_creation_time = time.time() - filter_creation_start
-                    logger.info(f"[TIMING] Filter creation took: {filter_creation_time:.3f}s")
                     
                     filtered_search_start = time.time()
                     raw_results = self.db.similarity_search_with_score(primary_query, k=10, filter=metadata_filter)
                     filtered_search_time = time.time() - filtered_search_start
-                    logger.info(f"[TIMING] Filtered search took: {filtered_search_time:.3f}s")
+                    
+                    # PRINT RAW SEARCH RESULTS TO CONSOLE
+                    print(f"\n[RAG SEARCH] Query: '{primary_query}'")
+                    print(f"[RAG SEARCH] Found {len(raw_results)} raw documents from database:")
+                    for i, (doc, score) in enumerate(raw_results[:3]):  # Show top 3
+                        print(f"   Raw Doc {i+1}: Distance={score:.3f} | Crop={doc.metadata.get('Crop', 'N/A')} | State={doc.metadata.get('State', 'N/A')}")
+                        print(f"      Preview: {doc.page_content[:120]}...")
                     
                     if len(raw_results) < 3:
                         unfiltered_search_start = time.time()
                         raw_results = self.db.similarity_search_with_score(primary_query, k=10, filter=None)
                         unfiltered_search_time = time.time() - unfiltered_search_start
-                        logger.info(f"[TIMING] Unfiltered search took: {unfiltered_search_time:.3f}s")
                 except Exception as e:
-                    logger.warning(f"[RAG] Error with filtered search: {e}")
                     fallback_search_start = time.time()
                     raw_results = self.db.similarity_search_with_score(primary_query, k=10, filter=None)
                     fallback_search_time = time.time() - fallback_search_start
-                    logger.info(f"[TIMING] Fallback search took: {fallback_search_time:.3f}s")
                 
             except Exception as e:
-                logger.error(f"[RAG] Database search failed: {e}")
-                return "__FALLBACK__"
+                return {
+                    'answer': "__FALLBACK__",
+                    'source': "Fallback LLM",
+                    'cosine_similarity': 0.0,
+                    'document_metadata': None
+                }
             
             database_search_time = time.time() - database_search_start
-            logger.info(f"[TIMING] Database search total took: {database_search_time:.3f}s")
                 
             rerank_start = time.time()
             relevant_docs = self.rerank_documents(processing_query, raw_results)
             rerank_time = time.time() - rerank_start
-            logger.info(f"[TIMING] Document reranking took: {rerank_time:.3f}s")
+            
+            crop_filter_start = time.time()
+            crop_filtered_docs = self.validate_crop_specificity(processing_query, relevant_docs)
+            crop_filter_time = time.time() - crop_filter_start
+            
+            relevant_docs = crop_filtered_docs
+            
+            print("=" * 70)
+            for i, doc in enumerate(relevant_docs[:3]):
+                print(f"DOCUMENT {i+1}:")
+                print(f"   Metadata: Crop={doc.metadata.get('Crop', 'N/A')}, State={doc.metadata.get('State', 'N/A')}, District={doc.metadata.get('District', 'N/A')}")
+                print(f"   Content Preview: {doc.page_content[:200]}...")
+                if i < len(relevant_docs) - 1:
+                    print("-" * 50)
+            print("=" * 70)
             
             quality_check_start = time.time()
             if not relevant_docs or not relevant_docs[0].page_content.strip():
-                logger.info(f"[RAG] No relevant documents found")
-                return "__FALLBACK__"
+                return {
+                    'answer': "__FALLBACK__",
+                    'source': "Fallback LLM",
+                    'cosine_similarity': 0.0,
+                    'document_metadata': None
+                }
             
             content = relevant_docs[0].page_content.strip()
             
@@ -801,8 +966,12 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 'Question: Others' in content or 
                 'Answer: Others' in content or
                 len(content) < 50):
-                logger.info(f"[RAG] Content failed quality filter")
-                return "__FALLBACK__"
+                return {
+                    'answer': "__FALLBACK__",
+                    'source': "Fallback LLM",
+                    'cosine_similarity': 0.0,
+                    'document_metadata': None
+                }
             
             similarity_score = None
             for doc, score in raw_results:
@@ -810,62 +979,86 @@ Respond as if you are talking directly to the user, not giving advice on what to
                     similarity_score = score
                     break
             
-            # Much stricter threshold - similarity scores are distances (lower is better)
-            # ChromaDB returns distances, not similarities, so lower values indicate better matches
-            max_distance_threshold = 0.5  # Maximum allowed distance for RAG response
-            
-            if similarity_score is not None and similarity_score > max_distance_threshold and not context_used:
-                logger.info(f"[RAG] Document distance too high: {similarity_score:.3f} > {max_distance_threshold}")
-                return "__FALLBACK__"
-            
-            # Additional check: ensure document has sufficient relevance through combined scoring
+            # Calculate cosine similarity between query and content
             query_embedding = self.embedding_function.embed_query(processing_query)
             content_embedding = self.embedding_function.embed_query(content)
             cosine_score = self.cosine_sim(query_embedding, content_embedding)
             
-            min_relevance_threshold = 0.3  # Minimum cosine similarity for relevance
-            if cosine_score < min_relevance_threshold and not context_used:
-                logger.info(f"[RAG] Content relevance too low: {cosine_score:.3f} < {min_relevance_threshold}")
-                return "__FALLBACK__"
+            # ChromaDB uses distance (lower = better), so we want LOW distance scores
+            # Only reject if distance is too HIGH (meaning poor match)
+            max_distance_threshold = 0.7  # Increased threshold - only reject very poor matches
             
-            # NEW: Check if the content actually contains information about the queried crop/topic
+            if similarity_score is not None and similarity_score > max_distance_threshold and not context_used:
+                print(f"[DEBUG] Rejecting due to high distance: {similarity_score:.3f} > {max_distance_threshold}")
+                return {
+                    'answer': "__FALLBACK__",
+                    'source': "Fallback LLM",
+                    'cosine_similarity': cosine_score,
+                    'document_metadata': None
+                }
+            
+            # Minimum cosine similarity threshold (higher = better match)
+            min_relevance_threshold = 0.2  # Lowered threshold to be more inclusive
+            if cosine_score < min_relevance_threshold and not context_used:
+                print(f"[DEBUG] Rejecting due to low cosine similarity: {cosine_score:.3f} < {min_relevance_threshold}")
+                return {
+                    'answer': "__FALLBACK__",
+                    'source': "Fallback LLM",
+                    'cosine_similarity': cosine_score,
+                    'document_metadata': None
+                }
+            
             question_lower = processing_query.lower()
             content_lower = content.lower()
             
-            # Extract key topics from the question
+            # Improved keyword extraction - strip punctuation
+            import string
+            question_clean = question_lower.translate(str.maketrans('', '', string.punctuation))
             question_keywords = set()
-            for word in question_lower.split():
-                if len(word) > 3 and word not in {'what', 'are', 'the', 'improved', 'varieties', 'which', 'how', 'when', 'where', 'why', 'can', 'should'}:
+            for word in question_clean.split():
+                if len(word) > 3 and word not in {'what', 'are', 'the', 'improved', 'varieties', 'which', 'how', 'when', 'where', 'why', 'can', 'should', 'with', 'from', 'this', 'that'}:
                     question_keywords.add(word)
             
-            # Check if any important keywords from question appear in content
             content_keywords = set(content_lower.split())
             keyword_match = bool(question_keywords.intersection(content_keywords))
             
-            # Special check for crop-specific queries
+            print(f"[DEBUG] Question keywords: {question_keywords}")
+            print(f"[DEBUG] Keyword match found: {keyword_match}")
+            print(f"[DEBUG] Distance: {similarity_score:.3f}, Cosine: {cosine_score:.3f}")
+            
             if not keyword_match and any(crop_word in question_lower for crop_word in ['apple', 'mango', 'orange', 'banana', 'grape', 'pomegranate']):
-                # For fruit queries, ensure the content mentions the same fruit
                 fruits_in_question = [fruit for fruit in ['apple', 'mango', 'orange', 'banana', 'grape', 'pomegranate'] if fruit in question_lower]
                 fruits_in_content = [fruit for fruit in ['apple', 'mango', 'orange', 'banana', 'grape', 'pomegranate'] if fruit in content_lower]
                 
                 if not any(fruit in fruits_in_content for fruit in fruits_in_question):
-                    logger.info(f"[RAG] Content topic mismatch - Question fruits: {fruits_in_question}, Content fruits: {fruits_in_content}")
-                    return "__FALLBACK__"
+                    return {
+                        'answer': "__FALLBACK__",
+                        'source': "Fallback LLM",
+                        'cosine_similarity': cosine_score,
+                        'document_metadata': None
+                    }
             
             elif not keyword_match and not context_used:
-                logger.info(f"[RAG] No keyword overlap between question and content")
-                logger.info(f"[RAG] Question keywords: {question_keywords}")
-                logger.info(f"[RAG] Content preview: {content[:100]}...")
-                return "__FALLBACK__"
+                return {
+                    'answer': "__FALLBACK__",
+                    'source': "Fallback LLM",
+                    'cosine_similarity': cosine_score,
+                    'document_metadata': None
+                }
             quality_check_time = time.time() - quality_check_start
-            logger.info(f"[TIMING] Quality check took: {quality_check_time:.3f}s")
+            
+            document_metadata = relevant_docs[0].metadata
             
             llm_generation_start = time.time()
             try:
                 prompt_construction_start = time.time()
-                prompt = self.construct_structured_prompt(content, processing_query, user_state)
+                prompt = self.construct_structured_prompt(content, processing_query, effective_location)
                 prompt_construction_time = time.time() - prompt_construction_start
-                logger.info(f"[TIMING] Prompt construction took: {prompt_construction_time:.3f}s")
+                
+                # Debug logging to understand what context the LLM is getting
+                print(f"[DEBUG] Context being sent to LLM: {content[:500]}...")
+                print(f"[DEBUG] User query: {processing_query}")
+                # Removed user location debug since we're not using location-specific validation
                 
                 actual_llm_start = time.time()
                 generated_response = run_local_llm(
@@ -875,38 +1068,85 @@ Respond as if you are talking directly to the user, not giving advice on what to
                     use_fallback=False
                 )
                 actual_llm_time = time.time() - actual_llm_start
-                logger.info(f"[TIMING] LLM generation took: {actual_llm_time:.3f}s")
+                
+                print(f"[DEBUG] LLM raw response: {generated_response}")
                 
                 response_processing_start = time.time()
-                logger.info(f"[RAG] Response generated from database (distance: {similarity_score:.3f}, relevance: {cosine_score:.3f})")
                 final_response = self.filter_response_thinking(generated_response.strip())
                 
-                # Check if the generated response is meaningful
-                if (len(final_response.strip()) < 20 or 
-                    "I don't have enough information" in final_response or
-                    final_response.strip().lower() in ["sorry", "i cannot", "not available"]):
-                    logger.info(f"[RAG] Generated response insufficient, falling back to tools")
-                    return "__FALLBACK__"
+                # Enhanced validation logic - be more permissive for high-quality matches
+                is_high_quality_match = cosine_score > 0.7
+                is_very_short = len(final_response.strip()) < 20
+                has_insufficient_info = "I don't have enough information" in final_response
+                is_rejection = final_response.strip().lower() in ["sorry", "i cannot", "not available"]
                 
-                final_response += "\n\n<small><i>Source: RAG Database</i></small>"
+                # For high-quality matches, check if response has useful information despite disclaimers
+                if is_high_quality_match and has_insufficient_info:
+                    # Check if response contains useful agricultural information despite the disclaimer
+                    useful_keywords = ['sown', 'sowing', 'plant', 'cultivation', 'variety', 'season', 'month', 'temperature', 'spacing', 'irrigation', 'yield', 'management']
+                    has_useful_content = any(keyword in final_response.lower() for keyword in useful_keywords)
+                    response_length = len(final_response.strip())
+                    
+                    # If it's a high-quality match with some useful content, use it instead of fallback
+                    if has_useful_content and response_length > 50:
+                        print(f"[DEBUG] High-quality match (cosine={cosine_score:.3f}) with useful content despite disclaimer, proceeding...")
+                    else:
+                        return {
+                            'answer': "__FALLBACK__",
+                            'source': "Fallback LLM",
+                            'cosine_similarity': cosine_score,
+                            'document_metadata': document_metadata
+                        }
+                elif is_very_short or is_rejection:
+                    return {
+                        'answer': "__FALLBACK__",
+                        'source': "Fallback LLM",
+                        'cosine_similarity': cosine_score,
+                        'document_metadata': document_metadata
+                    }
+                elif has_insufficient_info and not is_high_quality_match:
+                    return {
+                        'answer': "__FALLBACK__",
+                        'source': "Fallback LLM",
+                        'cosine_similarity': cosine_score,
+                        'document_metadata': document_metadata
+                    }
+                
+                if cosine_score > 0.7:
+                    source_type = "Golden Database"
+                    source_text = f"\n\n<small><i>Source: {source_type}</i></small>"
+                else:
+                    source_type = "RAG Database"
+                    source_text = f"\n\n<small><i>Source: {source_type}</i></small>"
+                
+                final_response += source_text
                 response_processing_time = time.time() - response_processing_start
-                logger.info(f"[TIMING] Response processing took: {response_processing_time:.3f}s")
                 
                 llm_generation_time = time.time() - llm_generation_start
-                logger.info(f"[TIMING] Total LLM generation took: {llm_generation_time:.3f}s")
-                
                 total_chroma_time = time.time() - chroma_handler_start
-                logger.info(f"[TIMING] TOTAL ChromaQueryHandler took: {total_chroma_time:.3f}s")
                 
-                return final_response
+                return {
+                    'answer': final_response,
+                    'source': source_type,
+                    'cosine_similarity': cosine_score,
+                    'document_metadata': document_metadata
+                }
                 
             except Exception as e:
-                logger.error(f"[RAG] Response generation failed: {e}")
-                return "__FALLBACK__"
+                return {
+                    'answer': "__FALLBACK__",
+                    'source': "Fallback LLM",
+                    'cosine_similarity': 0.0,
+                    'document_metadata': None
+                }
             
         except Exception as e:
-            logger.error(f"[RAG] Unexpected error: {e}")
-            return "__FALLBACK__"
+            return {
+                'answer': "__FALLBACK__",
+                'source': "Fallback LLM",
+                'cosine_similarity': 0.0,
+                'document_metadata': None
+            }
 
     def get_context_summary(self, conversation_history: List[Dict]) -> Optional[str]:
         """
@@ -915,9 +1155,11 @@ Respond as if you are talking directly to the user, not giving advice on what to
         return None
 
 
-
 if __name__ == "__main__":
-    handler = ChromaQueryHandler(chroma_path=r"/home/ubuntu/agrichat-annam/agrichat-backend/Agentic_RAG/Knowledge_base/chromaDb")
-    test_question = "What are the improved varieties of Apple?"
-    response = handler.get_answer(test_question, user_state="haryana")
-    print(response)
+    handler = ChromaQueryHandler(chroma_path="/home/ubuntu/agrichat-annam/agrichat-backend/chromaDb")
+    test_question = "What is the sowing time of Cauliflower?"
+    result = handler.get_answer_with_source(test_question, user_state="haryana")
+    print("Final Answer:", result['answer'])
+    print("Source:", result['source'])
+    print("Cosine Similarity:", result['cosine_similarity'])
+    print("Document Metadata:", result['document_metadata'])
