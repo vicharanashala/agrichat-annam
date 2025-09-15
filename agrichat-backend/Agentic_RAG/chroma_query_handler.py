@@ -114,10 +114,33 @@ Respond as if you are talking directly to the user, not giving advice on what to
         
         self.local_llm = local_llm
         
+        # Initialize main database collection
         self.db = Chroma(
             persist_directory=chroma_path,
             embedding_function=self.embedding_function,
         )
+        
+        # Initialize Package of Practices database as fallback
+        self.pops_available = False
+        self.pops_db = None
+        
+        try:
+            self.pops_db = Chroma(
+                collection_name="package_of_practices",
+                persist_directory=chroma_path,
+                embedding_function=self.embedding_function,
+            )
+            # Test if collection exists and has data
+            test_results = self.pops_db.similarity_search("test", k=1)
+            if test_results:
+                self.pops_available = True
+                print(f"[ChromaQueryHandler] PoPs database available as fallback")
+            else:
+                print(f"[ChromaQueryHandler] PoPs collection exists but is empty")
+        except Exception as e:
+            print(f"[ChromaQueryHandler] PoPs database not available: {e}")
+            self.pops_db = None
+            self.pops_available = False
         
         self.context_manager = ConversationContext(
             max_context_pairs=5,
@@ -789,6 +812,220 @@ Respond as if you are talking directly to the user, not giving advice on what to
         except Exception as e:
             return "Sorry, I can only help with agriculture-related questions."
 
+    def search_pops_fallback(self, question: str, effective_location: str = None) -> Dict[str, any]:
+        """
+        Fallback search in PoPs database with very lenient thresholds
+        This is used as the final fallback before going to LLM
+        
+        Args:
+            question: The user's question
+            effective_location: User's location for context
+            
+        Returns:
+            Dict with answer, source, cosine_similarity, and document_metadata
+            Returns fallback dict if no suitable content found
+        """
+        if not self.pops_available:
+            print("[POPS FALLBACK] PoPs database not available, proceeding to LLM")
+            return {
+                'answer': "__FALLBACK__",
+                'source': "Fallback LLM",
+                'cosine_similarity': 0.0,
+                'document_metadata': None
+            }
+        
+        try:
+            print(f"[POPS FALLBACK] Searching PoPs database for: '{question}'")
+            
+            # Very lenient search - just look for any relevant content
+            pops_results = self.pops_db.similarity_search_with_score(question, k=5, filter=None)
+            
+            if not pops_results:
+                print("[POPS FALLBACK] No results found in PoPs database")
+                return {
+                    'answer': "__FALLBACK__",
+                    'source': "Fallback LLM",
+                    'cosine_similarity': 0.0,
+                    'document_metadata': None
+                }
+            
+            print(f"[POPS FALLBACK] Found {len(pops_results)} results in PoPs database")
+            
+            # Log all results for debugging
+            for i, (doc, score) in enumerate(pops_results[:3]):
+                print(f"   PoPs Result {i+1}: Distance={score:.3f}")
+                print(f"      Content Preview: {doc.page_content[:100]}...")
+            
+            # Use the best result but apply stricter criteria than main RAG
+            best_doc, best_score = pops_results[0]
+            content = best_doc.page_content.strip()
+            
+            # Quality check 1: Content length
+            if len(content) < 50:
+                print(f"[POPS FALLBACK] Content too short ({len(content)} chars), proceeding to LLM")
+                return {
+                    'answer': "__FALLBACK__",
+                    'source': "Fallback LLM",
+                    'cosine_similarity': 0.0,
+                    'document_metadata': None
+                }
+            
+            # Calculate cosine similarity for scoring
+            query_embedding = self.embedding_function.embed_query(question)
+            content_embedding = self.embedding_function.embed_query(content)
+            cosine_score = self.cosine_sim(query_embedding, content_embedding)
+            
+            print(f"[POPS FALLBACK] Best result analysis:")
+            print(f"   Distance: {best_score:.3f}, Cosine: {cosine_score:.3f}")
+            print(f"   Content preview: {content[:150]}...")
+            
+            # Quality check 2: Distance threshold (ChromaDB uses distance, lower is better)
+            if best_score > 300.0:  # Very high distance = very poor match
+                print(f"[POPS FALLBACK] Distance too high ({best_score:.3f} > 300.0), proceeding to LLM")
+                return {
+                    'answer': "__FALLBACK__",
+                    'source': "Fallback LLM",
+                    'cosine_similarity': cosine_score,
+                    'document_metadata': None
+                }
+            
+            # Quality check 3: Cosine similarity threshold (higher is better)
+            if cosine_score < 0.4:  # Stricter than the 0.2 used in main RAG
+                print(f"[POPS FALLBACK] Cosine similarity too low ({cosine_score:.3f} < 0.4), proceeding to LLM")
+                return {
+                    'answer': "__FALLBACK__",
+                    'source': "Fallback LLM",
+                    'cosine_similarity': cosine_score,
+                    'document_metadata': None
+                }
+            
+            # Quality check 4: Basic keyword matching for agricultural relevance
+            question_lower = question.lower()
+            content_lower = content.lower()
+            
+            # Extract meaningful keywords from question (excluding common words)
+            import string
+            question_clean = question_lower.translate(str.maketrans('', '', string.punctuation))
+            question_keywords = set()
+            common_words = {'what', 'how', 'when', 'where', 'why', 'can', 'should', 'with', 'from', 'this', 'that', 'are', 'the', 'for', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'of', 'is', 'it'}
+            
+            for word in question_clean.split():
+                if len(word) > 3 and word not in common_words:
+                    question_keywords.add(word)
+            
+            content_keywords = set(content_lower.split())
+            keyword_match = bool(question_keywords.intersection(content_keywords))
+            
+            print(f"[POPS FALLBACK] Keyword analysis:")
+            print(f"   Question keywords: {question_keywords}")
+            print(f"   Keyword match found: {keyword_match}")
+            
+            if not keyword_match:
+                print(f"[POPS FALLBACK] No keyword match found, proceeding to LLM")
+                return {
+                    'answer': "__FALLBACK__",
+                    'source': "Fallback LLM",
+                    'cosine_similarity': cosine_score,
+                    'document_metadata': None
+                }
+            
+            print(f"[POPS FALLBACK] ✓ Content passed all quality checks, generating response")
+            print(f"[POPS FALLBACK] Final scores - Distance: {best_score:.3f}, Cosine: {cosine_score:.3f}, Keywords: {keyword_match}")
+            
+            pops_prompt = f"""You are an agricultural expert assistant. Based on the following agricultural content, answer the user's question as helpfully as possible. Even if the content doesn't directly answer the question, extract any relevant agricultural information that might be useful.
+
+Content from agricultural database:
+{content}
+
+User Question: {question}
+
+Instructions:
+- Extract and provide any relevant agricultural information from the content
+- If the content mentions related crops, practices, or techniques, include them
+- Be helpful and informative even if the match isn't perfect
+- If location context is relevant, consider the user is in {effective_location if effective_location else 'India'}
+- Focus on practical agricultural advice
+
+Response:"""
+            
+            try:
+                generated_response = run_local_llm(
+                    pops_prompt,
+                    temperature=0.4,
+                    max_tokens=1024,
+                    use_fallback=False
+                )
+                
+                final_response = self.filter_response_thinking(generated_response.strip())
+                
+                # Stricter response validation for PoPs fallback
+                is_too_short = len(final_response.strip()) < 30  # Increased from 15
+                is_refusal = any(phrase in final_response.lower() for phrase in [
+                    "i don't have enough information",
+                    "i cannot answer",
+                    "not enough information",
+                    "insufficient information",
+                    "i don't have information",
+                    "unable to provide",
+                    "cannot provide information",
+                    "the provided content doesn't",
+                    "the content doesn't provide",
+                    "no information available"
+                ])
+                
+                # Check if response actually contains useful agricultural information
+                agricultural_keywords = [
+                    'crop', 'plant', 'seed', 'soil', 'fertilizer', 'irrigation', 'harvest', 
+                    'cultivation', 'farming', 'agriculture', 'variety', 'season', 'sowing',
+                    'spacing', 'disease', 'pest', 'yield', 'management', 'treatment'
+                ]
+                has_agri_content = any(keyword in final_response.lower() for keyword in agricultural_keywords)
+                
+                print(f"[POPS FALLBACK] Response validation:")
+                print(f"   Length: {len(final_response.strip())} chars (min: 30)")
+                print(f"   Has agricultural content: {has_agri_content}")
+                print(f"   Is refusal: {is_refusal}")
+                print(f"   Response preview: {final_response[:100]}...")
+                
+                if not is_too_short and not is_refusal and has_agri_content:
+                    source_text = "\n\n<small><i>Source: PoPs Database</i></small>"
+                    final_response += source_text
+                    
+                    print(f"[POPS FALLBACK] ✓ Successfully generated valid response from PoPs content")
+                    return {
+                        'answer': final_response,
+                        'source': "PoPs Database",
+                        'cosine_similarity': cosine_score,
+                        'document_metadata': best_doc.metadata
+                    }
+                else:
+                    print(f"[POPS FALLBACK] Response validation failed")
+                    print(f"   Reasons: too_short={is_too_short}, refusal={is_refusal}, no_agri_content={not has_agri_content}")
+                    return {
+                        'answer': "__FALLBACK__",
+                        'source': "Fallback LLM",
+                        'cosine_similarity': cosine_score,
+                        'document_metadata': None
+                    }
+                    
+            except Exception as e:
+                print(f"[POPS FALLBACK] LLM generation failed: {e}")
+                return {
+                    'answer': "__FALLBACK__",
+                    'source': "Fallback LLM",
+                    'cosine_similarity': cosine_score,
+                    'document_metadata': None
+                }
+                
+        except Exception as e:
+            print(f"[POPS FALLBACK] PoPs search failed: {e}")
+            return {
+                'answer': "__FALLBACK__",
+                'source': "Fallback LLM",
+                'cosine_similarity': 0.0,
+                'document_metadata': None
+            }
+
     def get_answer(self, question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None) -> str:
         """
         RAG-only approach - uses only database content, no fallback
@@ -814,9 +1051,46 @@ Respond as if you are talking directly to the user, not giving advice on what to
         """
         Enhanced RAG approach that returns answer with source information and cosine similarity
         
+        Flow: Golden Database → RAG Database → PoPs Database → LLM Fallback
+        
         Returns:
             Dict containing:
             - answer: Generated response
+            - source: "Golden Database", "RAG Database", "PoPs Database", or "Fallback LLM"
+            - cosine_similarity: Similarity score (0.0-1.0)
+            - document_metadata: Metadata of the source document (if applicable)
+        """
+        # First try the main RAG/Golden database approach
+        result = self._get_answer_with_source_main(question, conversation_history, user_state)
+        
+        # If main approach returns fallback, try PoPs database before going to LLM
+        if result['answer'] == "__FALLBACK__":
+            print("[FINAL FALLBACK] Main RAG/Golden search failed, trying PoPs database...")
+            effective_location = self.determine_effective_location(question, user_state)
+            
+            # Enhanced query processing for PoPs fallback
+            processing_query = question
+            if conversation_history:
+                enhanced_query_result = self.context_manager.enhance_query_with_cot(question, conversation_history)
+                if enhanced_query_result['requires_cot'] or enhanced_query_result['context_used']:
+                    processing_query = enhanced_query_result['enhanced_query']
+            
+            pops_result = self.search_pops_fallback(processing_query, effective_location)
+            if pops_result['answer'] != "__FALLBACK__":
+                print("[FINAL FALLBACK] ✓ PoPs database provided answer")
+                return pops_result
+            else:
+                print("[FINAL FALLBACK] PoPs database also failed, proceeding to LLM")
+        
+        return result
+
+    def _get_answer_with_source_main(self, question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None) -> Dict[str, any]:
+        """
+        Main RAG approach for Golden/RAG databases only
+        
+        Returns:
+            Dict containing:
+            - answer: Generated response or "__FALLBACK__"
             - source: "Golden Database", "RAG Database", or "Fallback LLM"
             - cosine_similarity: Similarity score (0.0-1.0)
             - document_metadata: Metadata of the source document (if applicable)
@@ -897,32 +1171,39 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 primary_query = expanded_queries[0]
                 query_expansion_time = time.time() - query_expansion_start
                 
-                try:
-                    filter_creation_start = time.time()
-                    metadata_filter = self._create_metadata_filter(primary_query, effective_location)
-                    filter_creation_time = time.time() - filter_creation_start
+                # Create metadata filter
+                filter_creation_start = time.time()
+                metadata_filter = self._create_metadata_filter(primary_query, effective_location)
+                filter_creation_time = time.time() - filter_creation_start
+                
+                # Perform database search
+                db_query_start = time.time()
+                raw_results = self.db.similarity_search_with_score(primary_query, k=10, filter=metadata_filter)
+                db_query_time = time.time() - db_query_start
+                
+                # PRINT SEARCH RESULTS TO CONSOLE
+                print(f"\n[RAG SEARCH] Query: '{primary_query}'")
+                print(f"[RAG SEARCH] Database returned {len(raw_results)} results")
+                
+                for i, (doc, score) in enumerate(raw_results[:3]):  # Show top 3
+                    print(f"   Result {i+1}: Distance={score:.3f}")
+                    print(f"      Crop={doc.metadata.get('Crop', 'N/A')} | State={doc.metadata.get('State', 'N/A')}")
+                    print(f"      Content Preview: {doc.page_content[:120]}...")
+                
+                # Fallback to unfiltered search if no results
+                if len(raw_results) < 3:
+                    print(f"[RAG SEARCH] Few results found, trying unfiltered search...")
+                    unfiltered_search_start = time.time()
+                    fallback_results = self.db.similarity_search_with_score(primary_query, k=10, filter=None)
+                    unfiltered_search_time = time.time() - unfiltered_search_start
                     
-                    filtered_search_start = time.time()
-                    raw_results = self.db.similarity_search_with_score(primary_query, k=10, filter=metadata_filter)
-                    filtered_search_time = time.time() - filtered_search_start
-                    
-                    # PRINT RAW SEARCH RESULTS TO CONSOLE
-                    print(f"\n[RAG SEARCH] Query: '{primary_query}'")
-                    print(f"[RAG SEARCH] Found {len(raw_results)} raw documents from database:")
-                    for i, (doc, score) in enumerate(raw_results[:3]):  # Show top 3
-                        print(f"   Raw Doc {i+1}: Distance={score:.3f} | Crop={doc.metadata.get('Crop', 'N/A')} | State={doc.metadata.get('State', 'N/A')}")
-                        print(f"      Preview: {doc.page_content[:120]}...")
-                    
-                    if len(raw_results) < 3:
-                        unfiltered_search_start = time.time()
-                        raw_results = self.db.similarity_search_with_score(primary_query, k=10, filter=None)
-                        unfiltered_search_time = time.time() - unfiltered_search_start
-                except Exception as e:
-                    fallback_search_start = time.time()
-                    raw_results = self.db.similarity_search_with_score(primary_query, k=10, filter=None)
-                    fallback_search_time = time.time() - fallback_search_start
+                    # Add fallback results if they're better
+                    for doc, score in fallback_results:
+                        if not any(existing_doc.page_content == doc.page_content for existing_doc, _ in raw_results):
+                            raw_results.append((doc, score))
                 
             except Exception as e:
+                print(f"[RAG SEARCH] Database search failed: {e}")
                 return {
                     'answer': "__FALLBACK__",
                     'source': "Fallback LLM",
@@ -935,6 +1216,9 @@ Respond as if you are talking directly to the user, not giving advice on what to
             rerank_start = time.time()
             relevant_docs = self.rerank_documents(processing_query, raw_results)
             rerank_time = time.time() - rerank_start
+            
+            # Update results count after reranking
+            print(f"[SOURCE ATTRIBUTION] Reranked Results Count: {len(relevant_docs)}")
             
             crop_filter_start = time.time()
             crop_filtered_docs = self.validate_crop_specificity(processing_query, relevant_docs)
@@ -953,6 +1237,7 @@ Respond as if you are talking directly to the user, not giving advice on what to
             
             quality_check_start = time.time()
             if not relevant_docs or not relevant_docs[0].page_content.strip():
+                print(f"[EARLY QUALITY CHECK] ✗ No relevant docs or empty content")
                 return {
                     'answer': "__FALLBACK__",
                     'source': "Fallback LLM",
@@ -961,11 +1246,13 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 }
             
             content = relevant_docs[0].page_content.strip()
+            print(f"[EARLY QUALITY CHECK] Content length: {len(content)} characters")
             
             if (content.lower().count('others') > 3 or 
                 'Question: Others' in content or 
                 'Answer: Others' in content or
                 len(content) < 50):
+                print(f"[EARLY QUALITY CHECK] Content quality issues - length: {len(content)}")
                 return {
                     'answer': "__FALLBACK__",
                     'source': "Fallback LLM",
@@ -984,12 +1271,12 @@ Respond as if you are talking directly to the user, not giving advice on what to
             content_embedding = self.embedding_function.embed_query(content)
             cosine_score = self.cosine_sim(query_embedding, content_embedding)
             
+            # Enhanced quality check that respects hierarchical search decisions
+            # Since hierarchical search already selected the best results,
             # ChromaDB uses distance (lower = better), so we want LOW distance scores
             # Only reject if distance is too HIGH (meaning poor match)
-            max_distance_threshold = 0.7  # Increased threshold - only reject very poor matches
-            
-            if similarity_score is not None and similarity_score > max_distance_threshold and not context_used:
-                print(f"[DEBUG] Rejecting due to high distance: {similarity_score:.3f} > {max_distance_threshold}")
+            if similarity_score is not None and similarity_score > 0.7 and not context_used:
+                print(f"[DEBUG] Rejecting due to high distance: {similarity_score:.3f} > 0.7")
                 return {
                     'answer': "__FALLBACK__",
                     'source': "Fallback LLM",
@@ -998,9 +1285,8 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 }
             
             # Minimum cosine similarity threshold (higher = better match)
-            min_relevance_threshold = 0.2  # Lowered threshold to be more inclusive
-            if cosine_score < min_relevance_threshold and not context_used:
-                print(f"[DEBUG] Rejecting due to low cosine similarity: {cosine_score:.3f} < {min_relevance_threshold}")
+            if cosine_score < 0.2 and not context_used:
+                print(f"[DEBUG] Rejecting due to low cosine similarity: {cosine_score:.3f} < 0.2")
                 return {
                     'answer': "__FALLBACK__",
                     'source': "Fallback LLM",
@@ -1112,13 +1398,13 @@ Respond as if you are talking directly to the user, not giving advice on what to
                         'document_metadata': document_metadata
                     }
                 
-                if cosine_score > 0.7:
-                    source_type = "Golden Database"
-                    source_text = f"\n\n<small><i>Source: {source_type}</i></small>"
-                else:
-                    source_type = "RAG Database"
-                    source_text = f"\n\n<small><i>Source: {source_type}</i></small>"
+                # Determine source type based on cosine similarity
+                determined_source = "RAG Database"  # Default
                 
+                if cosine_score > 0.7:
+                    determined_source = "Golden Database"
+                
+                source_text = f"\n\n<small><i>Source: {determined_source}</i></small>"
                 final_response += source_text
                 response_processing_time = time.time() - response_processing_start
                 
@@ -1127,7 +1413,7 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 
                 return {
                     'answer': final_response,
-                    'source': source_type,
+                    'source': determined_source,
                     'cosine_similarity': cosine_score,
                     'document_metadata': document_metadata
                 }
