@@ -1,0 +1,164 @@
+[
+  {
+    "heading": "Plant profile",
+    "content": [
+      {
+        "type": "table",
+        "content": {
+          "rows": [
+            [
+              "Family",
+              "Orchidaceae"
+            ],
+            [
+              "Ayurvedic name",
+              "Rishabhak/Jeevak"
+            ],
+            [
+              "Hindi name",
+              "Jeevak"
+            ],
+            [
+              "Trade name",
+              "Rishabhak/Jeevak"
+            ],
+            [
+              "Parts used",
+              "Bulb"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "image",
+        "content": "https://static.vikaspedia.in/media/images_en/agriculture/crop-production/package-of-practices/medicinal-and-aromatic-plants/malaxis-musciferatest.png"
+      },
+      {
+        "type": "subheading",
+        "content": "Malaxis muscifera"
+      }
+    ]
+  },
+  {
+    "heading": "Morphological Characteristics",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "This is a terrestrial and glabrous orchid less than 30 cm tall with small ovoid bulbs, underground stem and fibrous root.",
+          "Roots are fibrous; bulbs ovoid; stem is 15–30 cm long, erect and swollen at base.",
+          "Leaves are two elliptic-lanceolate or ovate, obtuse, unequal, arising from the base of the stem and sessile."
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Floral Characteristics",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "Flowers are pale yellowish-green in colour; terminal racemes 8–20 cm long spikes borne in autumn season in second year and onward.",
+          "It has 2–3 mm long bracts, lanceolate with acute apex.",
+          "Sepals are broadly lanceolate and laterals recurved; petals are linear but shorter than sepals; lips are adnate to the base of column, sessile, ovate-rounded, abruptly pointed; basal lobes thick, obscure.",
+          "Column is very short, anthers sessile on its top; pollinia ovoid and free.",
+          "Fruit is a capsule, 6–8 mm long, broadly ovoid-oblong, ribbed and of light yellow colour."
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Distribution",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "Plant is distributed throughout hilly areas in India, upto 4000 meter above msl. It is found in forests, shrubberies and grassy slopes.",
+          "This plant is one of the threatened medicinal orchids inhabiting hills in India."
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Climate and Soil",
+    "content": [
+      {
+        "type": "text",
+        "content": "The plant has been observed to grow well in sandy loam soil with high organic matter. It prefers temperate climatic conditions with low rainfall."
+      }
+    ]
+  },
+  {
+    "heading": "Propagation Material",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "Bulbs (mother and daughter bulbs)."
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Agro-technique",
+    "content": [
+      {
+        "type": "subheading",
+        "content": "Nursery Technique"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "Raising Propagules: In nature, plants normally bears flowers and fruits during September-October. Since the seeds of <em>M. muscifera</em> are microscopic, it is hard to get seed germination under <em>ex-situ</em> and laboratory conditions. Hence, bulbs are used for raisingthe crop.",
+          "Propagule Rate and Pretreatment: About 1,11,100 bulbs are required for planting in one hectare area. Mother bulbs after about 2 years' growth are chosen for target usage and the daughter bulbs should be used for planting subsequent crop. However, sprouting in mother bulbs is better than that in daughter bulbs younger than 1 year. Damaged bulbs are not to be used for planting."
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Planting in the Field",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "Land Preparation and Fertilizer Application: The field should be ploughed during October to make the soil well pulverized. A basal dose of 25 t/ha of farmyard manure should be applied at the time of land preparation.",
+          "Transplanting and Optimum Spacing: The pseudobulbs should be planted during mid October to early November at 30X30 cm spacing accommodating about 1,11,100 plants/ha as a sole crop.",
+          "Irrigation Practices: The crop requires light irrigation at the time of establishment soon after transplanting.",
+          "Weed Control: Hand weeding two times at 25–30 days interval is necessary till rainy season.",
+          "Disease and Pest Control: No disease or insect pest has been noticed in this crop."
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Harvest Management:",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "Crop Maturity and Harvesting: The crop attains senescence during October-November of second year which is the right time of harvesting the crop.",
+          "Post-harvest Management: The bulbs should be separated from the plants, washed and dried in shade before storing.",
+          "Yield : Yield of fresh bulbs of <em>M. muscifera</em> is about 60 kg /ha. It loses 2/3rd of weight on drying."
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Therapeutic Uses",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "This is one of the herbs of the Asthavarga group.",
+          "Its preparations are considered as tonic and rejuvenative drug.",
+          "The bulb is sweet, refrigerant, aphrodisiac, styptic, antidysenteric, febrifuge and tonic.",
+          "It is useful in sterility, vitiated conditions of pitta and vata <em>,</em> seminal weakness, internal and external haemorrhage, dysentery, fever, emaciation, burning sensation and general debility."
+        ]
+      },
+      {
+        "type": "subheading",
+        "content": "Source: Agro-techniques of selected medicinal plants"
+      }
+    ]
+  }
+]

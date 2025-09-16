@@ -10,6 +10,242 @@ import pytz
 import argparse
 import hashlib
 from functools import lru_cache
+import string
+
+class ContentQualityScorer:
+    """
+    Advanced content quality scoring system for agricultural responses
+    """
+    
+    def __init__(self):
+        self.embedding_function = local_embeddings
+        
+        self.quantitative_indicators = [
+            'kg/ha', 'kg per hectare', 'tons/ha', 'quintals', 'grams', 'ml/l', 'ppm',
+            'days', 'weeks', 'months', 'years', 'cm', 'inches', 'feet', 'meters',
+            '%', 'percent', 'degree', '°c', 'ph', 'ec', 'temperature'
+        ]
+        
+        self.specific_agri_terms = [
+            'variety', 'varieties', 'hybrid', 'cultivar', 'strain', 'breed',
+            'fertilizer', 'pesticide', 'fungicide', 'herbicide', 'treatment',
+            'application', 'dosage', 'concentration', 'spacing', 'depth'
+        ]
+        
+        self.actionable_phrases = [
+            'apply', 'sow', 'plant', 'harvest', 'spray', 'irrigate', 'fertilize',
+            'transplant', 'prune', 'weed', 'mulch', 'prepare', 'treat', 'monitor'
+        ]
+        
+        self.agricultural_topics = [
+            'seed', 'soil', 'crop', 'plant', 'farming', 'agriculture', 'cultivation',
+            'irrigation', 'fertilizer', 'pest', 'disease', 'harvest', 'yield'
+        ]
+    
+    def cosine_similarity(self, vec1: List[float], vec2: List[float]) -> float:
+        """Calculate cosine similarity between two vectors"""
+        vec1_np = np.array(vec1)
+        vec2_np = np.array(vec2)
+        return np.dot(vec1_np, vec2_np) / (np.linalg.norm(vec1_np) * np.linalg.norm(vec2_np))
+    
+    def calculate_specificity_score(self, response: str) -> float:
+        """
+        Calculate how specific and actionable the response is
+        Score: 0.0 (generic) to 1.0 (highly specific)
+        """
+        response_lower = response.lower()
+        
+        quantitative_count = sum(1 for indicator in self.quantitative_indicators 
+                                if indicator in response_lower)
+        
+        specific_terms_count = sum(1 for term in self.specific_agri_terms 
+                                  if term in response_lower)
+        
+        actionable_count = sum(1 for phrase in self.actionable_phrases 
+                              if phrase in response_lower)
+        
+        response_length = len(response.split())
+        if response_length == 0:
+            return 0.0
+        
+        quantitative_density = min(quantitative_count / max(response_length / 50, 1), 1.0)
+        specific_density = min(specific_terms_count / max(response_length / 30, 1), 1.0)
+        actionable_density = min(actionable_count / max(response_length / 40, 1), 1.0)
+        
+        specificity_score = (quantitative_density * 0.4 + 
+                           specific_density * 0.4 + 
+                           actionable_density * 0.2)
+        
+        return min(specificity_score, 1.0)
+    
+    def extract_agricultural_topics(self, text: str) -> List[str]:
+        """Extract agricultural topics from text"""
+        text_lower = text.lower()
+        found_topics = []
+        
+        for topic in self.agricultural_topics:
+            if topic in text_lower:
+                found_topics.append(topic)
+        
+        crops = [
+            'tomato', 'potato', 'cotton', 'wheat', 'rice', 'maize', 'corn',
+            'sugarcane', 'onion', 'garlic', 'soybean', 'groundnut', 'chickpea',
+            'mustard', 'sunflower', 'cabbage', 'cauliflower', 'brinjal', 'okra'
+        ]
+        
+        for crop in crops:
+            if crop in text_lower:
+                found_topics.append(f"crop_{crop}")
+        
+        return found_topics
+    
+    def calculate_topic_overlap(self, topics1: List[str], topics2: List[str]) -> float:
+        """Calculate overlap between two topic lists"""
+        if not topics1 or not topics2:
+            return 0.0
+        
+        set1 = set(topics1)
+        set2 = set(topics2)
+        
+        intersection = len(set1.intersection(set2))
+        union = len(set1.union(set2))
+        
+        return intersection / union if union > 0 else 0.0
+    
+    def calculate_relevance_score(self, question: str, response: str) -> float:
+        """
+        Calculate how relevant the response is to the question
+        Score: 0.0 (irrelevant) to 1.0 (highly relevant)
+        """
+        try:
+            q_embedding = self.embedding_function.embed_query(question)
+            r_embedding = self.embedding_function.embed_query(response)
+            semantic_similarity = self.cosine_similarity(q_embedding, r_embedding)
+            
+            question_topics = self.extract_agricultural_topics(question)
+            response_topics = self.extract_agricultural_topics(response)
+            topic_overlap = self.calculate_topic_overlap(question_topics, response_topics)
+            
+            q_crops = [t for t in question_topics if t.startswith('crop_')]
+            r_crops = [t for t in response_topics if t.startswith('crop_')]
+            
+            crop_penalty = 0.0
+            if q_crops and r_crops and not set(q_crops).intersection(set(r_crops)):
+                crop_penalty = 0.5
+            
+            relevance_score = (semantic_similarity * 0.6 + topic_overlap * 0.4) - crop_penalty
+            
+            return max(relevance_score, 0.0)
+            
+        except Exception as e:
+            print(f"[QUALITY SCORER] Error calculating relevance: {e}")
+            return 0.0
+    
+    def detect_question_type(self, question: str) -> str:
+        """Detect the type of question being asked"""
+        question_lower = question.lower()
+        
+        if any(word in question_lower for word in ['what', 'which', 'name']):
+            return 'what'
+        elif any(word in question_lower for word in ['how', 'method', 'process', 'way']):
+            return 'how'
+        elif any(word in question_lower for word in ['when', 'time', 'timing', 'period']):
+            return 'when'
+        elif any(word in question_lower for word in ['where', 'location', 'place', 'region']):
+            return 'where'
+        elif any(word in question_lower for word in ['why', 'reason', 'cause']):
+            return 'why'
+        else:
+            return 'general'
+    
+    def analyze_response_content_type(self, response: str) -> List[str]:
+        """Analyze what type of content the response provides"""
+        response_lower = response.lower()
+        content_types = []
+        
+        if any(word in response_lower for word in ['days', 'weeks', 'months', 'season', 'time']):
+            content_types.append('temporal')
+        
+        if any(word in response_lower for word in ['step', 'first', 'then', 'next', 'finally', 'process']):
+            content_types.append('procedural')
+        
+        if any(word in response_lower for word in ['variety', 'type', 'kind', 'characteristics']):
+            content_types.append('descriptive')
+        
+        if any(indicator in response_lower for indicator in self.quantitative_indicators):
+            content_types.append('quantitative')
+        
+        if any(word in response_lower for word in ['region', 'area', 'zone', 'climate', 'soil']):
+            content_types.append('locational')
+        
+        return content_types
+    
+    def calculate_completeness_score(self, question: str, response: str) -> float:
+        """
+        Calculate how completely the response answers the question
+        Score: 0.0 (incomplete) to 1.0 (complete)
+        """
+        question_type = self.detect_question_type(question)
+        response_content_types = self.analyze_response_content_type(response)
+        
+        expected_content = {
+            'what': ['descriptive', 'quantitative'],
+            'how': ['procedural', 'quantitative'],
+            'when': ['temporal'],
+            'where': ['locational'],
+            'why': ['descriptive'],
+            'general': ['descriptive', 'quantitative', 'procedural']
+        }
+        
+        expected = expected_content.get(question_type, ['descriptive'])
+        
+        matches = sum(1 for content_type in expected if content_type in response_content_types)
+        
+        completeness_score = matches / len(expected)
+    
+        if len(response_content_types) > len(expected):
+            completeness_score = min(completeness_score + 0.1, 1.0)
+        
+        return completeness_score
+    
+    def calculate_overall_score(self, specificity: float, relevance: float, completeness: float) -> float:
+        """Calculate weighted overall quality score"""
+        return (specificity * 0.3 + relevance * 0.5 + completeness * 0.2)
+    
+    def evaluate_response(self, question: str, response: str, context: str = None) -> Dict[str, float]:
+        """
+        Main method to evaluate response quality
+        Returns comprehensive quality scores
+        """
+        specificity_score = self.calculate_specificity_score(response)
+        relevance_score = self.calculate_relevance_score(question, response)
+        completeness_score = self.calculate_completeness_score(question, response)
+        overall_score = self.calculate_overall_score(specificity_score, relevance_score, completeness_score)
+        
+        should_fallback = self.should_trigger_fallback(specificity_score, relevance_score, completeness_score, overall_score)
+        
+        return {
+            'specificity_score': specificity_score,
+            'relevance_score': relevance_score,
+            'completeness_score': completeness_score,
+            'overall_score': overall_score,
+            'should_fallback': should_fallback
+        }
+    
+    def should_trigger_fallback(self, specificity: float, relevance: float, completeness: float, overall: float) -> bool:
+        """
+        Determine if response quality is too low and should trigger LLM fallback
+        Conservative thresholds to ensure quality
+        """
+        min_specificity = 0.25
+        min_relevance = 0.35
+        min_completeness = 0.3
+        min_overall = 0.3
+        
+        return (specificity < min_specificity or 
+                relevance < min_relevance or 
+                completeness < min_completeness or
+                overall < min_overall)
 
 class ChromaQueryHandler:
 
@@ -29,12 +265,16 @@ Current month: {current_month}
 
 INSTRUCTIONS:
 - Use ONLY the information from the provided context
-- If context has sufficient information, provide a clear and helpful answer
+- STRICT RELEVANCE: The context must be directly relevant to the specific crop/topic asked about
+- If the user asks about a specific crop (e.g., tomatoes) but context only contains information about different crops (e.g., potatoes), respond exactly: "I don't have enough information to answer that."
+- Do NOT provide information about different crops as substitutes or alternatives
+- Do NOT adapt information from one crop to answer questions about another crop
+- If context has sufficient and RELEVANT information, provide a clear and helpful answer
 - Provide agricultural information from the available context regardless of specific location, as practices are generally applicable across India
 - Do NOT add any information from external sources or your own knowledge
 - Do NOT mention metadata (dates, districts, states, seasons) unless specifically asked or relevant
 - Structure your response clearly with bullet points or short paragraphs
-- If context is insufficient, respond exactly: "I don't have enough information to answer that."
+- If context is insufficient or irrelevant, respond exactly: "I don't have enough information to answer that."
 
 CRITICAL - For High Similarity Matches (Golden Database):
 - When the context directly answers the user's question (indicating a high similarity match), provide the COMPLETE information from the context
@@ -109,18 +349,73 @@ Politely tell them that you can only help with agriculture-related questions. Be
 Respond as if you are talking directly to the user, not giving advice on what to say to someone else.
 """
 
+    POPS_PROMPT = """You are an expert agricultural advisor. Answer the user's question using ONLY the relevant information from the Package of Practices (PoPs) content provided below.
+
+IMPORTANT: Always respond in the same language in which the query has been asked.
+
+### Package of Practices Content:
+{content}
+
+### User Question: {question}
+{context_info}
+
+### CRITICAL INSTRUCTIONS:
+
+**STEP 1 - EXTRACT RELEVANT INFORMATION:**
+- Read the PoPs content carefully
+- Identify ONLY the information that is relevant to the user's specific question
+- Ignore information that is not directly related to the question asked
+
+**STEP 2 - ASSESS CONTENT AVAILABILITY:**
+- If the PoPs content has the specific information requested, provide it directly
+- If the PoPs content is relevant but not specific enough, provide what's available and note limitations ONLY if necessary
+- Do NOT mention "available PoPs content doesn't include..." unless the content is completely irrelevant
+- Also do not include the phrase "available PoPs content" in your response or PoPs does not contain this information.
+
+**STEP 3 - RESPONSE FORMAT:**
+- Start with a direct answer to the exact question asked but make sure the answer should not be very short.
+- Use bullet points for multiple related points
+- Keep each point concise (1-2 sentences maximum)
+- Only include what is directly available in the PoPs content
+- Do NOT add disclaimers about content availability unless absolutely necessary
+- Add all the information from the PoPs content that is relevant to the question asked.
+
+**STEP 4 - CONTEXT USAGE:**
+- Only mention location/region if the question specifically asks about location-specific advice OR if the crop is unsuitable for a region
+- Only mention timing/season if the question asks about timing OR if current timing is relevant to the specific advice
+- Do NOT automatically include location or timing context unless directly relevant to the question
+
+**STEP 5 - QUALITY CONTROL:**
+- Do NOT add information not present in the PoPs content
+- Do NOT provide comprehensive guides unless asked for "complete" or "detailed" information
+- Do NOT include unrelated aspects (e.g., if asked about sowing, don't include harvesting details)
+- Do NOT add unnecessary disclaimers about content availability
+
+**EXAMPLES OF GOOD RESPONSES:**
+- Question: "What is the seed rate for wheat?"
+  Response: "• Seed rate: 100-125 kg/ha for timely sown wheat"
+  
+- Question: "When to sow maize?"
+  Response: "• Kharif maize: June-July\n• Rabi maize: October-November"
+  
+- Question: "Can I grow coconut in Punjab?"
+  Response: "Coconut cultivation is not suitable for Punjab's climate. Coconut requires tropical coastal conditions with high humidity and temperatures above 20°C year-round, which Punjab's continental climate cannot provide."
+
+### Response:"""
+
     def __init__(self, chroma_path: str, gemini_api_key: str = None, embedding_model: str = None, chat_model: str = None):
         self.embedding_function = local_embeddings
         
         self.local_llm = local_llm
         
-        # Initialize main database collection
+        # Initialize Content Quality Scorer
+        self.quality_scorer = ContentQualityScorer()
+        
         self.db = Chroma(
             persist_directory=chroma_path,
             embedding_function=self.embedding_function,
         )
         
-        # Initialize Package of Practices database as fallback
         self.pops_available = False
         self.pops_db = None
         
@@ -130,7 +425,6 @@ Respond as if you are talking directly to the user, not giving advice on what to
                 persist_directory=chroma_path,
                 embedding_function=self.embedding_function,
             )
-            # Test if collection exists and has data
             test_results = self.pops_db.similarity_search("test", k=1)
             if test_results:
                 self.pops_available = True
@@ -554,35 +848,27 @@ Respond as if you are talking directly to the user, not giving advice on what to
         """
         query_lower = query.lower()
         
-        # Define comprehensive crop list
         crops = [
-            # Fruits
             'apple', 'mango', 'orange', 'banana', 'grape', 'pomegranate', 'guava', 'papaya',
             'strawberry', 'cherry', 'peach', 'plum', 'apricot', 'kiwi', 'lemon', 'lime',
             
-            # Vegetables  
             'potato', 'tomato', 'onion', 'garlic', 'carrot', 'cabbage', 'cauliflower', 
             'brinjal', 'eggplant', 'okra', 'radish', 'turnip', 'beetroot', 'capsicum',
             'pepper', 'chili', 'cucumber', 'bottle gourd', 'bitter gourd', 'pumpkin',
             'spinach', 'lettuce', 'beans', 'peas',
             
-            # Cereals
             'rice', 'wheat', 'maize', 'corn', 'barley', 'oats', 'millet', 'bajra', 
             'jowar', 'sorghum', 'ragi', 'finger millet',
             
-            # Pulses
             'arhar', 'pigeon pea', 'gram', 'chickpea', 'lentil', 'masoor', 'moong', 
             'urad', 'black gram', 'cowpea', 'field pea',
             
-            # Cash crops
             'cotton', 'sugarcane', 'tobacco', 'jute', 'sunflower', 'mustard', 'rapeseed',
             'groundnut', 'peanut', 'sesame', 'soybean', 'safflower',
             
-            # Others
             'ginger', 'turmeric', 'coriander', 'cumin', 'fenugreek', 'fennel'
         ]
         
-        # Sort by length (descending) to match longer names first
         crops.sort(key=len, reverse=True)
         
         for crop in crops:
@@ -605,7 +891,6 @@ Respond as if you are talking directly to the user, not giving advice on what to
         query_crop = self.extract_crop_from_query(query)
         
         if not query_crop:
-            # No specific crop mentioned, return all documents
             return documents
             
         
@@ -615,18 +900,14 @@ Respond as if you are talking directly to the user, not giving advice on what to
             doc_crop = doc.metadata.get('Crop', '').lower()
             doc_content = doc.page_content.lower()
             
-            # Check if document is about the same crop
             crop_match = False
             
-            # Direct metadata match
             if query_crop in doc_crop:
                 crop_match = True
                 
-            # Content-based match (for compound crop names)
             elif query_crop in doc_content:
                 crop_match = True
                 
-            # Handle common aliases
             crop_aliases = {
                 'corn': 'maize',
                 'eggplant': 'brinjal', 
@@ -712,14 +993,12 @@ Respond as if you are talking directly to the user, not giving advice on what to
             content_agri_terms = content_words.intersection(agri_terms)
             agri_overlap = len(question_agri_terms.intersection(content_agri_terms)) / max(len(question_agri_terms), 1)
             
-            # More conservative scoring for stricter filtering
             combined_score = (cosine_score * 0.7) + (keyword_overlap * 0.2) + (agri_overlap * 0.1)
             
             scored.append((doc, combined_score, cosine_score, original_score))
         
         scored.sort(key=lambda x: x[1], reverse=True)
         
-        # Use stricter threshold for filtering documents
         return [doc for doc, combined_score, cosine_score, orig_score in scored[:top_k] 
                 if doc.page_content.strip() and combined_score > self.min_cosine_threshold]
 
@@ -767,13 +1046,140 @@ Respond as if you are talking directly to the user, not giving advice on what to
         IST = pytz.timezone("Asia/Kolkata")
         current_month = datetime.now(IST).strftime('%B')
         
-        # Simplified prompt construction without location specificity
         return self.STRUCTURED_PROMPT.format(
             context=context,
             question=question,
             region_instruction=self.REGION_INSTRUCTION,
             current_month=current_month
         )
+
+    def construct_pops_prompt(self, content: str, question: str, effective_location: str = None) -> str:
+        """
+        Construct specialized prompt for PoPs database queries with intelligent context inclusion
+        """
+        IST = pytz.timezone("Asia/Kolkata")
+        current_month = datetime.now(IST).strftime('%B')
+        
+        filtered_content = self.filter_pops_content(content, question)
+        
+        question_lower = question.lower()
+        context_info = ""
+        
+        location_relevant = (
+            'in ' in question_lower or 'from ' in question_lower or 'at ' in question_lower or
+            'region' in question_lower or 'state' in question_lower or 'district' in question_lower or
+            'climate' in question_lower or 'suitable' in question_lower or 'grow' in question_lower or
+            'cultivation' in question_lower or 'can i' in question_lower or 'should i' in question_lower
+        )
+        
+        timing_relevant = (
+            'when' in question_lower or 'time' in question_lower or 'season' in question_lower or
+            'month' in question_lower or 'sowing' in question_lower or 'planting' in question_lower or
+            'now' in question_lower or 'current' in question_lower
+        )
+        
+        context_parts = []
+        if location_relevant and effective_location:
+            context_parts.append(f"- Location: {effective_location}")
+        if timing_relevant:
+            context_parts.append(f"- Current month: {current_month}")
+            
+        if context_parts:
+            context_info = f"\n\n### Context Information:\n{chr(10).join(context_parts)}"
+        
+        return self.POPS_PROMPT.format(
+            content=filtered_content,
+            question=question,
+            context_info=context_info
+        )
+    
+    def filter_pops_content(self, content: str, question: str) -> str:
+        """
+        Filter PoPs content to extract only the most relevant parts for the specific question
+        """
+        question_lower = question.lower()
+        
+        content_lines = [line.strip() for line in content.split('\n') if line.strip()]
+        relevant_lines = []
+        
+        keyword_mapping = {
+            'seed_rate': ['seed rate', 'seeding rate', 'kg/ha', 'quantity of seed', 'seeds per', 'kg per hectare'],
+            'sowing': ['sowing', 'planting', 'transplanting', 'seeding time', 'planting time', 'sow in', 'plant in', 'sowing time'],
+            'fertilizer': ['fertilizer', 'manure', 'compost', 'nutrition', 'NPK', 'nitrogen', 'phosphorus', 'potassium', 'urea', 'nutrient'],
+            'irrigation': ['irrigation', 'watering', 'water management', 'moisture', 'rainfall', 'water requirement', 'water need'],
+            'variety': ['variety', 'varieties', 'cultivar', 'hybrid', 'types of', 'recommended varieties', 'cultivars'],
+            'pest_disease': ['pest', 'disease', 'insect', 'fungal', 'bacterial', 'viral', 'control', 'management', 'spray', 'treatment'],
+            'harvest': ['harvest', 'harvesting', 'maturity', 'ready for harvest', 'cutting', 'picking', 'harvest time'],
+            'yield': ['yield', 'production', 'productivity', 'tonnes per hectare', 'quintal', 'output'],
+            'spacing': ['spacing', 'plant distance', 'row to row', 'plant to plant', 'distance between', 'plant spacing'],
+            'soil': ['soil', 'soil preparation', 'field preparation', 'tillage', 'ploughing', 'soil type'],
+            'climate': ['climate', 'temperature', 'rainfall', 'humidity', 'weather', 'suitable conditions'],
+            'cultivation': ['cultivation', 'growing', 'farming', 'agriculture', 'crop management']
+        }
+        
+        matching_types = []
+        for qtype, keywords in keyword_mapping.items():
+            if any(keyword in question_lower for keyword in keywords):
+                matching_types.append(qtype)
+        
+        if matching_types:
+            all_relevant_keywords = []
+            for qtype in matching_types:
+                all_relevant_keywords.extend(keyword_mapping[qtype])
+            
+            for line in content_lines:
+                line_lower = line.lower()
+                if any(keyword in line_lower for keyword in all_relevant_keywords):
+                    relevant_lines.append(line)
+            
+            if relevant_lines:
+                context_keywords = ['recommended', 'suitable', 'best', 'important']
+                context_lines = []
+                for line in content_lines:
+                    line_lower = line.lower()
+                    if (any(keyword in line_lower for keyword in context_keywords) and 
+                        len(line) < 150 and line not in relevant_lines):
+                        context_lines.append(line)
+                
+                if context_lines:
+                    relevant_lines = context_lines[:2] + relevant_lines
+                
+                if len(relevant_lines) > 6:
+                    relevant_lines = relevant_lines[:6]
+                
+                filtered_content = '\n'.join(relevant_lines)
+                print(f"[POPS CONTENT FILTER] Filtered content for '{', '.join(matching_types)}' from {len(content_lines)} to {len(relevant_lines)} lines")
+                return filtered_content
+        
+        general_question_indicators = ['about', 'information', 'details', 'tell me', 'what is', 'how to']
+        is_general_question = any(indicator in question_lower for indicator in general_question_indicators)
+        
+        if is_general_question:
+            summary_lines = []
+            for line in content_lines:
+                if len(line) > 30 and len(line) < 200:  # Skip very short or very long lines
+                    summary_lines.append(line)
+                if len(summary_lines) >= 8:  # Limit general responses too
+                    break
+            
+            if summary_lines:
+                filtered_content = '\n'.join(summary_lines)
+                print(f"[POPS CONTENT FILTER] General question - using {len(summary_lines)} summary lines")
+                return filtered_content
+        
+        if len(content) > 1200:
+            truncated = content[:1200]
+            last_period = truncated.rfind('.')
+            if last_period > 800:  # If we have a reasonable amount before the last period
+                truncated = truncated[:last_period + 1]
+            else:
+                truncated += "..."
+            
+            print(f"[POPS CONTENT FILTER] Intelligently truncated content from {len(content)} to {len(truncated)} characters")
+            return truncated
+        
+        print(f"[POPS CONTENT FILTER] Using original content ({len(content)} characters)")
+        return content
 
     def classify_query(self, question: str, conversation_history: Optional[List[Dict]] = None) -> str:
         IST = pytz.timezone("Asia/Kolkata")
@@ -837,7 +1243,6 @@ Respond as if you are talking directly to the user, not giving advice on what to
         try:
             print(f"[POPS FALLBACK] Searching PoPs database for: '{question}'")
             
-            # Very lenient search - just look for any relevant content
             pops_results = self.pops_db.similarity_search_with_score(question, k=5, filter=None)
             
             if not pops_results:
@@ -851,16 +1256,13 @@ Respond as if you are talking directly to the user, not giving advice on what to
             
             print(f"[POPS FALLBACK] Found {len(pops_results)} results in PoPs database")
             
-            # Log all results for debugging
             for i, (doc, score) in enumerate(pops_results[:3]):
                 print(f"   PoPs Result {i+1}: Distance={score:.3f}")
                 print(f"      Content Preview: {doc.page_content[:100]}...")
             
-            # Use the best result but apply stricter criteria than main RAG
             best_doc, best_score = pops_results[0]
             content = best_doc.page_content.strip()
             
-            # Quality check 1: Content length
             if len(content) < 50:
                 print(f"[POPS FALLBACK] Content too short ({len(content)} chars), proceeding to LLM")
                 return {
@@ -870,7 +1272,6 @@ Respond as if you are talking directly to the user, not giving advice on what to
                     'document_metadata': None
                 }
             
-            # Calculate cosine similarity for scoring
             query_embedding = self.embedding_function.embed_query(question)
             content_embedding = self.embedding_function.embed_query(content)
             cosine_score = self.cosine_sim(query_embedding, content_embedding)
@@ -879,8 +1280,7 @@ Respond as if you are talking directly to the user, not giving advice on what to
             print(f"   Distance: {best_score:.3f}, Cosine: {cosine_score:.3f}")
             print(f"   Content preview: {content[:150]}...")
             
-            # Quality check 2: Distance threshold (ChromaDB uses distance, lower is better)
-            if best_score > 300.0:  # Very high distance = very poor match
+            if best_score > 300.0:
                 print(f"[POPS FALLBACK] Distance too high ({best_score:.3f} > 300.0), proceeding to LLM")
                 return {
                     'answer': "__FALLBACK__",
@@ -889,8 +1289,7 @@ Respond as if you are talking directly to the user, not giving advice on what to
                     'document_metadata': None
                 }
             
-            # Quality check 3: Cosine similarity threshold (higher is better)
-            if cosine_score < 0.4:  # Stricter than the 0.2 used in main RAG
+            if cosine_score < 0.4:
                 print(f"[POPS FALLBACK] Cosine similarity too low ({cosine_score:.3f} < 0.4), proceeding to LLM")
                 return {
                     'answer': "__FALLBACK__",
@@ -899,11 +1298,9 @@ Respond as if you are talking directly to the user, not giving advice on what to
                     'document_metadata': None
                 }
             
-            # Quality check 4: Basic keyword matching for agricultural relevance
             question_lower = question.lower()
             content_lower = content.lower()
             
-            # Extract meaningful keywords from question (excluding common words)
             import string
             question_clean = question_lower.translate(str.maketrans('', '', string.punctuation))
             question_keywords = set()
@@ -932,34 +1329,20 @@ Respond as if you are talking directly to the user, not giving advice on what to
             print(f"[POPS FALLBACK] ✓ Content passed all quality checks, generating response")
             print(f"[POPS FALLBACK] Final scores - Distance: {best_score:.3f}, Cosine: {cosine_score:.3f}, Keywords: {keyword_match}")
             
-            pops_prompt = f"""You are an agricultural expert assistant. Based on the following agricultural content, answer the user's question as helpfully as possible. Even if the content doesn't directly answer the question, extract any relevant agricultural information that might be useful.
-
-Content from agricultural database:
-{content}
-
-User Question: {question}
-
-Instructions:
-- Extract and provide any relevant agricultural information from the content
-- If the content mentions related crops, practices, or techniques, include them
-- Be helpful and informative even if the match isn't perfect
-- If location context is relevant, consider the user is in {effective_location if effective_location else 'India'}
-- Focus on practical agricultural advice
-
-Response:"""
+            pops_prompt = self.construct_pops_prompt(content, question, effective_location)
             
             try:
                 generated_response = run_local_llm(
                     pops_prompt,
-                    temperature=0.4,
-                    max_tokens=1024,
+                    temperature=0.1,  # Very low temperature for consistent, focused responses
+                    max_tokens=512,   # Reduced tokens to encourage concise answers
                     use_fallback=False
                 )
                 
                 final_response = self.filter_response_thinking(generated_response.strip())
                 
-                # Stricter response validation for PoPs fallback
-                is_too_short = len(final_response.strip()) < 30  # Increased from 15
+                
+                is_too_short = len(final_response.strip()) < 40
                 is_refusal = any(phrase in final_response.lower() for phrase in [
                     "i don't have enough information",
                     "i cannot answer",
@@ -970,28 +1353,75 @@ Response:"""
                     "cannot provide information",
                     "the provided content doesn't",
                     "the content doesn't provide",
-                    "no information available"
+                    "no information available",
+                    "doesn't contain information",
+                    "cannot be answered"
                 ])
                 
-                # Check if response actually contains useful agricultural information
-                agricultural_keywords = [
-                    'crop', 'plant', 'seed', 'soil', 'fertilizer', 'irrigation', 'harvest', 
-                    'cultivation', 'farming', 'agriculture', 'variety', 'season', 'sowing',
-                    'spacing', 'disease', 'pest', 'yield', 'management', 'treatment'
+                pops_specific_keywords = [
+                    'variety', 'varieties', 'cultivar', 'hybrid', 'seed rate', 'spacing', 
+                    'sowing', 'planting', 'transplanting', 'fertilizer', 'manure', 'compost',
+                    'irrigation', 'watering', 'drainage', 'soil preparation', 'field preparation',
+                    'pest management', 'disease control', 'weed control', 'harvesting',
+                    'yield', 'productivity', 'cultivation', 'cropping', 'season', 'timing',
+                    'plant protection', 'fungicide', 'insecticide', 'organic', 'nutrient'
                 ]
-                has_agri_content = any(keyword in final_response.lower() for keyword in agricultural_keywords)
+                
+                general_agri_keywords = [
+                    'crop', 'plant', 'seed', 'soil', 'farming', 'agriculture', 'growth'
+                ]
+                
+                has_pops_content = any(keyword in final_response.lower() for keyword in pops_specific_keywords)
+                has_general_agri_content = any(keyword in final_response.lower() for keyword in general_agri_keywords)
+                
+                has_structured_info = any(pattern in final_response for pattern in [
+                    '•', '-', '1.', '2.', '3.', 'Step', 'stage', 'phase',
+                    'kg/ha', 'days', 'weeks', 'months', 'cm', 'inches'
+                ])
+                
+                # Use Content Quality Scorer for advanced response evaluation
+                quality_scores = self.quality_scorer.evaluate_response(question, final_response)
+                
+                print(f"[POPS FALLBACK] Content Quality Scoring:")
+                print(f"   Specificity Score: {quality_scores['specificity_score']:.3f}")
+                print(f"   Relevance Score: {quality_scores['relevance_score']:.3f}")
+                print(f"   Completeness Score: {quality_scores['completeness_score']:.3f}")
+                print(f"   Overall Score: {quality_scores['overall_score']:.3f}")
+                print(f"   Should Fallback: {quality_scores['should_fallback']}")
+                
+                # If quality scorer suggests fallback, return fallback
+                if quality_scores['should_fallback']:
+                    print(f"[POPS FALLBACK] Content quality too low, proceeding to LLM fallback")
+                    return {
+                        'answer': "__FALLBACK__",
+                        'source': "Fallback LLM",
+                        'cosine_similarity': cosine_score,
+                        'document_metadata': None
+                    }
+                
+                is_response_relevant = not quality_scores['should_fallback']
                 
                 print(f"[POPS FALLBACK] Response validation:")
-                print(f"   Length: {len(final_response.strip())} chars (min: 30)")
-                print(f"   Has agricultural content: {has_agri_content}")
+                print(f"   Length: {len(final_response.strip())} chars (min: 40)")
+                print(f"   Has PoPs-specific content: {has_pops_content}")
+                print(f"   Has general agri content: {has_general_agri_content}")
+                print(f"   Has structured info: {has_structured_info}")
+                print(f"   Is response relevant: {is_response_relevant}")
                 print(f"   Is refusal: {is_refusal}")
                 print(f"   Response preview: {final_response[:100]}...")
                 
-                if not is_too_short and not is_refusal and has_agri_content:
-                    source_text = "\n\n<small><i>Source: PoPs Database</i></small>"
+                is_valid_pops_response = (
+                    not is_too_short and 
+                    not is_refusal and 
+                    is_response_relevant and
+                    (has_pops_content or (has_general_agri_content and has_structured_info))
+                )
+                
+                if is_valid_pops_response:
+                    source_text = "\n\n<small><i>Source: Package of Practices Database</i></small>"
                     final_response += source_text
                     
-                    print(f"[POPS FALLBACK] ✓ Successfully generated valid response from PoPs content")
+                    print(f"[POPS FALLBACK] ✓ Successfully generated valid PoPs response")
                     return {
                         'answer': final_response,
                         'source': "PoPs Database",
@@ -1000,7 +1430,7 @@ Response:"""
                     }
                 else:
                     print(f"[POPS FALLBACK] Response validation failed")
-                    print(f"   Reasons: too_short={is_too_short}, refusal={is_refusal}, no_agri_content={not has_agri_content}")
+                    print(f"   Reasons: too_short={is_too_short}, refusal={is_refusal}, invalid_pops_response={not is_valid_pops_response}")
                     return {
                         'answer': "__FALLBACK__",
                         'source': "Fallback LLM",
@@ -1060,15 +1490,12 @@ Response:"""
             - cosine_similarity: Similarity score (0.0-1.0)
             - document_metadata: Metadata of the source document (if applicable)
         """
-        # First try the main RAG/Golden database approach
         result = self._get_answer_with_source_main(question, conversation_history, user_state)
         
-        # If main approach returns fallback, try PoPs database before going to LLM
         if result['answer'] == "__FALLBACK__":
             print("[FINAL FALLBACK] Main RAG/Golden search failed, trying PoPs database...")
             effective_location = self.determine_effective_location(question, user_state)
             
-            # Enhanced query processing for PoPs fallback
             processing_query = question
             if conversation_history:
                 enhanced_query_result = self.context_manager.enhance_query_with_cot(question, conversation_history)
@@ -1171,17 +1598,14 @@ Response:"""
                 primary_query = expanded_queries[0]
                 query_expansion_time = time.time() - query_expansion_start
                 
-                # Create metadata filter
                 filter_creation_start = time.time()
                 metadata_filter = self._create_metadata_filter(primary_query, effective_location)
                 filter_creation_time = time.time() - filter_creation_start
                 
-                # Perform database search
                 db_query_start = time.time()
                 raw_results = self.db.similarity_search_with_score(primary_query, k=10, filter=metadata_filter)
                 db_query_time = time.time() - db_query_start
                 
-                # PRINT SEARCH RESULTS TO CONSOLE
                 print(f"\n[RAG SEARCH] Query: '{primary_query}'")
                 print(f"[RAG SEARCH] Database returned {len(raw_results)} results")
                 
@@ -1190,14 +1614,12 @@ Response:"""
                     print(f"      Crop={doc.metadata.get('Crop', 'N/A')} | State={doc.metadata.get('State', 'N/A')}")
                     print(f"      Content Preview: {doc.page_content[:120]}...")
                 
-                # Fallback to unfiltered search if no results
                 if len(raw_results) < 3:
                     print(f"[RAG SEARCH] Few results found, trying unfiltered search...")
                     unfiltered_search_start = time.time()
                     fallback_results = self.db.similarity_search_with_score(primary_query, k=10, filter=None)
                     unfiltered_search_time = time.time() - unfiltered_search_start
                     
-                    # Add fallback results if they're better
                     for doc, score in fallback_results:
                         if not any(existing_doc.page_content == doc.page_content for existing_doc, _ in raw_results):
                             raw_results.append((doc, score))
@@ -1217,7 +1639,6 @@ Response:"""
             relevant_docs = self.rerank_documents(processing_query, raw_results)
             rerank_time = time.time() - rerank_start
             
-            # Update results count after reranking
             print(f"[SOURCE ATTRIBUTION] Reranked Results Count: {len(relevant_docs)}")
             
             crop_filter_start = time.time()
@@ -1266,15 +1687,10 @@ Response:"""
                     similarity_score = score
                     break
             
-            # Calculate cosine similarity between query and content
             query_embedding = self.embedding_function.embed_query(processing_query)
             content_embedding = self.embedding_function.embed_query(content)
             cosine_score = self.cosine_sim(query_embedding, content_embedding)
             
-            # Enhanced quality check that respects hierarchical search decisions
-            # Since hierarchical search already selected the best results,
-            # ChromaDB uses distance (lower = better), so we want LOW distance scores
-            # Only reject if distance is too HIGH (meaning poor match)
             if similarity_score is not None and similarity_score > 0.7 and not context_used:
                 print(f"[DEBUG] Rejecting due to high distance: {similarity_score:.3f} > 0.7")
                 return {
@@ -1284,7 +1700,6 @@ Response:"""
                     'document_metadata': None
                 }
             
-            # Minimum cosine similarity threshold (higher = better match)
             if cosine_score < 0.2 and not context_used:
                 print(f"[DEBUG] Rejecting due to low cosine similarity: {cosine_score:.3f} < 0.2")
                 return {
@@ -1296,8 +1711,7 @@ Response:"""
             
             question_lower = processing_query.lower()
             content_lower = content.lower()
-            
-            # Improved keyword extraction - strip punctuation
+
             import string
             question_clean = question_lower.translate(str.maketrans('', '', string.punctuation))
             question_keywords = set()
@@ -1341,10 +1755,8 @@ Response:"""
                 prompt = self.construct_structured_prompt(content, processing_query, effective_location)
                 prompt_construction_time = time.time() - prompt_construction_start
                 
-                # Debug logging to understand what context the LLM is getting
                 print(f"[DEBUG] Context being sent to LLM: {content[:500]}...")
                 print(f"[DEBUG] User query: {processing_query}")
-                # Removed user location debug since we're not using location-specific validation
                 
                 actual_llm_start = time.time()
                 generated_response = run_local_llm(
@@ -1360,20 +1772,16 @@ Response:"""
                 response_processing_start = time.time()
                 final_response = self.filter_response_thinking(generated_response.strip())
                 
-                # Enhanced validation logic - be more permissive for high-quality matches
                 is_high_quality_match = cosine_score > 0.7
                 is_very_short = len(final_response.strip()) < 20
                 has_insufficient_info = "I don't have enough information" in final_response
                 is_rejection = final_response.strip().lower() in ["sorry", "i cannot", "not available"]
                 
-                # For high-quality matches, check if response has useful information despite disclaimers
                 if is_high_quality_match and has_insufficient_info:
-                    # Check if response contains useful agricultural information despite the disclaimer
                     useful_keywords = ['sown', 'sowing', 'plant', 'cultivation', 'variety', 'season', 'month', 'temperature', 'spacing', 'irrigation', 'yield', 'management']
                     has_useful_content = any(keyword in final_response.lower() for keyword in useful_keywords)
                     response_length = len(final_response.strip())
                     
-                    # If it's a high-quality match with some useful content, use it instead of fallback
                     if has_useful_content and response_length > 50:
                         print(f"[DEBUG] High-quality match (cosine={cosine_score:.3f}) with useful content despite disclaimer, proceeding...")
                     else:
@@ -1398,8 +1806,27 @@ Response:"""
                         'document_metadata': document_metadata
                     }
                 
-                # Determine source type based on cosine similarity
-                determined_source = "RAG Database"  # Default
+                # Apply Content Quality Scoring to main RAG responses as well
+                quality_scores = self.quality_scorer.evaluate_response(processing_query, final_response)
+                
+                print(f"[MAIN RAG] Content Quality Scoring:")
+                print(f"   Specificity Score: {quality_scores['specificity_score']:.3f}")
+                print(f"   Relevance Score: {quality_scores['relevance_score']:.3f}")
+                print(f"   Completeness Score: {quality_scores['completeness_score']:.3f}")
+                print(f"   Overall Score: {quality_scores['overall_score']:.3f}")
+                print(f"   Should Fallback: {quality_scores['should_fallback']}")
+                
+                # For main RAG, use more lenient thresholds since it's higher quality data
+                if quality_scores['should_fallback'] and cosine_score < 0.6:
+                    print(f"[MAIN RAG] Content quality low for non-high-confidence match, proceeding to fallback")
+                    return {
+                        'answer': "__FALLBACK__",
+                        'source': "Fallback LLM",
+                        'cosine_similarity': cosine_score,
+                        'document_metadata': document_metadata
+                    }
+                
+                determined_source = "RAG Database"
                 
                 if cosine_score > 0.7:
                     determined_source = "Golden Database"

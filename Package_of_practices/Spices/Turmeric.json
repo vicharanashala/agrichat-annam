@@ -1,0 +1,549 @@
+[
+  {
+    "heading": "0",
+    "content": [
+      {
+        "type": "text",
+        "content": "Turmeric (Curcuma longa) (Family: Zingiberaceae) is used as condiment, dye, drug and cosmetic in addition to its use in religious ceremonies. India is a leading producer and exporter of turmeric in the world. Andhra Pradesh, Tamil Nadu, Orissa, Karnataka, West Bengal, Gujarat, Meghalaya, Maharashtra, Assam are some of the important states cultivates turmeric, of which, Andhra Pradesh alone occupies 35.0% of area and 47.0% of production."
+      }
+    ]
+  },
+  {
+    "heading": "Climate and soil",
+    "content": [
+      {
+        "type": "text",
+        "content": "Turmeric can be grown in diverse tropical conditions from sea level to 1500 m above sea level, at a temperature range of 20–35°C with an annual rainfall of 1500 mm or more, under rainfed or irrigated conditions. Though it can be grown on different types of soils, it thrives best in well-drained sandy or clay loam soils with a pH range of 4.5–7.5 with good organic status."
+      }
+    ]
+  },
+  {
+    "heading": "Varieties",
+    "content": [
+      {
+        "type": "text",
+        "content": "A number of cultivars are available in the country and are known mostly by the name of locality where they are cultivated. Some of the popular cultivars are Duggirala, Tekurpeta, Sugandham, Amalapuram, Erode local, Alleppey, Moovattupuzha, and Lakadong. The improved varieties of turmeric and their salient features are given in the following table"
+      },
+      {
+        "type": "table",
+        "content": {
+          "rows": [
+            [
+              "Sl. No.",
+              "Variety",
+              "Mean yield (fresh)(t/ha)",
+              "Crop duration (days)",
+              "Dry recovery (%)",
+              "Curcumin (%)",
+              "Oleoresin (%)",
+              "Essential oil (%)"
+            ],
+            [
+              "1",
+              "Suvarna",
+              "17.4",
+              "200",
+              "20.0",
+              "4.3",
+              "13.5",
+              "7.0"
+            ],
+            [
+              "2",
+              "Suguna",
+              "29.3",
+              "190",
+              "12.0",
+              "7.3",
+              "13.5",
+              "6.0"
+            ],
+            [
+              "3",
+              "Sudarsana",
+              "28.8",
+              "190",
+              "12.0",
+              "5.3",
+              "15.0",
+              "7.0"
+            ],
+            [
+              "4",
+              "IISR Prabha",
+              "37.5",
+              "195",
+              "19.5",
+              "6.5",
+              "15.0",
+              "6.5"
+            ],
+            [
+              "5",
+              "IISR Prathibha",
+              "39.1",
+              "188",
+              "6.2",
+              "6.5",
+              "16.2",
+              "6.2"
+            ],
+            [
+              "6",
+              "Co-1",
+              "30.0",
+              "285",
+              "19.5",
+              "3.2",
+              "6.7",
+              "3.2"
+            ],
+            [
+              "7",
+              "BSR-1",
+              "30.7",
+              "285",
+              "20.5",
+              "4.2",
+              "4.0",
+              "3.7"
+            ],
+            [
+              "8",
+              "Krishna",
+              "9.2",
+              "240",
+              "16.4",
+              "2.8",
+              "3.8",
+              "2.0"
+            ],
+            [
+              "9",
+              "Sugandham",
+              "15.0",
+              "210",
+              "23.3",
+              "3.1",
+              "11.0",
+              "2.7"
+            ],
+            [
+              "10",
+              "Roma",
+              "20.7",
+              "250",
+              "31.0",
+              "9.3",
+              "13.2",
+              "4.2"
+            ],
+            [
+              "11",
+              "Suroma",
+              "20.0",
+              "255",
+              "26.0",
+              "9.3",
+              "13.1",
+              "4.4"
+            ],
+            [
+              "12",
+              "Ranga",
+              "29.0",
+              "250",
+              "24.8",
+              "6.3",
+              "13.5",
+              "4.4"
+            ],
+            [
+              "13",
+              "Rasmi",
+              "31.3",
+              "240",
+              "23.0",
+              "6.4",
+              "13.4",
+              "4.4"
+            ],
+            [
+              "14",
+              "Rajendra Sonia",
+              "42.0",
+              "225",
+              "18.0",
+              "8.4",
+              "-",
+              "5.0"
+            ],
+            [
+              "",
+              "IISR Alleppey",
+              "",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "15",
+              "Supreme",
+              "35.4",
+              "210",
+              "19.3",
+              "6.0",
+              "16.0",
+              "4.0"
+            ],
+            [
+              "16",
+              "IISR Kedaram",
+              "34.5",
+              "210",
+              "18.9",
+              "5.5",
+              "13.6",
+              "3.0"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "text",
+        "content": "Source of planting material"
+      },
+      {
+        "type": "text",
+        "content": "Sl. nos. 1, 2, 3, 4, 5, 15 & 16: IISR Experimental Farm, Peruvannmuzhi - 673 528, Kozhikode District, Kerala."
+      },
+      {
+        "type": "text",
+        "content": "Sl. nos. 6 and 7: Department of Spices and Plantation Crops, Faculty of Horticulture, Tamil Nadu Agricultural University, Coimbatore-641 003, Tamil Nadu."
+      },
+      {
+        "type": "text",
+        "content": "Sl. no. 8: Maharashtra Agricultural University, Kasba Digraj -416 305, Maharashtra."
+      },
+      {
+        "type": "text",
+        "content": "Sl. no. 9: Spices Research Station, Gujarat Agricultural University, Jagudan-382 701, Gujarat."
+      },
+      {
+        "type": "text",
+        "content": "Sl. nos. 10, 11, 12 & 13: High Altitude Research Station, Orissa University of Agriculture and Technology, Pottangi - 764 039, Orissa."
+      },
+      {
+        "type": "text",
+        "content": "Sl. no. 14: Department of Horticulture, Tirhut College of Agriculture, Rajendra Agricultural University, Dholi-843 121, Bihar."
+      }
+    ]
+  },
+  {
+    "heading": "Cultivation",
+    "content": [
+      {
+        "type": "text",
+        "content": "Preparation of land"
+      },
+      {
+        "type": "text",
+        "content": "The land is prepared with the receipt of early monsoon showers. The soil is brought to a fine tilth by giving about four deep ploughings. Hydrated lime @ 500 kg/ha has to be applied for laterite soils and thoroughly ploughed. Immediately with the receipt of pre-monsoon showers, beds of 1.0 m width, 15 cm height and of convenient length are prepared with spacing of 50 cm between beds. Planting is also done by forming ridges and furrows."
+      },
+      {
+        "type": "text",
+        "content": "Planting"
+      },
+      {
+        "type": "text",
+        "content": "In Kerala and other West Coast areas where the rainfall begins early, the crop can be planted during April-May with the receipt of pre-monsoon showers."
+      },
+      {
+        "type": "text",
+        "content": "Seed material"
+      },
+      {
+        "type": "text",
+        "content": "Whole or split mother and finger rhizomes are used for planting and well developed healthy and disease free rhizomes are to be selected. Small pits are made with a hand hoe on the beds with a spacing of 25 cm x 30 cm. Pits are filled with well decomposed cattle manure or compost, seed rhizomes are placed over it then covered with soil. The optimum spacing in furrows and ridges is 45–60 cm between the rows and 25 cm between the plants. A seed rate of 2,500 kg of rhizomes is required for planting one hectare of turmeric."
+      },
+      {
+        "type": "text",
+        "content": "Manuring and fertilizer application"
+      },
+      {
+        "type": "text",
+        "content": "Farmyard manure (FYM) or compost @ 30–40 t/ha is applied by broadcasting and ploughed at the time of preparation of land or as basal dressing by spreading over the beds or in to the pits at the time of planting. Fertilizers @ 60 kg N, 50 kg P2O5 and 120 kg K2°per hectare are to be applied in split doses as given in Table 2. Zinc @ 5 kg/ha may also be applied at the time of planting and organic manures like oil cakes can also be applied @ 2 t/ha. In such case, the dosage of FYM can be reduced. Integrated application of coir compost (@ 2.5 t/ha) combined with FYM, biofertilizer (Azospirillum) and half recommended dose of NPK is also recommended."
+      },
+      {
+        "type": "text",
+        "content": "Fertilizer schedule for turmeric (per ha)"
+      },
+      {
+        "type": "table",
+        "content": {
+          "rows": [
+            [
+              "Schedule",
+              "N",
+              "P₂O₅",
+              "K₂O",
+              "Compost/cowdung"
+            ],
+            [
+              "Basal application",
+              "-",
+              "50 kg",
+              "-",
+              "30–40 tonnes"
+            ],
+            [
+              "After 45 days",
+              "30 kg",
+              "-",
+              "60 kg",
+              "-"
+            ],
+            [
+              "After 90 days",
+              "30 kg",
+              "-",
+              "60 kg",
+              "-"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "text",
+        "content": "Mulching"
+      },
+      {
+        "type": "text",
+        "content": "The crop is to be mulched immediately after planting with green leaves @ 12–15 t/ha. Mulching may be repeated @ 7.5 t/ha at 45 and 90 days after planting after weeding, application of fertilizers and earthing up."
+      },
+      {
+        "type": "text",
+        "content": "Weeding and irrigation"
+      },
+      {
+        "type": "text",
+        "content": "Weeding has to be done thrice at 60, 90 and 120 days after planting depending upon weed intensity. In the case of irrigated crop, depending upon the weather and soil conditions, about 15 to 23 irrigations are to be given in clayey soils and 40 irrigations in sandy loams."
+      },
+      {
+        "type": "text",
+        "content": "Mixed cropping"
+      },
+      {
+        "type": "text",
+        "content": "Turmeric can be grown as an intercrop in coconut and arecanut plantations. It can also be raised as a mixed crop with chillies, colocasia, onion, brinjal and cereals like maize, ragi, etc."
+      }
+    ]
+  },
+  {
+    "heading": "Plant protection",
+    "content": [
+      {
+        "type": "text",
+        "content": "Diseases"
+      },
+      {
+        "type": "text",
+        "content": "Leaf blotch"
+      },
+      {
+        "type": "text",
+        "content": "Leaf blotch is caused by Taphrina maculans and appears as small, oval, rectangular or irregular brown spots on either side of the leaves which soon become dirty yellow or dark brown. The leaves also turn yellow. In severe cases the plants present a scorched appearance and the rhizome yield is reduced. The disease can be controlled by spraying mancozeb 0.2%."
+      },
+      {
+        "type": "text",
+        "content": "Leaf spot"
+      },
+      {
+        "type": "text",
+        "content": "Leaf spot is caused by Colletotrichum capsici and appears as brown spots of various sizes on the upper surface of the young leaves. The spots are irregular in shape and white or grey in the centre. Later, two or more spots may coalesce and form an irregular patch covering almost the whole leaf. The affected leaves eventually dry up. The rhizomes do not develop well. The disease can be controlled by spraying zineb 0.3% or Bordeaux mixture 1%."
+      },
+      {
+        "type": "text",
+        "content": "Rhizome rot"
+      },
+      {
+        "type": "text",
+        "content": "The disease is caused by Pythium graminicolum or P. aphanidermatum. The collar region of the pseudostem becomes soft and water soaked, resulting in collapse of the plant and decay of rhizomes. Treating the seed rhizomes with mancozeb 0.3% for 30 minutes prior to storage and at the time of sowing prevents the disease. When the disease is noticed in the field, the beds should be drenched with mancozeb 0.3%."
+      },
+      {
+        "type": "text",
+        "content": "Nematode pests"
+      },
+      {
+        "type": "text",
+        "content": "Root knot nematodes (Meloidogyne spp.) and burrowing nematode (Radopholus similis) are the two important nematodes causing damage to turmeric. Root lesion nematodes (Pratylenchus spp.) are of common occurrence in Andhra Pradesh. Wherever nematode problems are common, use only healthy, nematode- free planting material. Increasing the organic content of the soil also checks the multiplication of nematodes. Pochonia chlamydosporia can be applied to the beds at the time of sowing @ 20 g/bed (at 106 cfu/g) for management of nematode problems."
+      },
+      {
+        "type": "text",
+        "content": "Insect pests"
+      },
+      {
+        "type": "text",
+        "content": "Shoot borer"
+      },
+      {
+        "type": "text",
+        "content": "The shoot borer (Conogethes punctiferalis) is the most serious pest of turmeric. The larvae bore into pseudostems and feed on internal tissues. The presence of a bore-hole on the pseudostem through which frass is extruded and the withered central shoot is a characteristic symptom of pest infestation. The adult is a medium sized moth with a wingspan of about 20 mm; the wings are orange- yellow with minute black spots. Fully-grown larvae are light brown with sparse hairs. Spraying malathion (0.1%) at 21 day intervals during July to October is effective in controlling the pest infestation. The spraying has to be initiated when the first symptom of pest attack is seen on the inner most leaf."
+      },
+      {
+        "type": "text",
+        "content": "Rhizome scale"
+      },
+      {
+        "type": "text",
+        "content": "The rhizome scale (Aspidiella hartii) infests rhizomes in the field (at later stages of the crop) and in storage. Adult (female) scales are circular (about 1mm diameter) and light brown to grey and appear as encrustations on the rhizomes. They feed on sap and when the rhizomes are severely infested, they become shrivelled and desiccated affecting its germination. Treat seed material with quinalphos (0.075%) (for 20–30 minutes) before storage and also before sowing in case the infestation persists. Discard and do not store severely infested rhizomes."
+      },
+      {
+        "type": "text",
+        "content": "Minor pests"
+      },
+      {
+        "type": "text",
+        "content": "Adults and larvae of leaf feeding beetles such as Lema spp. feed on leaves especially during the monsoon season and form elongated parallel feeding marks on them. The spraying of malathion (0.1%) undertaken for the management of shoot borer is sufficient to manage this pest."
+      },
+      {
+        "type": "text",
+        "content": "The lacewing bug (Stephanitis typicus) infests the foliage causing them to turn pale and dry up. The pest infestation is more common during the post monsoon period especially in drier regions of the country. Spraying dimethoate (0.05%) is effective in managing the pest."
+      },
+      {
+        "type": "text",
+        "content": "The turmeric thrips (Panchaetothrips indicus) infests the leaves causing them to roll, turn pale and gradually dry up. The pest infestation is more common during the post monsoon period especially in drier regions of the country. Spraying dimethoate (0.05%) is effective for the management of the pest."
+      }
+    ]
+  },
+  {
+    "heading": "Organic Production",
+    "content": [
+      {
+        "type": "text",
+        "content": "Conversion plan"
+      },
+      {
+        "type": "text",
+        "content": "For certified organic production, at least 18 months the crop should be under organic management ie only the second crop of turmeric can be sold as organic. The conversion period may be relaxed if the organic farm is being established on a land where chemicals were not previously used, provided sufficient proof of history of the area is available. It is desirable that organic method of production is followed in the entire farm; but in the case of large extent of area, the transition can be done in a phased manner for which a conversion plan has to be prepared."
+      },
+      {
+        "type": "text",
+        "content": "Turmeric as a best component crop in agri-horti and silvi-horti systems, recycling of farm waste can be effectively done when grown with coconut, arecanut, mango, Leucaena, rubber etc. As a mixed crop it can also be grown or rotated with green manure/ legumes crops or trap crops enabling effective nutrient built up and pest or disease control. When grown in a mixed cultivation system, it is essential that all the crops in the field are also subjected to organic methods of production."
+      },
+      {
+        "type": "text",
+        "content": "In order to avoid contamination of organically cultivated plots from neighboring non-organic farms, a suitable buffer zone with definite border is to be maintained. Crop grown on this isolation belt cannot be treated as organic. In sloppy lands adequate precaution should be taken to avoid the entry of run off water and chemical drift from the neighboring farms. Proper soil and water conservation measures by making conservation pits in the interspaces of beds across the slope have to be followed to minimize the erosion and runoff. Water stagnation has to be avoided in the low lying fields by taking deep trenches for drainage."
+      },
+      {
+        "type": "text",
+        "content": "Management practices"
+      },
+      {
+        "type": "text",
+        "content": "For organic production, traditional varieties adapted to the local soil and climatic conditions that are resistant or tolerant to diseases, pests and nematode infection should be used. All crop residues and farm wastes like green loppings, crop residues, grasses, cow dung slurry, poultry droppings etc. available on the farm can be recycled through composting, including vermicomposting so that soil fertility is maintained at high level. No synthetic chemical fertilizers, pesticides or fungicides are allowed under organic system. Farmyard manure may be applied @ 40 t/ha along with vermi compost @ 5–10 t/ha and mulching with green leaves @ 12–15 t ha-1 at 45 days intervals. Based on soil test, application of lime/dolomite, rock phosphate and wood ash has to be done to get required quantity of phosphorus and potassium supplementation. When the deficient conditions of trace elements become yield limiting, restricted use of mineral/chemical sources of micronutrients by soil application or foliar spray are allowed as per the limits of standard setting or certifying organizations. Further, supplementation of oil cakes like neem cake (2 t/ha), composted coir pith (5 t/ha) and suitable microbial cultures of Azospirillum and phosphate solubilizing bacteria will improve the fertility and yield."
+      },
+      {
+        "type": "text",
+        "content": "Use of biopesticides, biocontrol agents, cultural and phytosanitary measures for the management of insect pests and diseases forms the main strategy under organic system. Spraying Neemgold 0.5% or neemoil 0.5% during July-October (at 21 day intervals) is effective against the shoot borer."
+      },
+      {
+        "type": "text",
+        "content": "Selection of healthy rhizomes, soil solarization and incorporation of Trichoderma, seed treatment and soil application of biocontrol agents like Trichoderma or Pseudomonas multiplied in suitable carrier media such as coir pith compost, well rotten cow dung or quality neem cake may be done at the time of sowing and at regular intervals to keep the rhizome rot disease in check. To control other foliar diseases spraying of Bordeaux mixture 1% may be done restricting the quantity to 8 kg copper per hectare per annum. Application of quality neem cake mentioned earlier along with the bioagents Pochonia chlamydosporia will be useful to check the nematode population."
+      }
+    ]
+  },
+  {
+    "heading": "Certification",
+    "content": [
+      {
+        "type": "text",
+        "content": "Under organic farming, processing methods also should be based on mechanized, physical and biological processes to maintain the vital quality of organic ingredient throughout each step of its processing. All the ingredients and additives used in processing should be of agriculture origin and certified organic. In cases where an ingredient of organic agriculture origin is not available in sufficient quality or quantity, the certification programme authorizes use of non organic raw materials subject to periodic re-evaluation."
+      },
+      {
+        "type": "text",
+        "content": "Labelling should clearly indicate the organic status of the product as “produce of organic agriculture” or a similar description when the standards requirements are fulfilled. Moreover organic and non-organic products should not be stored and transported together except when labelled or physically separated."
+      },
+      {
+        "type": "text",
+        "content": "Certification and labeling is usually done by an independent body to provide a guarantee that the production standards are met. Govt. of India has taken steps to have indigenous certification system to help small and marginal growers and to issue valid organic certificates through certifying agencies accredited by APEDA. The inspectors appointed by the certification agencies will carry out inspection of the farm operations through records maintained and by periodic site inspections. Documentation of farm activities is must for acquiring certification especially when both conventional and organic crops are raised. Group certification programmes are also available for organized group of producers and processors with similar production systems located in geographical proximity."
+      }
+    ]
+  },
+  {
+    "heading": "Harvesting",
+    "content": [
+      {
+        "type": "text",
+        "content": "Depending upon the variety, the crop becomes ready for harvest in 7–9 months after planting during January-March. Early varieties mature in 7–8 months, medium varieties in 8–9 months and late varieties after 9 months."
+      },
+      {
+        "type": "text",
+        "content": "The land is ploughed and the rhizomes are gathered by hand picking or the clumps are carefully lifted with a spade. The harvested rhizomes are cleared of mud and other extraneous matter adhering to them."
+      }
+    ]
+  },
+  {
+    "heading": "Processing",
+    "content": [
+      {
+        "type": "text",
+        "content": "Curing"
+      },
+      {
+        "type": "text",
+        "content": "Fresh turmeric is cured for obtaining dry turmeric. The fingers are separated from mother rhizomes. Mother rhizomes are usually kept as seed material. Curing involves boiling of fresh rhizomes in water and drying in the sun."
+      },
+      {
+        "type": "text",
+        "content": "In the traditional method of curing, the cleaned rhizomes are boiled in water just enough to immerse them. Boiling is stopped when froth comes out and white fumes appear giving out a typical odour. The boiling should last for 45–60 minutes when the rhizomes turn soft. The stage at which boiling is stopped largely influences the colour and aroma of the final product. Over cooking spoils the colour of the final product while under-cooking renders the dried product brittle."
+      },
+      {
+        "type": "text",
+        "content": "In the improved scientific method of curing, the cleaned fingers (approximately 50 kg) are taken in a perforated trough of 0.9 m x 0.5 m x 0.4 m size made of GI or MS sheet with extended parallel handle. The perforated trough containing the fingers is then immersed in a pan; 100 litres of water is poured into the trough so as to immerse the turmeric fingers. The whole mass is boiled till the fingers become soft. The cooked fingers are taken out of the pan by lifting the trough and draining the water into the pan. The water used for boiling turmeric rhizomes can be used for curing fresh samples. The processing of turmeric is to be done 2°r 3 days after harvesting. If there is delay in processing, the rhizomes should be stored under shade or covered with sawdust or coir dust."
+      },
+      {
+        "type": "text",
+        "content": "Drying"
+      },
+      {
+        "type": "text",
+        "content": "The cooked fingers are dried in the sun by spreading them in 5–7 cm thick layers on bamboo mats or drying floor. A thinner layer is not desirable, as the colour of the dried product may be adversely affected. During night time, the rhizomes should be heaped or covered with material which provides aeration. It may take 10–15 days for the rhizomes to become completely dry. Artificial drying, using cross-flow hot air at a maximum temperature of 60°C also gives a satisfactory product. In the case of sliced turmeric, artificial drying has clear advantages in giving a brighter coloured product than sun drying which tends to undergo surface bleaching. The yield of the dry product varies from 10–30% depending upon the variety and the location where the crop is grown."
+      },
+      {
+        "type": "text",
+        "content": "Polishing"
+      },
+      {
+        "type": "text",
+        "content": "Dried turmeric has a poor appearance and a rough dull outer surface with scales and root bits. The appearance is improved by smoothening and polishing the outer surface by manual or mechanical rubbing."
+      },
+      {
+        "type": "text",
+        "content": "Manual polishing consists of rubbing the dried turmeric fingers on a hard surface. The improved method is by using a hand operated barrel or drum mounted on a central axis, the sides of which are made of expanded metal mesh. When the drum filled with turmeric is rotated, polishing is effected by abrasion of the surface against the mesh as well as by mutual rubbing against each other as they roll inside the drum. Turmeric is also polished in power operated drums. The yield of polished turmeric from the raw material varies from 15–25%."
+      },
+      {
+        "type": "text",
+        "content": "Colouring"
+      },
+      {
+        "type": "text",
+        "content": "The colour of the processed turmeric influences the price of the produce. For an attractive product, turmeric powder (mixed with little water) may be sprinkled during the last phase of polishing."
+      },
+      {
+        "type": "text",
+        "content": "Preservation of seed rhizomes"
+      },
+      {
+        "type": "text",
+        "content": "Rhizomes for seed purpose are generally stored by heaping in well ventilated rooms and covered with turmeric leaves. The seed rhizomes can also be stored in pits with saw dust, sand along with leaves of Strychnos nuxvomica (kanjiram). The pits are to be covered with wooden planks with one or two openings for aeration. The rhizomes are to be dipped in quinalphos (0.075%) solution for 15 minutes if scale infestations are observed and in mancozeb (0.3%) to avoid storage losses due to fungi."
+      },
+      {
+        "type": "text",
+        "content": "Source : Indian Institute of Spices Research"
+      }
+    ]
+  }
+]

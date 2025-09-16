@@ -1,0 +1,178 @@
+[
+  {
+    "heading": "Plant profile",
+    "content": [
+      {
+        "type": "table",
+        "content": {
+          "rows": [
+            [
+              "Family",
+              "Apiaceae"
+            ],
+            [
+              "Ayurvedic name",
+              "Mandookparni"
+            ],
+            [
+              "Unani name",
+              "Khulakudi, Brahmi"
+            ],
+            [
+              "Hindi name",
+              "Brahmi"
+            ],
+            [
+              "English name",
+              "Asiatic Pennywort, Indian Pennywort, Gotu Kola"
+            ],
+            [
+              "Trade name",
+              "Brahmi"
+            ],
+            [
+              "Parts used",
+              "Whole Plant, mainly Leaves"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "image",
+        "content": "https://static.vikaspedia.in/media/images_en/agriculture/crop-production/package-of-practices/medicinal-and-aromatic-plants/centella-asiaticatest.png"
+      },
+      {
+        "type": "subheading",
+        "content": "Centella asiatica"
+      }
+    ]
+  },
+  {
+    "heading": "Morphological Characteristics",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "The plant is a small trailing herb and it is the only species of <em>Centella</em> found in India.",
+          "Stem is glabrous, pink striated and rooting at nodes.",
+          "Leaves are fleshy, orbicular to reniform and dentate.",
+          "Petiole is long, smooth on upper surface and hairy below."
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Floral Characteristics",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "Flowers are pink and white in fascicled umbels.",
+          "The fruits are oblong, dull brown, laterally compressed, pericarp hard, thickened and woody white."
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Distribution",
+    "content": [
+      {
+        "type": "text",
+        "content": "The plant occurs in marshy places throughout the country in tropical and subtropical regions."
+      }
+    ]
+  },
+  {
+    "heading": "Climate and Soil",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "Plant naturally grows over moist, fertile, loose, sandy loam and clayey soil.",
+          "Thrives best in monsoon periods in well drained beds."
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Propagation Material",
+    "content": [
+      {
+        "type": "text",
+        "content": "The plant is propagated by rooted suckers and seeds."
+      }
+    ]
+  },
+  {
+    "heading": "Agro-technique",
+    "content": [
+      {
+        "type": "subheading",
+        "content": "Nursery Technique"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "Raising Propagules: The plants grow well under shade and can tolerate heavy shade. One-node stem cuttings can be planted. The root develops from the nodes.",
+          "Propagule Rate and Pretreatment: 300 kg rooted suckers are needed to plant one hectare land. No specific pretreatment is required."
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Planting in the Field",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "Land Preparation and Fertilizer Application: The field should be prepared well by giving one ploughing and two harrowings, followed by planting. Manure (FYM) at the rate of 20 t/ha should be mixed thoroughly with the soil at the time of field preparation. NPK fertilizers @ 100:50:50 kg/ha in 4 split doses are given.",
+          "Transplanting and Optimum Spacing: The planting can be done in February-March at a spacing of 45X45 cm with irrigation. It is an irrigated crop.",
+          "Intercropping System: The plant can be grown as pure crop in orchards of Mango and other trees.",
+          "Interculture and Maintenance Practices: There is a profuse growth of weeds in the beds; hence it requires continuous hoeing and weeding. During monsoon months, it is essential to prevent water logging in the beds.",
+          "Irrigation Practices: During dry months fortnightly irrigation is needed and needs drainage during rainy season.",
+          "Disease and Pest Control: No disease, pests or any other physiological disorder was observed in the experimental plantation."
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Harvest Management",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "Crop Maturity and Harvesting: The crop matures in 90 days period after planting. It is harvested through hand-cutting at fully grown leaf stage. The leaves are harvested in sunny weather to facilitate drying.",
+          "Post-harvest Management: Unwanted material is sorted out from the crop before the harvested material is dried in shade.",
+          "Chemical Constituents: Asiatic acid, asiaticoside, madecassic acid, brahmic acid, thankuniside, centellose. Total triterpinoids are in leaves and they are approximately 1.0% of leaves.",
+          "Yield and Cost of Cultivation: As a pure crop, 10–12 t/ha/years yield is obtained by 3 harvests in a year. After second year, the yield begins to decline, needing fresh planting. Rs. 40000/- is the cost of cultivation for one hectare."
+        ]
+      },
+      {
+        "type": "image",
+        "content": "https://static.vikaspedia.in/media/images_en/agriculture/crop-production/package-of-practices/medicinal-and-aromatic-plants/centella-asiatica-in-fieldtest.png"
+      },
+      {
+        "type": "subheading",
+        "content": "Centella asiatica in field"
+      }
+    ]
+  },
+  {
+    "heading": "Therapeutic Uses",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "The whole plant has therapeutic values.",
+          "It is used as nervine tonic, for improving memory and mental disorders.",
+          "It is anti-leprosy, diuretic, stomachic and used in insomnia, asthma, abdominal disorders and fever.",
+          "Decoction of the plant is given in the treatment of leprosy."
+        ]
+      },
+      {
+        "type": "subheading",
+        "content": "Source:"
+      }
+    ]
+  }
+]

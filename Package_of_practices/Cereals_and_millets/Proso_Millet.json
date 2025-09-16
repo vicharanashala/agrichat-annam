@@ -1,0 +1,175 @@
+[
+  {
+    "heading": "Varieties",
+    "content": [
+      {
+        "type": "text",
+        "content": "A number of varieties with high yield potential have been released for different states. The list of latest and popular varieties recommended for different states are given below"
+      },
+      {
+        "type": "table",
+        "content": {
+          "rows": [
+            [
+              "Sl. No.",
+              "State",
+              "Varieties"
+            ],
+            [
+              "1.",
+              "Tamil Nadu",
+              "Co-5, TNAU 151, TNAU 164, TNAU 145, TNAU 202, CO 4, K2, CO 3,CO 2, GPUP 21, GPUP 8"
+            ],
+            [
+              "2.",
+              "Uttarakhand",
+              "PRC 1, TNAU 145, 164, 151, CO 4"
+            ],
+            [
+              "3.",
+              "Karnataka",
+              "GPUP 8 and GPUP 21, TNAU 145, 164"
+            ],
+            [
+              "4",
+              "Bihar",
+              "BR-7, TNAU 164, 145, PR 18"
+            ],
+            [
+              "5.",
+              "Andhra Pradesh",
+              "Sagar, Nagarjuna, CO 4, CO 3"
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "heading": "Season",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "The rainy season crop is sown in onset of monsoon preferable in July.",
+          "September –October in Tamil nadu and Andhra Pradesh",
+          "Mid March-mid May in Bihar and Uttar Pradesh as irrigated catch crop",
+          "It is chiefly grown in central and eastern Uttar Pradesh, western Bihar, North Eastern states and Andhra Pradesh"
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Spacing and Seed rate",
+    "content": [
+      {
+        "type": "text",
+        "content": "25 cms between rows and 10 cm between plants within a row"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "10 kg ha -1 for line sowing",
+          "15 kg ha -1 for broad casting"
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Manuring and Fertilization",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "Apply 5 tones of farm yard manure per hectare 2–3 weeks prior to sowing.",
+          "fertilizer required for different states is as follows"
+        ]
+      },
+      {
+        "type": "table",
+        "content": {
+          "rows": [
+            [
+              "States",
+              "Fertilizer recommended NPK kg ha"
+            ],
+            [
+              "Andhra Pradesh",
+              "20:20:0"
+            ],
+            [
+              "Bihar and Tamil nadu",
+              "20:10:0"
+            ],
+            [
+              "Uttar Pradesh",
+              "40:20:0"
+            ],
+            [
+              "Other states",
+              "20:20:0"
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "heading": "Weed Control",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "Two inter cultivations and one hand weeding in line sowing",
+          "Pre-emergent spray of Isoproturon @0.5 kg.a.i. ha -1 in broadcasted crop"
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Cropping Systems",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "Bihar and Uttar Pradesh: Intercropping of Proso millet + green gram in 2:1",
+          "Western Bihar: Potato - Proso millet cropping sequence is profitable."
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Diseases",
+    "content": [
+      {
+        "type": "text",
+        "content": "There are no serious diseases on this crop."
+      }
+    ]
+  },
+  {
+    "heading": "Pests",
+    "content": [
+      {
+        "type": "text",
+        "content": "Shootfly"
+      },
+      {
+        "type": "text",
+        "content": "Shootfly is the most serious pest of proso millet causing significant yield losses."
+      },
+      {
+        "type": "text",
+        "content": "Control"
+      },
+      {
+        "type": "text",
+        "content": "Early sowing with the onset of monsoon is an effective and cheapest method of control."
+      },
+      {
+        "type": "text",
+        "content": "Source : Indian Institute of Millets Research"
+      }
+    ]
+  }
+]

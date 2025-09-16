@@ -1,0 +1,303 @@
+[
+  {
+    "heading": "Introduction",
+    "content": [
+      {
+        "type": "text",
+        "content": "Castor ( Ricinus communis L.) is a non-edible oilseed crop, belonging to Euphorbiaceae family and takes about atleast 30 and 75 days for fifty percent flowering and maturity of primary raceme, respectively and 5 to 10 months duration for remunerative seed yield. Oil extracted from castor beans has been used over centuries as medicine and lubricants, for hair dressing and as a laxative. In the recent past castor oil and its derivatives have been used in the manufacturing of about 250 industrial products ranging from hydraulic oil, jet engines, in soap, varnish and paint, nylon threads industries etc. Castor oil and its derivatives like hydroxystearic acid, dehydrogenated castor oil etc. are mainly exported (5.5 to 6.5 lakh tonnes worth of 4000–6000 crores) to the U. S. A., European Common Market and Japan."
+      },
+      {
+        "type": "text",
+        "content": "Since last 5 decades, fifteen high yielding varieties like Aruna, TMV-5, 48–1, DCS-9, GC-3, DCS-107 etc., and 22 hybrids have been released for cultivation by AICRP-Castor system of public sector in India. The research efforts initiated since 70’s resulted in the development of wilt and leafhopper resistant hybrids. As of now, more than 95% of the total castor cultivated area is under hybrids. During 2019–20, castor was cultivated in an area of 9.70 lakh hectares with a production of 19.50 lakh tonnes and productivity of 2010 kg ha-1. Gujarat and Rajasthan account for 92% of the total castor area under irrigated conditions while 8% of the total castor area is under rainfed conditions (Solvent Extractors of India, India) mainly distributed in the states of Telangana, Andhra Pradesh and Tamil Nadu etc. Hybrid castor cultivation is also increasing in non-traditional areas of Madhya Pradesh (0.13 lakh ha), Maharashtra (0.11 lakh ha) and Haryana under irrigated conditions."
+      },
+      {
+        "type": "text",
+        "content": "At present, GCH-8, GCH-9, GNCH-1, YRCH-2 and ICH-66 are the latest high yielding hybrids released for cultivation in India. 48–1, DCS-107, GC-3, Pragathi, YTP-1 and GAC-11 are the important varieties in cultivation. Hybrids and varieties, their year of release, parentage, their salient features and seed source are provided below."
+      }
+    ]
+  },
+  {
+    "heading": "Salient features of important castor hybrids recommended for different regions",
+    "content": [
+      {
+        "type": "table",
+        "content": {
+          "headers": [
+            "Hybrid",
+            "Year of Release",
+            "Parentage",
+            "Average yield ( kg ha-1)",
+            "Areas recommended",
+            "Salient features",
+            "Source of seed"
+          ],
+          "rows": [
+            [
+              "RF",
+              "IR"
+            ],
+            [
+              "GAUCH-1",
+              "1976",
+              "VP-1 x GAUC-1",
+              "-",
+              "1520",
+              "Irrigated areas of Gujarat, rainfed areas of southern India",
+              "Early maturing hybrid with drought escape mechanism",
+              "Gujarat State Seed Corporation Ltd, Gandhinagar, Gujarat-382043"
+            ],
+            [
+              "GCH-2",
+              "1986",
+              "VP-1 x JI 35",
+              "-",
+              "1750",
+              "Irrigated areas of Gujarat",
+              "Tolerant to root rot",
+              "Gujarat State Seed Corporation Ltd, Gandhinagar Gujarat-382043"
+            ],
+            [
+              "GCH-4",
+              "1988",
+              "VP-1 x 48–1",
+              "1200",
+              "2200",
+              "Rainfed and irrigate areas",
+              "Resistant to leafhopper, tolerant to Fusarium wilt",
+              "Gujarat State Seed Corporation Ltd, Gandhinagar Gujarat-382043"
+            ],
+            [
+              "GCH-5",
+              "1997",
+              "Geeta x SH 72",
+              "1800",
+              "2800",
+              "Rainfed and irrigated areas of Gujarat",
+              "Red, double bloom, medium duration (120–180 days), semi spiny, tolerant to wilt",
+              "Gujarat State Seed Corporation Ltd, Gandhinagar Gujarat-382043"
+            ],
+            [
+              "GCH-6",
+              "1999",
+              "JP 65 x JI 96",
+              "1300",
+              "2300",
+              "Rainfed and irrigated late<br>kharif regions of Gujarat, Rajasthan and Maharashtra",
+              "Red, single bloom, spiny, medium duration (120–180 days), tolerant to Macrophomina root rot",
+              "Gujarat State Seed Corporation Ltd, Gandhinagar Gujarat-382043"
+            ],
+            [
+              "DCH-177",
+              "2000",
+              "DPC 9 x DCS 9",
+              "1550",
+              "2130",
+              "Rainfed areas of Andhra Pradesh, Karnataka, Tamil Nadu, Maharashtra",
+              "Red single bloom, spiny, early duration (90–150 days), resistant to Fusarium wilt",
+              "ICAR-Indian Institute of Oilseeds Research, Hyderabad, Telangana-500030"
+            ],
+            [
+              "RHC-1",
+              "2000",
+              "VP-1 x TMV5–1",
+              "900–1200",
+              "3000–3200",
+              "Rainfed and irrigated areas of Rajasthan",
+              "Mahogany, triple bloom, spiny, medium duration (100–180 days), resistant to leafhopper",
+              "Agricultural University, Jodhpur, Rajasthan-342304"
+            ],
+            [
+              "DCH-519",
+              "2006",
+              "M 574 x DCS 78",
+              "1740",
+              "2130",
+              "Rainfed and irrigated<br>areas",
+              "Green, triple bloom, spiny, resistant to Fusarium wilt, leafhopper",
+              "ICAR-Indian Institute of Oilseeds Research, Hyderabad, Telangana-500030"
+            ],
+            [
+              "GCH-7",
+              "2006",
+              "SKP 84 x SKI 215",
+              "-",
+              "3000",
+              "Irrigated areas of Gujarat",
+              "Resistant to nematode-wilt complex",
+              "Gujarat State Seed Corporation-Ltd Gandhinagar Gujarat-382043"
+            ],
+            [
+              "YRCH-1",
+              "2009",
+              "DPC-9 x TMV-5",
+              "780",
+              "-",
+              "Rainfed and irrigated areas of Tamil Nadu",
+              "Moderately resistant to capsule borer",
+              "Tapioca and Castor Research Station, Tamil Nadu Agrl. University, Yethapur, Tamil Nadu- 636 119"
+            ],
+            [
+              "PCH-111",
+              "2012",
+              "DPC-9 x CS-1",
+              "1500",
+              "2000",
+              "Rainfed and irrigated areas of Andhra Pradesh and Telangana",
+              "Resistant to Fusarium wilt and moderately tolerant to sucking pests, semilooper and spodoptera",
+              "Regional Agricultural Research Station (RARS), PJTSAU, Palem, Telangana-509381"
+            ],
+            [
+              "GCH-8",
+              "2018",
+              "JP-96 X DCS-89",
+              "1895",
+              "3588",
+              "Rainfed and irrigated areas",
+              "Mahogany, triple bloom, semi-spiny, resistant to Fusarium wilt, leafhopper",
+              "Castor-Mustard Research Station, Sardarkrushinagar, Dantiwada Agricultural University, Sardarkrushinagar, Gujarat-385 506"
+            ],
+            [
+              "GCH-9",
+              "2018",
+              "SKP-84 x PCS-124",
+              "-",
+              "3820",
+              "Gujarat",
+              "Red, triple bloom, Resistant to Fusarium wilt and Macrophomina root rot",
+              "Main Oilseeds Research Station, JAU, Junagadh, Gujarat-362015,"
+            ],
+            [
+              "GNCH-1",
+              "2017",
+              "SKP-84 X DCS-94",
+              "-",
+              "2545",
+              "Gujarat",
+              "Red, triple bloom, semi-spiny, resistant to Fusarium wilt, leafhopper",
+              "Gujarat State Seed Corporation Ltd Gandhinagar Gujarat-382043"
+            ],
+            [
+              "YRCH-2",
+              "2018",
+              "M-619 X SKI-215",
+              "-",
+              "2089",
+              "Rainfed and irrigated",
+              "Red, triple bloom, semi-spiny, resistant to Fusarium wilt, leafhopper",
+              "Tapioca and castor Research Station, Tamil Nadu Agricultural University, Yethapur, Salem District, Tamil Nadu-636 119"
+            ],
+            [
+              "ICH-66",
+              "2019",
+              "SKP-84 x ICS-164",
+              "1560",
+              "-",
+              "Rainfed regions of AP, Telangana, Karnataka, Tamil Nadu and Odisha",
+              "Red, triple bloom, semi-spiny, resistant to Fusarium wilt, Macrophomina root rot and leafhopper",
+              "ICAR-Indian Institute of Oilseeds Research, Hyderabad, Telangana-500030"
+            ],
+            [
+              "GCH",
+              "2020",
+              "SP-1xS-14",
+              "",
+              "3898",
+              "Gujarat",
+              "Red, triple bloom, spiny, resistant to Fusarium wilt and leafhopper",
+              "Sansoli, Anand Agricultural University, Anand, Gujarat-387130"
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "heading": "Salient features of important castor varieties recommended for different regions",
+    "content": [
+      {
+        "type": "table",
+        "content": {
+          "headers": [
+            "Variety",
+            "Year of release",
+            "Parentage",
+            "Average yield (kg ha-1)",
+            "Areas recommended",
+            "Salient features",
+            "Source of seed"
+          ],
+          "rows": [
+            [
+              "RF",
+              "IR"
+            ],
+            [
+              "48–1 (Jwala)",
+              "2007",
+              "High Oil Mutant x Mauthner’s Dwarf",
+              "1100",
+              "2000",
+              "All castor growing regions of India",
+              "Resistant to Fusarium wilt, tolerant to Botrytis, saline and drought conditions",
+              "ICAR-Indian Institute of Oilseeds Research, Hyderabad, Telangana-500030"
+            ],
+            [
+              "DCS-107",
+              "2011",
+              "DCH-177 x JI-133",
+              "1200–1430",
+              "2140–2510",
+              "All castor growing regions of India",
+              "Resistant to Fusarium wilt",
+              "ICAR-Indian Institute of Oilseeds Research, Hyderabad, Telangana-500030"
+            ],
+            [
+              "GC-3",
+              "2012",
+              "(JP-65 x JI-88) x 48–1",
+              "1500",
+              "2000",
+              "Irrigated conditions of Gujarat",
+              "Resistant to Fusarium wilt and tolerant to Macrophomina root rot",
+              "Main Oilseeds Research Station, JAU, Junagadh, Gujarat-362015"
+            ],
+            [
+              "Pragathi",
+              "2015",
+              "M-574 x PCS-124",
+              "1500–1800",
+              "2500–2800",
+              "Rainfed conditions of Telangana",
+              "Resistant to Fusarium wilt",
+              "Regional Agricultural Research Station (RARS), PJTSAU, Palem, Telangana-509381"
+            ],
+            [
+              "YTP-1 (YRCS-1205)",
+              "2019",
+              "TMV-6 x Salem Local",
+              "1450 as annual crop (7 months)",
+              "3110 /year as perennial (12 months)",
+              "Rainfed and irrigated perennial ecosystem of Tamil Nadu",
+              "Non-lodging, non-shattering, suitable both as annual and perennial, intercropping system perennial",
+              "Tapioca and Castor Research Station, Tamil Nadu Agricultural University, Yethapur, Salem District, Tamil Nadu-636 119"
+            ],
+            [
+              "GAC-11",
+              "2019",
+              "Selection from base population of ANDCI-8",
+              "2360",
+              "3230",
+              "Irrigated & rainfed middle Gujarat, kharif season",
+              "Resistant to Fusarium wilt",
+              "Agricultural Research Station, Anand Agricultural University, Sansoli, Gujarat-387130"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "subheading",
+        "content": "Content contributed by T Manjunatha* and C Lavanya, ICAR-Indian Institute of Oilseeds Research, Rajendranagar, Hyderabad-500030 *Corresponding author, Email: t.manjunatha@icar.gov.in"
+      }
+    ]
+  }
+]

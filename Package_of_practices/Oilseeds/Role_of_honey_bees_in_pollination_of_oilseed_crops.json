@@ -1,0 +1,120 @@
+[
+  {
+    "heading": "Oilseeds cultivated in India",
+    "content": [
+      {
+        "type": "text",
+        "content": "India occupies a prominent place in global oilseeds scenario with 12–15 per cent of area, 6–7 per cent of vegetable oil production, and 9–10 per cent of the total edible oil consumption and 13.6 per cent of vegetable oil imports."
+      },
+      {
+        "type": "text",
+        "content": "Nine annual oilseeds, which include seven edible oilseeds viz ., rapeseed-mustard ( Brassica spp.), soybean ( Glycine max ), groundnut ( Arachis hypogaea ), sunflower ( Helianthus annuus ), sesame ( Sesamum indicum ), safflower ( Carthamus tinctoris ) and niger ( Guizotia abyssinica ) and two non-edible crops viz ., castor ( Ricinus communis ) and linseed ( Linum usitatissimum ) are grown in the country."
+      }
+    ]
+  },
+  {
+    "heading": "Pollinating agents in oilseeds cultivation",
+    "content": [
+      {
+        "type": "text",
+        "content": "Among the various pollinating agents, honey bees play a very important role in pollinating oilseed crops. The honey bee pollination not only results in higher yields, it also gives a better quality of produce, and the efficient pollination of flowers also serve to protect the crops against pests."
+      },
+      {
+        "type": "text",
+        "content": "In sunflower, bee keeping found effective in increasing higher number of seeds per head, per cent seed setting, seed test weight and germination of seeds."
+      },
+      {
+        "type": "text",
+        "content": "Bee keeping in niger reported to increase number of capitula/plant, number of seeds/capitula and 1000-seed weight. In mustard, number of pods/plant, pod length, per cent pod setting, number of seeds/pod, 1000-seed weight, per cent seed germination, seed vigour and oil content significantly increased under bee pollination than compared to pollinators’ exclusion."
+      },
+      {
+        "type": "text",
+        "content": "Bee pollination in sesame improved seed germination and vigour of seeds."
+      },
+      {
+        "type": "text",
+        "content": "Introduction of honey bee colonies in castor produced 17% increment in fruit set reaching equivalent to that of hand geitonogamy."
+      },
+      {
+        "type": "text",
+        "content": "Complementary pollination carried out by honey bees with wild pollinators in soybean recorded more number of pods per plant and seeds per pod."
+      },
+      {
+        "type": "text",
+        "content": "Estimates of augmented crop yields due to pollination by honey bees have been made in different parts of the world and the increase in yields due to bee pollination in oilseed crops are presented below."
+      },
+      {
+        "type": "table",
+        "content": {
+          "rows": [
+            [
+              "Crop",
+              "% Yield increase due to bee pollination"
+            ],
+            [
+              "Rapeseed",
+              "12.8 to 139.3"
+            ],
+            [
+              "Mustard",
+              "128.1 to 159.8"
+            ],
+            [
+              "Sunflower",
+              "48.2 to 155.0"
+            ],
+            [
+              "Niger",
+              "38.5 to 260.7"
+            ],
+            [
+              "Safflower",
+              "4.2 to 114.3"
+            ],
+            [
+              "Sesame",
+              "22.0 to 33.0"
+            ],
+            [
+              "Soybean",
+              "18.1"
+            ],
+            [
+              "Castor",
+              "30.6"
+            ],
+            [
+              "Linseed",
+              "1.7 to 40.0"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "text",
+        "content": "Thus qualitative and quantitative parameters of oilseed crops significantly increased with honey bee pollination. Integration of beekeeping as part of Best Management Practices (BMP) should be adopted to enhance productivity in oilseed crops."
+      }
+    ]
+  },
+  {
+    "heading": "References",
+    "content": [
+      {
+        "type": "ordered_list",
+        "content": [
+          "Kanika, N., Yadav, S., Kumar, Y. and Singh, R. 2017. Effect of pollination modes on yield components in Indian mustard ( Brassica juncea L.). Journal of Oilseed Brassica, 8(2): 187–194.",
+          "Maysa, S., Kamel, S. M. and Mahfouz, A. B. H. 2013. Impact of insect pollinators on sesame production. Lap Lambert Academic Publishing, Germany, pp. 76.",
+          "Milfont, M. O., Rocha, E. E. M., Lima, A. O. N. and Freitas, B. M. 2013. Higher soybean production using honeybee and wild pollinators, a sustainable alternative to pesticides and autopollination. Environmental Chemistry Letters, 11: 335–341.",
+          "Prashant B. S., Jagtap, P. K., Patel, M. C., Solanki, B. P., Sharma, S. R. and Rathod, N. 2017. Seed yield increase in niger crop in relation to honeybee and other pollinators. Cercetări Agronomice în Moldova, 2(170): 73–81.",
+          "Rômulo, A. G., Rizzardo, M. O., Milfont, E. M. S., Da Silva and Breno M. F. 2012. Apis mellifera pollination improves agronomic productivity of anemophilous castor bean ( Ricinus communis ). Anais da Academia Brasileira de Ciências, 84(4): 1137–1145.",
+          "Sarswat, B. L. 2018. Beekeeping as a fifth and most important input for overall sustainable development of agriculture/horticulture. Proceedings of National Seminar on Awareness, Motivation and Technology Transfer for Development of Beekeeping in the Country, 24–25 March 2018, West Godavari, Andhra Pradesh, India, pp. 6–13.",
+          "Venata Krishna, K., Prashanth, Y., Yogeeswarudu, B. and Maurya, K. K. 2014. Pollination efficiency of honeybees in sunflower ( Helianthus annuus L). Journal of Agriculture and Life Sciences, 1(2): 92–95."
+        ]
+      },
+      {
+        "type": "text",
+        "content": "Source : P. Duraimurugan and A. Vishnuvardhan Reddy, ICAR-Indian Institute of Oilseeds Research, Rajendranagar, Hyderabad, Telangana, India"
+      }
+    ]
+  }
+]

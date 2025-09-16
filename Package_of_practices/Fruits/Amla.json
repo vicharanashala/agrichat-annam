@@ -1,0 +1,345 @@
+[
+  {
+    "heading": "Plant Profile",
+    "content": [
+      {
+        "type": "table",
+        "content": {
+          "headers": [
+            "Family",
+            "Euphorbiaceae"
+          ],
+          "rows": [
+            [
+              "English name",
+              "Indian gooseberry, Embelic"
+            ],
+            [
+              "Indian name",
+              "Dhatri, Amlaka, Adiphala (Sanskrit)<br>Amla, Amlika, Aonla (Hindi)<br>Nelli, Malanelli (Tamil)<br>Amalakkamu, Usirikai (Telugu)<br>Amalak, Bettadanelli (Kannada)<br>Amali, Ambala (Gujarathi)<br>Amla, Amlaki (Bengali)<br>Nelli (Malayalam)"
+            ],
+            [
+              "Species",
+              "<em>Phyllanthus emblica</em> Linn.<br><em>Embelica officinalis</em>"
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "heading": "Medicinal Properties and Uses",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "Amla is an important crop in Ayurveda",
+          "Fruits have the richest source of vitamin-C (700 mg per 100 g of fruits)",
+          {
+            "text": "Preparations (Products) using Amla:",
+            "sublist": [
+              "Chyawanprash",
+              "Triphala churna (mixture of Amla, Terminalia chebula and T. bellerica)",
+              "Brahma Rasayana",
+              "Madumegha churna"
+            ]
+          },
+          {
+            "text": "Medicinal properties:",
+            "sublist": [
+              "Anti scorbutic, diuretic, laxative, antibiotic and anti-dysenteric.",
+              "Phyllemblin, obtained from fruit pulp has been found to have mild depressant action on central nervous system.",
+              "Good liver tonic"
+            ]
+          },
+          "Good demand from the industries for the preparation of various health care products also like hair oil, dye, shampoo, face creams and tooth powder."
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Production Technology",
+    "content": [
+      {
+        "type": "subheading",
+        "content": "Soil"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "Light and medium heavy soils",
+          "Avoid purely sandy soil",
+          "The tree is well adapted to dry regions and can also be grown in moderate alkaline soils also."
+        ]
+      },
+      {
+        "type": "subheading",
+        "content": "Climate"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "It is a tropical plant.",
+          "Annual rainfall of 630–800 mm is ideal for its growth.",
+          "The young plant up to the age of 3 years should be protected from hot wind during May-June and from frost during winter months.",
+          "The mature plants can tolerate freezing temperature as well as a high temperature up to 46°C."
+        ]
+      },
+      {
+        "type": "subheading",
+        "content": "Varieties"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "Banarasi",
+          "Chakaiya",
+          "Francis",
+          "NA-4 (Krishna)",
+          "NA-5 (Kanchan)",
+          "NA-6",
+          "NA-7 (Promising variety)",
+          "NA-10",
+          "BSR-1 (Bhavanisagar)."
+        ]
+      },
+      {
+        "type": "subheading",
+        "content": "Inputs"
+      },
+      {
+        "type": "table",
+        "content": {
+          "headers": [
+            "S. No.",
+            "Materials",
+            "Per acre",
+            "Per hectare"
+          ],
+          "rows": [
+            [
+              "1",
+              "Number of seedlings (grafts)",
+              "200",
+              "500"
+            ],
+            [
+              "2",
+              "Farm Yard Manure (t)",
+              "4",
+              "10"
+            ],
+            [
+              "3",
+              "Fertilizers (kg)<br>N<br>P₂O₅<br>K₂O",
+              "90<br>120<br>48",
+              "225<br>300<br>120"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "note",
+        "content": "15 kg FYM and 0.5 kg phosphorus should be applied to each pit before planting. Application of 30 g of nitrogen each year during September - October upto 10 years for each tree is recommended."
+      }
+    ]
+  },
+  {
+    "heading": "Cultivation techniques",
+    "content": [
+      {
+        "type": "subheading",
+        "content": "Planting"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "Dig pits of 1 m³ during May-June at a distance of 4.5 m x 4.5 m",
+          "Leave for 15–20 days exposing to sunlight.",
+          "Each pit should be filled with surface soil mixed with 15 kg farm yard manure and 0.5 kg of phosphorus before planting the grafted seedlings."
+        ]
+      },
+      {
+        "type": "important_note",
+        "content": "Plant at least 3 varieties in a ratio of 2:2:1 for the purpose of pollination and maximum yield. For e.g. in an acre, plant 80 grafts of NA-7, 80 grafts of Krishna and 40 grafts of Kanchan for best results."
+      },
+      {
+        "type": "subheading",
+        "content": "Irrigation"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "Young plants require watering during summer months at 15 days interval till they are fully established. Watering of bearing plants is advised during summer months at biweekly interval. After the monsoon rains, during October - December about 25–30 litres of water per day per tree through drip irrigation should be given."
+        ]
+      },
+      {
+        "type": "subheading",
+        "content": "Training and pruning"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "Leaving only 4–5 well shaped branches with wide angle at about 0.75 m from the ground level, other dead, diseased, week crisscrossing branches and suckers should be pruned off at the end of December."
+        ]
+      },
+      {
+        "type": "subheading",
+        "content": "Mulching and Intercropping"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "During summer, the crop should be mulched with paddy straw or wheat straw at the base of the tree up to 15–20 cm from the trunk. Inter crops like green gram, black gram, cow pea and horse gram can be grown up to 8 years."
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Plant Protection",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "Major insect: Bark Eating Caterpillar (Inderbella tetronis)",
+          "Major disease: Rust (Ravenellia emblicae)"
+        ]
+      },
+      {
+        "type": "subheading",
+        "content": "Schedule"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "Injection of Endosulphon 0.05% or Monocrotophos 0.03% in holes and plugging with mud is effective in protecting the tree against bark eating caterpillar.",
+          "Spraying of Indofil M-45 @ 0.3% twice, first in early September and second 15 days after first application controls the spread of rust."
+        ]
+      },
+      {
+        "type": "subheading",
+        "content": "Harvesting and Yield"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "Amla tree starts bearing after 2 years of planting.",
+          "The fruits are harvested during February when they become dull greenish yellow from light green.",
+          "The mature fruits are hard and they do not fall at gentle touch and therefore vigorous shaking is required.",
+          "Fruits can also be harvested using long bamboo poles attached with hooks.",
+          "A mature tree of about 10 years will yield 50–70 kg of fruit.",
+          "The average weight of the fruit is 60–70 g and 1 kg contains about 15–20 fruits.",
+          "A well maintained tree yields up to an age of 70 years."
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "CISH Technologies",
+    "content": [
+      {
+        "type": "subheading",
+        "content": "Aonla de-stoning machine"
+      },
+      {
+        "type": "image",
+        "content": "https://static.vikaspedia.in/media/images_en/agriculture/crop-production/package-of-practices/fruits-1/Anoladestoning.jpg"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "Manual removal of stone from aonla fruit for processing is difficult due to its irregular shape and tight adherence pulp",
+          "Manual removal besides being cumbersome, results in fruit splitting into segments and 15–20 per cent pulp remaining adhered to stone",
+          "Processing industry needs a mechanical device for de-stoning of aonla fruits for improving the efficiency of this critical step of segment separation",
+          "CISH designed and developed a manually operated machine for de-stoning of aonla fruits",
+          "Machine works on the principle of compression and coring; main functional parts include plunger, core and a die",
+          "Machine has operating capacity of 10–12 kg aonla fruits per hour",
+          "Only about 6–8 per cent pulp remains adhered to the stones during this operation,leaving the aonla fruit intact",
+          "Cost of machine is about Rs.3000.00"
+        ]
+      },
+      {
+        "type": "subheading",
+        "content": "Aonla segments-in-syrup"
+      },
+      {
+        "type": "image",
+        "content": "https://static.vikaspedia.in/media/images_en/agriculture/crop-production/package-of-practices/fruits-1/AnolaSyrup.jpg"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "Aonla is a very nutritious fruit; fresh consumption is limited by its astringent taste",
+          "Aonla murabba, a product well known, has poor nutritional qualities",
+          "Aonla segments in syrup is a new diversified product",
+          "Prepared by blanching, separating the segments and dipping them successively in sugar syrup (50–70°B) containing citric acid and preservative",
+          "About 6 days are required for preparation of this product",
+          "Finally, segments are packed in 72°B syrup in air tight plastic jars",
+          "Finished product contains 200 mg per 100 g ascorbic acid, much higher than murabba."
+        ]
+      },
+      {
+        "type": "subheading",
+        "content": "Aonla Cider"
+      },
+      {
+        "type": "image",
+        "content": "https://static.vikaspedia.in/media/images_en/agriculture/crop-production/package-of-practices/fruits-1/AnolaCider.jpg"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "Aonla (Emblica officinalis Gaertn) or Indian gooseberry is known for its therapeutic properties. It is a rich natural source of ascorbic acid and polyphenols. The aonla fruits are not good for fresh consumption because of astringency and acidic taste and hence processed for preparation of number of products. However, fermented beverages have not been prepared from aonla as yet. Cider is a beverage made ‘wholly or partly from the fermented juice of apples’ and even from pear, peach and raspberry. Polyphenols and acid required in moderate amounts for cider preparation are present in aonla amply.",
+          "Aonla juice (suitably ameliorated) is fermented with yeast Saccharomyces cerevisiae variety ellipsoideus Montrachet strain, siphoned, matured and bottled to get a sweet fermented drink of aonla having 10°B TSS, up to 4% alcohol, 0.4 percent polyphenols and 66 mg per 100 ml ascorbic acid. The cider can be stored for a period of over one year and its taste improves further during storage.",
+          "Aonla cider is a novel refreshing drink which contains only 4% alcohol and, hence, may be promoted as a health drink. Keeping in view the increasing production of aonla, cider is a drink that can be promoted both in national and international markets."
+        ]
+      },
+      {
+        "type": "subheading",
+        "content": "Aonla dietary fibre enriched biscuits"
+      },
+      {
+        "type": "image",
+        "content": "https://static.vikaspedia.in/media/images_en/agriculture/crop-production/package-of-practices/fruits-1/Anolabiscuits.jpg"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "Biscuits are amongst the lowest cost processed foods in the country. The bakery products available commercially don’t contain any fibre despite the fact that they are the choicest snack of children as well as adult alike. Physicians recommend dietary fibre, particularly in children’s diet, to overcome many indigestion problems. Dietary fibre, Vitamin C and antioxidant enriched biscuits have been developed by incorporation of aonla pomace (a byproduct generated during aonla juice processing) as one of the biscuit ingredients. The dietary fibre content of the finished product is about 5 times higher than the control while the vitamin C and antioxidant concentrations are 15.6 mg per 100g and 0.25 g per cent respectively. Biscuits have a shelf life of more than 6 months.",
+          "The biscuits prepared in accordance with the invented process can be supplemented as fibre, Vitamin C and antioxidant fortified diet for children and adults. The fibre enriched biscuits may be helpful in curing the constipation and other ailments related to fast food habits. Moreover, it would also help in gainful utilization of aonla processing waste."
+        ]
+      },
+      {
+        "type": "source",
+        "content": "Central Institute for Subtropical Horticulture",
+        "link": "http://www.cish.res.in/"
+      }
+    ]
+  },
+  {
+    "heading": "Related Resources",
+    "content": [
+      {
+        "type": "ordered_list",
+        "content": [
+          {
+            "text": "Amla Production Technology",
+            "link": "http://nhb.gov.in/model-project-reports/Horticulture%20Crops/Aonla/Aonla1.htm"
+          },
+          {
+            "text": "Amla Rejuvanation",
+            "link": "https://midh.gov.in/technology/Aonla_Rejuvenation-english.pdf"
+          },
+          {
+            "text": "ICAR – Central Citrus Research Institute",
+            "link": "http://www.ccringp.org.in/ccringp/"
+          },
+          {
+            "text": "Amla processing",
+            "link": "https://www.standupmitra.in/Default/DownloadFile/Amla_Processing.pdf"
+          }
+        ]
+      }
+    ]
+  }
+]

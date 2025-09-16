@@ -1,0 +1,427 @@
+[
+  {
+    "heading": "General",
+    "content": [
+      {
+        "type": "subheading",
+        "content": "Botanical Name : Capsicum annum L., Capsicum frutescens L. Family : Solanaceae Commercial Part : Green as well as ripe and dried pod (fruit) Indian Names : Hindi : Lal mirch Bengali : Lanka, Lankamorich Gujarati : Marcha Kannada : Mensina kai Malayalam : Mulaku Marathi : Mirchi Oriya : Lanka Punjabi : Lalmirch Tamil : Milagay Telugu : Mirapa kaya Urdu : Lalmirch"
+      },
+      {
+        "type": "text",
+        "content": "Chilli is the dried ripe fruit of the genus Capsicum. Capsicum annuum is an annual sub –shrub, the flowers of which are borne singly and fruits usually pendent, which provide red peppers, cayenne, paprika and chillies and sweet pepper (bell pepper) a mild form with large inflated fruits."
+      },
+      {
+        "type": "text",
+        "content": "Capsicum frutescence is a perennial chilly with small sized pods which are highly pungent. It is commonly known as ‘bird chilly’ and ‘Tabasco’."
+      },
+      {
+        "type": "subheading",
+        "content": "Uses"
+      },
+      {
+        "type": "text",
+        "content": "Dry chilly is extensively used as spice in curried dishes. It is also used as an ingredient in curry powder and in seasonings. Bird chilly is used in making hot sauces as pepper sauce and Tabsco sauce. Paprika, Bydagi chilly, Warangal chapatta and similar high colour less pungent varieties are widely used for colour extraction. This colour is highly popular among food and beverage processors for its use as a colourant, since this being a ‘natural plant colour’. As a medicine it is used as an counter irritant in Lumbago, Neuralgia, and Rheumatic disorders. Capsicum has a tonic and carminative action. Taken inordinately it may cause gastro-enteritis. The enzyme isolated from chilly is used in the treatment of certain type of cancers. Oleoresin capsicum is used in pain balms and vaporubs. Dehydrated green chilly is a good source of vitamin ‘c’."
+      }
+    ]
+  },
+  {
+    "heading": "Varieties",
+    "content": [
+      {
+        "type": "subheading",
+        "content": "BIRDS EYE CHILLI (DHANI)"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "Grown in Mizoram & some areas of Manipur",
+          "Blood red in colour, highly pungent",
+          "Harvesting season-October to December",
+          "ASTA colour value-41.7",
+          "Capsaicine-0.589%"
+        ]
+      },
+      {
+        "type": "subheading",
+        "content": "BYADAGI (KADDI)"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "Grown in Dharward Karnataka",
+          "Red in colour with less pungency or without pungency",
+          "Harvesting season-January to May",
+          "ASTA colour value-159.9",
+          "Capsaicine-Negligible"
+        ]
+      },
+      {
+        "type": "subheading",
+        "content": "ELLACHIPUR SANNAM-S4 TYPE"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "Grown in Amaravathi District of Maharashtra",
+          "Reddish in colour and very hot",
+          "Harvesting season-September to December",
+          "ASTA colour value - 70.40",
+          "Capsaicine-0.2%"
+        ]
+      },
+      {
+        "type": "subheading",
+        "content": "GUNTUR SANNAM-S4 TYPE"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "Grown in Guntur, Warangal, Khammam Districts of Andhra Pradesh",
+          "Skin thick, hot and red",
+          "Harvesting season - December to May",
+          "ASTA colour value- 32.11",
+          "Capsaicine-0.226%"
+        ]
+      },
+      {
+        "type": "subheading",
+        "content": "HINDPUR-S7"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "Grown in Hindpur in Andhra Pradesh",
+          "Red in colour, hot and highly pungent",
+          "Harvesting season- December to March",
+          "Capsaicine-0.24",
+          "ASTA colour value- 33.00"
+        ]
+      },
+      {
+        "type": "subheading",
+        "content": "JWALA"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "Grown in Kheda, Mehsana & in South Gujarat",
+          "Highly pungent, light red in colour, short and the seeds are compact",
+          "Harvesting season-September to December",
+          "Capsaicine-0.4%"
+        ]
+      },
+      {
+        "type": "subheading",
+        "content": "KANTHARI-WHITE"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "Grown in Kerala & some parts of Tamil Nadu",
+          "Short and ivory white in colour with high pungency",
+          "Mainly grown as a homestead crop",
+          "ASTA colour value- 2.96",
+          "Capsaicine-0.504%"
+        ]
+      },
+      {
+        "type": "subheading",
+        "content": "KASHMIR CHILLI"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "Grown in temperate regions such as Himachal Pradesh, Jammu & Kashmir and also in sub-tropical regions of North India during winter season",
+          "Long, fleshy, deep red in colour",
+          "Harvesting season- November to February",
+          "ASTA colour value- 54.10",
+          "Capsaicine-0.325%"
+        ]
+      },
+      {
+        "type": "subheading",
+        "content": "MADHYA PRADESH G. T. SANNAM"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "Grown in Indore, Malkapur Chikli and Elachpur areas of Madhya Pradesh",
+          "Red in colour and pungent",
+          "Harvesting season-January to March"
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Origin and distribution",
+    "content": [
+      {
+        "type": "text",
+        "content": "Chilly is reported to be a native of South America and is widely distributed in all tropical and sub tropical countries including India. It was first introduced in India by Portuguese towards the end of 15th Century. Now it is grown all over the world except in colder parts."
+      },
+      {
+        "type": "text",
+        "content": "Chilli is one of the most valuable spice crop. India is the largest producer, consumer and exporter of Chilli, contributing about 40 % of the World’s chilli production. In India, Andhra Pradesh is the leading state in Chilli production."
+      }
+    ]
+  },
+  {
+    "heading": "Climate and Soil",
+    "content": [
+      {
+        "type": "text",
+        "content": "Chilli being a subtropical crop comes up well in warm humid climate (20–30°C) and can be grown under varied agro-climatic conditions. Excess irrigation/rainfall and suitable Excess irrigation/rainfall and moisture stress during flowering/ fruit set is detrimental. Dry climate during fruit maturity and ripening is ideal and facilitates quality harvest. Black soils are best suited for chilli cultivation. Irrigation can be taken up in light (red loams/ sandy loams/ chalka soils) and alluvial soils. Soils with poor drainage are not suitable. Chilli crop prefers a soil reaction ranging from pH of 6.0–7.0."
+      }
+    ]
+  },
+  {
+    "heading": "Seeds and propagation material",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "Selection of a variety - Variety has to be selected based on purpose for which it is cultivated, local market preference, climatic conditions, soil type, irrigation facilities and pest and disease incidence in the locality.",
+          "Procurement of quality seeds - Variety/ Fl hybrid seeds to be procured from the reliable or authenticated source",
+          {
+            "text": "Seed requirement:",
+            "sublist": [
+              "Varieties: 250 g/acre (for transplanted crop); 500g /acre (for direct sowing)",
+              "Hybrids: 80–100g/acre"
+            ]
+          },
+          "Seed treatment : Hybrid and OP seeds marketed by private sector are usually treated with insecticide and fungicide to avoid sucking pests and preventing damping off disease. However, in all the other cases, the seed procured must be treated with <em>Trichoderma viride</em> @ 4g/kg or <em>Pseudomonas fluorescens</em> @10g/kg."
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Soil conditions / Management",
+    "content": [
+      {
+        "type": "text",
+        "content": "Soil should be prepared to a fine tilth by adequate number of ploughings. FYM should be incorporated in soil at the time of final ploughing. The soil analysis report of the selected site and analytical report on irrigation water should be available especially with respect to heavy metals and pesticide residues contents. The quantity, quality and type of soil amendments used for the selected site need to be recorded."
+      }
+    ]
+  },
+  {
+    "heading": "Nursery management",
+    "content": [
+      {
+        "type": "text",
+        "content": "Nursery management must ensure quality seedlings with high initial vigour which helps in faster establishment and a healthy crop. The following points must be taken care of in case of raising the nursery in a traditional way which is widely practiced for open pollinated varieties."
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "Raised nursery beds with soil mixed with well pulverized organic matter. Apply neem cake powder @1kg per 40m 2 area.",
+          "The seeds are sown thinly in lines spaced 5cm apart, sand and well decomposed compost are sprinkled over the seeds.",
+          "Avoid application of chemical fertilizers in nursery bed. If necessary use foliar nutrients.",
+          "To protect against damping off, drench the nursery bed with copper oxychloride (3g/L) at 9th day after sowing (DAS) and l5th DAS.",
+          "Recommended raising Fl hybrid seedlings in protrays filled with sterilized cocopeat in insect proof net to produce healthy seedlings (net of 5m x 4.5m x 2m size accommodates l00-l20 protrays (98 cell) to produce ~l0,000 - l2,000 seedlings which is sufficient for an acre)",
+          "Weekly sprays of systemic insecticides with alternate sprays of neem/ pongamia oil or soap is recommended to control vectors",
+          "Mulching with paddy straw conserves moisture. The mulch is removed as soon as the seeds start germinating. Heavy watering should be avoided in nursery bed."
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Crop management",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "The spacing for the crop, in terms of row to row and plant to plant distance need to be adopted as per the agronomic requirement.",
+          "Gap filling of plants to compensate mortality losses should be carried out within a reasonable timeframe.",
+          "Based on the soil analysis and crop requirement, organic manure preferred for the crop supplemented with mineral nutrition through inorganic source need to be applied.",
+          "Application of mineral supplements must be based on complete soil analysis in a competent laboratory.",
+          "Specialized nutritional application for distinct needs viz., root production or enhancement of leaf bio mass need to be taken up as per the requirement of the crop.",
+          "In order to optimize water usage and to reduce wastage of water irrigation management plan need to be prepared for the crop.",
+          "Efficient system for irrigation need to be adopted so as to conser&e water for the whole cropping season and to reduce the water usage.",
+          "Depending on the nature and stage of the crop, inter-cultivation practices need to be adopted to reduce the incidence of weeds.",
+          "Comprehensive package of pest and disease management schedules including prophylactic measures required for the crop need to be adopted to minimize the crop loss and its quality.",
+          "In order to reduce pesticide residue in produce, correct dose of pesticides, time of application and mode of application need to be ensured and recorded correctly.",
+          "Use of bio control agents and bio pesticides is preferred and plans for this should be available."
+        ]
+      },
+      {
+        "type": "subheading",
+        "content": "Sowing/ Planting"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "Direct sowing : July to August",
+          "Nursery : July",
+          "Transplanting : August-September"
+        ]
+      },
+      {
+        "type": "subheading",
+        "content": "Integrated nutrient management"
+      },
+      {
+        "type": "text",
+        "content": "Soil problems and micronutrient deficiencies in chilli are mainly due to the excess use of chemical fertilizers and limited or no application of organic fertilizers. Improving the soil health by soil conservation methods, Green leaf manuring, crop rotation and application of bulky organic manures will not only improve availability of nutrients to the crop but also improves soil microflora and fauna. To avoid soil nutrient depletion, crop rotation should be incorporated in the cropping pattern. Follow crop rotation: Greengram - Chilli rotation is a good example without sacrificing chilli crop."
+      },
+      {
+        "type": "text",
+        "content": "Deep ploughing in summer to maintain soil condition as well as to reduce hibernating pest population. Chilli plants in compacted soils experience stress both during wet and dry periods than plants in soils with good tilth. Application of diverse organic manures-FYM (25t/ha) or vermicompost (5t/ha) enriched with bioagents. Apply liberal doses of diverse organic manures such as crop residues, FYM, compost, Vermicompost, green manure, neem cake etc to improve soil organic carbon and physical condition. FYM enrichment - multiply biofertilizers & biopesticides using neemcake and add to FYM. Application of biofertilizers & bioagents (Phosphobacteria, Bacillus subtilis and Mycorrhiza, Pseudomonas, Trichoderma etc) to the soil to build up beneficial microbial population."
+      },
+      {
+        "type": "text",
+        "content": "Raising green manure crops like Crotalaria in acidic soils or Sesbania (dhaincha) in alkaline soils. Use of green manure reduces the incidence of thrips, aphids and whitefly. Root rots and leaf diseases are reduced with active organic matter. Apply neem cake powder @ 250kg/ha."
+      },
+      {
+        "type": "text",
+        "content": "Apply recommended dose of nitrogen and potassium fertilizers as per the recommendation of the region (generally 100:60:60 NPK kg/ha in 4–5 splits for Andhra Pradesh and Telangana) and as per soil test results. Avoid urea and prefer SOP (sulphate of potash) instead of MOP (muriate of potash) for red ripe fruit harvest. Apply entire phosphorus as basal in the form of single super phosphate (SSP) and avoid split and excess doses of P fertilizers. Region, soil and farming situation based fertilizer recommendations should be followed for better fertilizer use efficiency. Micronutrient spray at the time of fruit formation improves fruit quality."
+      },
+      {
+        "type": "subheading",
+        "content": "Weed management"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          {
+            "text": "Critical stages are:",
+            "sublist": [
+              "Direct sown crop : 90 DAS",
+              "Transplanted crop : 60 DAP",
+              "Avoid excess use of herbicides"
+            ]
+          },
+          "Avoid directed spray of herbicides which are not recommended",
+          "Intercultivation must be preferred over the use of herbicides"
+        ]
+      },
+      {
+        "type": "subheading",
+        "content": "Crop management"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "Transplanting 40–45 days old seedlings on beds or ridges & furrows method at 60 x 30cm spacing.",
+          "Preferably transplant hardened seedlings in the late afternoon in moist soil.",
+          "Raised beds of 3ft wide & 1ft high with 2ft wide furrows, use drip and agrimulch is preferred.",
+          "Mulching the field with film (30 micron agri mulch) along with drip and fertigation system is recommended.",
+          "Paired row system on raised bed of 90 cm, of rows 60cm (2ft) apart and plants 45cm (l.5ft) apart; and with 60cm (2ft) channel between the beds.",
+          "Sprinklers during early period of the crop then convert to drip allowing early inter- culture.",
+          "Keep the field free from weeds by interculture and manual weeding."
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Plant health management",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "Farmers are advised to identify the pest properly with the help of plant protection experts and to follow IPM strategies for sustainable production.",
+          "Farmers shall keep a record of the plant protection chemicals used during the cropping season.",
+          "Proper precautions should be taken while spraying chemicals to avoid contamination beyond the application area.",
+          "Preparation of spray fluids should be carried out in a designated area away from any natural water bodies, drinking water sources, human dwellings etc.",
+          "It is advisable to use protective clothing, face mask and gloves while preparing and applying pesticides.",
+          "Plant protection chemicals must be stored in a dry, well ventilated facility with displayed information on hazardous chemicals inaccessible to children and unauthorized people.",
+          "Farmers should follow the waiting period recommended by authorized Institutes for repeated application of pesticides and advised not to mix pesticides.",
+          "Spray should not be done during peak period of bee activity to protect bees.",
+          "It is advised to spray pesticides in the afternoon hours avoiding strong windy condition and rains.",
+          "Avoid carrying bulk pesticides (dust/granules) on head shoulders or on the back. Avoid eating, drinking, smoking or chewing while preparing spray solution and the containers, buckets etc used for mixing pesticides should not be used for domestic purpose.",
+          "Select right kind of sprayer with appropriate nozzles for spraying. It is advised not to blow/clean clogged nozzle with mouth.",
+          "Left o&er spray solution and empty containers should not be disposed in ponds, water bodies etc.",
+          "Combustible containers can be burnt if the container labels permits burning. Containers made of paper, cardboard & plant materials can be disposed off by burning. Non combustible containers should be broken or deformed by punching holes at several places to prevent reuse."
+        ]
+      },
+      {
+        "type": "text",
+        "content": "Chilli crop is usually attacked by sucking pests (thrips, white flies, aphids and mites) and borers (Helicoverpa and Spodoptera). At any stage of the crop, the crop typically experiences pest complex attack leading to panic by the farmers resulting in indiscriminate use of insecticides. Many a times, thrips and mites attack the crop thus making majority of control measures ineffective. Most sucking pests in chilli not only cause direct damage but also transmit viruses. Aphids transmit Cucumber Mosaic Virus, whiteflies transmit Leaf Curl Virus (Gemini Virus) and thrips transmit Peanut Bud Necrosis Virus. A general guideline is to contain the pest load rather than aiming at absolute control of the pest, as this approach is currently known to cause high pesticide residues in the harvested produce."
+      },
+      {
+        "type": "text",
+        "content": "The following are some of the important measures under IPM"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "Seedling dip in pesticide/fungicide solution before planting",
+          "Raising border crops like sorghum, maize to check sucking pests",
+          "Keep the plot clean (weed control in time is must)",
+          "Planting trap crops like marigold and castor against borers and nematodes",
+          "Use of pheromone traps for control of borers and sticky traps against sucking pests. Provide poison bait with carbaryl 1.25 kg, rice bran 12.5 kg, jaggery 1.25 kg and water 7.5L/ha",
+          "Provide bird perches",
+          "Sprinklers at pre flowering stage to check whitefly/ thrips infestation",
+          "Avoid fruits touching the soil and getting infested with fungal diseases",
+          "Avoid water stagnation and provide proper drainage",
+          "Avoid combination of more than two pesticides and avoid repeated use of same pesticide (rotation of pesticides)",
+          "Enhance the usage of botanicals viz., Neem and Pongamia oil @2mL/L along with recommended pesticides",
+          "Avoid applying pesticides after flowering to pod formation period, wherever possible",
+          "Timely use of recommended dosage of branded pesticides and fungicides",
+          "Avoid use of tonics of unknown composition"
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Harvest and post harvest management",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "Harvesting season is determined and followed on the basis of qualitative parameters set for the end product rather than the total vegetative yield. Clear instruction should be available for farm worker to use proper cutting devices and avoid harvest of unwanted plants.",
+          "Washing and cleaning methods need to be ensured for the freshly harvested materials to ensure removal of soil particles adhering to the materials. Processing area must be clean with a proper platform and shade.",
+          "Proper drying techniques need to be adopted for drying and storage of harvested crop produce.",
+          "Drying procedure and the temperature employed should be in conformity with the quality needs of the farm produce.",
+          "Sorting procedure need to be carried out after the completion of drying phase and before the material is packed. Selection of packaging material must be based on the quality requirements and possible length of storage before consumption/processing and need to be kept clean, dry and undamaged.",
+          "Storage area must be kept clean and free from insect pests. Proper separation need to be implemented to keep different products of the crop separately."
+        ]
+      },
+      {
+        "type": "text",
+        "content": "Chilli invariably contains high moisture content (60%- 85%) at the time of harvest, which must be brought down to 8 - l2%. The majority of Chilli produced is dried in open space. The major change during drying is weight reduction which amounts to a reduction of 20%- l5% of total weight of the pods. Losses also occur during farm processing. These are spillage in field (l%-l0%), wastage during farm assembling (5%-l0%) and wastage during transportation and handling (2%-5%). Proper post-harvest management not only helps to reduce the post-harvest losses but also improves quality and shelf life of the final produce. If chillies are not properly dried, 35–50% post-harvest losses may occur when the produce moves along the supply chain."
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "Timely pickings improve quality.",
+          "Harvest at right maturity for maximum flavour, oil and colour content.",
+          "Heap the harvested pods overnight to get uniform colour",
+          "Avoid insecticide sprays before picking",
+          "Use clean bags and baskets for harvesting.",
+          "Bring moisture level to l0%-ll% to avoid aflatoxin contamination.",
+          "Use cement platform, sand silpaulin sheets to avoid afflatoxin contamination.",
+          "Drying area should be protected by fencing to avoid contact with animals.",
+          "Keep the produce free from dust and other foreign material",
+          "Encourage multipurpose polyhouse solar dryers for quick drying and such closed dryers help to develop high quality produce with minimum contamination and protect from rains. Use polyhouse solar drying for achieving high quality produce.",
+          "Grade and sort out damaged and whitened pods. Grading should be done with proper hygiene. Pack in clean, new gunny bags and label with natural colours.",
+          "Store at 4–7°C in cold storage. Cold storage helps to retain colour. Avoid the use of Rhodomine to label the chilli gunnies.",
+          "Avoid sprinkling water on dry chilli while packing in gunnies.",
+          "Restricting animals, including livestock, poultry or pets, to roam in crop areas, especially near harvest time. Exclude ingredients, Insects and other pests from growing areas.",
+          "Providing appropriate hand- washing instructions and clean toilet facilities for field workers.",
+          "Cleaning and sanitizing harvest containers before use.",
+          "Excluding field debris from packing and storage facilities by cleaning the outsides of harvest bins and requiring workers to wear clean clothes in these areas.",
+          "Using new and unused bags to pack products for further transport and sale."
+        ]
+      },
+      {
+        "type": "source",
+        "content": "ICAR Good Agricultural Practices for Chill",
+        "link": "http://www.spices.res.in/file/751/download?token=zdEaka_J"
+      }
+    ]
+  },
+  {
+    "heading": "Related resources",
+    "content": [
+      {
+        "type": "ordered_list",
+        "content": [
+          {
+            "text": "IPM for Chilli",
+            "link": "https://niphm.gov.in/IPMPackages/Chilli.pdf"
+          }
+        ]
+      }
+    ]
+  }
+]

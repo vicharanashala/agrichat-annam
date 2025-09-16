@@ -1,0 +1,539 @@
+[
+  {
+    "heading": "0",
+    "content": [
+      {
+        "type": "text",
+        "content": "Fenugreek (Methi) is an annual herb mainly cultivated for seed as well as for its leaves (fresh or dried). The seeds are used as a spices and condiments to improve the flavor and the nutritive value of foods. Seed have strong odor and slight bitterness in taste. Seeds are used as seasoning agent for pickles and vegetable. Fenugreek is an important seed spice, native of South Eastern Europe and South Western Asia. India is also said to be one of the natives of fenugreek."
+      },
+      {
+        "type": "text",
+        "content": "India occupies prime position among fenugreek growing country in the world. Rajasthan alone produces more than 80% fenugreek of the country, besides other growing states are Gujarat, Madhya Pradesh, Chattisgarh and Uttar Pradesh ."
+      }
+    ]
+  },
+  {
+    "heading": "Climate",
+    "content": [
+      {
+        "type": "text",
+        "content": "It is cool season crop. The areas where rains are heavy and continuous, growing methi should be avoided."
+      }
+    ]
+  },
+  {
+    "heading": "Soil",
+    "content": [
+      {
+        "type": "text",
+        "content": "A rich well drained loamy soil is best suited for fenugreek cultivation. The favorable soil pH is 6–7."
+      }
+    ]
+  },
+  {
+    "heading": "Varieties",
+    "content": [
+      {
+        "type": "table",
+        "content": {
+          "rows": [
+            [
+              "Sl No.",
+              "Variety",
+              "Pedigree/Parentage",
+              "*Av. yield (kg/ha)",
+              "Seed protein %",
+              "Duration (days)",
+              "Salient features"
+            ],
+            [
+              "1",
+              "Co.1",
+              "Reselection from TG-2356 introduced for North India",
+              "680",
+              "",
+              "80–85",
+              "A quick growing, dual purpose, early maturing variety tolerant to root rot disease. Seeds contain 21.7% protein."
+            ],
+            [
+              "2",
+              "Co 2",
+              "Selection from CF 390",
+              "480",
+              "",
+              "85–90",
+              "Short duration dual purpose variety, field tolerant to<em>Rhizoctonia</em>root rot disease, suitable for both kharif and rabi season. Early maturity,short duration."
+            ],
+            [
+              "3",
+              "Rajendra kanti",
+              "Pure line selection from Reghunathpur collection",
+              "1300",
+              "9.5",
+              "",
+              "Medium sized bushy plant; early maturity, suitable for intercropping in both kharif and rabi season, field tolerant to<em>cercospora</em>leaf spot, powdery mildew and aphids."
+            ],
+            [
+              "4",
+              "RMt.1i",
+              "Pure line selection from Nagpur local",
+              "1400",
+              "21",
+              "",
+              "Vigorous semi erect medium sized,moderately branched growth habit, medium sized,bold and attractive typically yellow coloured grains, moderately resistant to root knot nematode and powdery mildew and aphids"
+            ],
+            [
+              "5",
+              "Lam sel.1",
+              "Selection from germplasm collection of Uttar Pradesh",
+              "740",
+              "53",
+              "",
+              "Dual purpose varieties, early muturing, bushy type and medium height940cm0, more number of branches and green matter. When cultivated for green leaf purpose it gives an average green yield of 12 tonnes per hectare. Field tolerant to major pests and ases."
+            ],
+            [
+              "6",
+              "Hisar Sonali",
+              "Pure line selection from germpalsm",
+              "1700",
+              "",
+              "",
+              "Tall and bushy vigorous growing variety, dual purpose variety, late maturity (140–145 days), suitable for cultivation under irrigated condition. Moderately resistant to root rot and aphids."
+            ],
+            [
+              "7",
+              "Hisar suvarna",
+              "Pureline selection from local germplasm",
+              "1600",
+              "",
+              "",
+              "A quick growing, erect and tall, dual purpose, medium maturity (130–140days), moderately resistant to percospora and powdery mildew. Wider adaptability,suitable for cultivation throughout the country."
+            ],
+            [
+              "8",
+              "Hisar Madhavi",
+              "Pureline selection from local germplasm of UP",
+              "1900",
+              "",
+              "",
+              "A quick growing, erect and tall, dual purpose, medium maturity (130–140days), moderately resistant to powdery mildew and to downy mildew .A variety with under adaptability suitable for both irrigated and rainfed condition."
+            ],
+            [
+              "9",
+              "Hisar Muktha",
+              "Pureline selection natural green seed coated mutant line from UP",
+              "2000",
+              "",
+              "",
+              "A quick growing seedtype variety, medium maturity (135–140days), moderately resistant to powdery mildew and to downy mildew. Erect and tall plants. Wide adaptability. Suitable for both irrigated and rainfed condition"
+            ],
+            [
+              "10",
+              "RMt 303",
+              "Mutation breeding from variety RMt 1",
+              "1900",
+              "",
+              "",
+              "Medium maturity variety (145–150 days) seeds bold,with typical yellow colour,less susceptible to powdery mildew"
+            ],
+            [
+              "11",
+              "RMt305",
+              "Mutation breeding from variety RMt 1",
+              "1300",
+              "",
+              "",
+              "First determinant type, multipodant, early maturing, wider adaptability, resistant to powdery mildew and rootknot nematodes .Seeds bold, attractive and yellow, duration 120–125 days."
+            ],
+            [
+              "12",
+              "Guj Methi 1",
+              "Recurrent selection based on pure line selection from J. Fenu 102",
+              "1864",
+              "",
+              "",
+              "The first variety from Gujarat released for the state. Plant dwarf."
+            ],
+            [
+              "13",
+              "RMt143",
+              "RMt143",
+              "1600",
+              "",
+              "140–150",
+              "Moderately resistant to powdery mildew, seeds bold yellow colour,suitable for heavier soils."
+            ],
+            [
+              "14",
+              "Rajendra Abha (Kasuri Methi)",
+              "NA",
+              "NA",
+              "NA",
+              "NA",
+              "NA"
+            ],
+            [
+              "15",
+              "Pant Ragini",
+              "Selection from local germplasm",
+              "1200",
+              "",
+              "170–175",
+              "A dual purpose tall bushy type resistant to downy mildew and root rots, medium maturity. Seed contain 2–2.5% essential oil"
+            ],
+            [
+              "16",
+              "Rajendra Khushba",
+              "NA",
+              "NA",
+              "NA",
+              "NA",
+              "NA"
+            ],
+            [
+              "17",
+              "Pusa Early bunchy",
+              "NA",
+              "NA",
+              "NA",
+              "NA",
+              "NA"
+            ],
+            [
+              "18",
+              "AM-01–35",
+              "Selection from local germplasm",
+              "1720",
+              "",
+              "",
+              "Dual purpose, tolerant to powdery mildew"
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "heading": "Season",
+    "content": [
+      {
+        "type": "text",
+        "content": "June - July and October - November"
+      }
+    ]
+  },
+  {
+    "heading": "Seed rate",
+    "content": [
+      {
+        "type": "text",
+        "content": "12 kg/ha is required"
+      }
+    ]
+  },
+  {
+    "heading": "Seed treatment",
+    "content": [
+      {
+        "type": "text",
+        "content": "Treated with Azospirillum 1.5 kg/ha + Trichoderma viride @ 50 g/ha for 12 kg of seeds."
+      }
+    ]
+  },
+  {
+    "heading": "Field preparation and sowing",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "Prepare the main field to a fine tilth.",
+          "Add FYM 20–25 t/ha before last ploughing. Form beds and channels of 3.5 x 1.5 m.",
+          "Seeds are sown at a spacing of 20 X 15 cm. Spray pre-emergence herbicide Fluchloralin 700 ml in 500 lit of water per ha."
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Manuring",
+    "content": [
+      {
+        "type": "text",
+        "content": "Basal - FYM 20–25 t/ha and N, P, K at 30:25:40 kg/ha."
+      },
+      {
+        "type": "text",
+        "content": "Top dressing - 20 kg of N at 30 days after sowing."
+      }
+    ]
+  },
+  {
+    "heading": "Irrigation",
+    "content": [
+      {
+        "type": "text",
+        "content": "First irrigation is given immediately after sowing, second on the third day and subsequently at 7–10 days intervals."
+      }
+    ]
+  },
+  {
+    "heading": "After cultivation",
+    "content": [
+      {
+        "type": "text",
+        "content": "Plants are thinned at 20–25 days after sowing and the thinned seedlings are used as greens. One pinching at a height of about 4” will encourage branching. Weeding is done as and when necessary."
+      }
+    ]
+  },
+  {
+    "heading": "Plant protection",
+    "content": [
+      {
+        "type": "subheading",
+        "content": "Diseases"
+      },
+      {
+        "type": "ordered_list",
+        "content": [
+          "Root rot : Root rot can be controlled by soil application of Neem cake @ 150 g/ha and seed treatment with <em>Trichoderma viride</em> @ 4g/kg of seed and drenching with Carbendazim 0.5 g/l or Copper oxychloride 2 g/litre.",
+          "Powdery mildew : Dust Sulphur at 25 kg/ha or foliar spray with wettable sulphur 2 g/lit at the time of appearance of disease."
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Crop duration and harvest",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "20–25 days for greens",
+          "90–100 days for grains"
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Yield",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "The yield of green : 4000–5000 kg/ha",
+          "Grains : 500–700 kg/ha"
+        ]
+      },
+      {
+        "type": "source",
+        "content": "TNAU Agritech portal",
+        "link": "http://agritech.tnau.ac.in/horticulture/horti_spice%20crops_fenugreek.html#2"
+      }
+    ]
+  },
+  {
+    "heading": "Common Methi (Trigonella foenum gracum) cultivation in Jammu",
+    "content": [
+      {
+        "type": "subheading",
+        "content": "Climate"
+      },
+      {
+        "type": "text",
+        "content": "It is cool season crop and can tolerate frost and freezing weather. The areas where rains are heavy and continuous, growing methi should be avoided."
+      },
+      {
+        "type": "subheading",
+        "content": "Soil"
+      },
+      {
+        "type": "text",
+        "content": "Methi can be grown on a wide range of soils. The ideal soil for methi is clay loam. The favorable soil pH is 6–7."
+      },
+      {
+        "type": "subheading",
+        "content": "Sowing time"
+      },
+      {
+        "type": "table",
+        "content": {
+          "rows": [
+            [
+              "Zone",
+              "Sowing Time"
+            ],
+            [
+              "Sub-Tropical",
+              "Sept- November"
+            ],
+            [
+              "Intermediate (Mid)",
+              "Aug. - September"
+            ],
+            [
+              "Intermediate (High)",
+              "March- April, May-June"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "subheading",
+        "content": "Varieties"
+      },
+      {
+        "type": "text",
+        "content": "Pusa Early Bunching : It is an early cultivar commonly known as methi. It takes about 125 days from seed to seed."
+      },
+      {
+        "type": "subheading",
+        "content": "Manures and Fertilizers"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "FYM (t/ha) - 15 ; N (Urea) kg/ha - 60 (120.0) ; P ₂ O ₅ (DAP) kg/ha - 20 (44.0) ; K ₂ O (MOP) kg/ha - 20 (34.0)",
+          "Apply whole FYM, phosphorus, potash and 1/4t h N at the time of sowing and remaining nitrogen @20 kg/ ha after every cutting to get green, tender and succulent leaves."
+        ]
+      },
+      {
+        "type": "subheading",
+        "content": "Intercultural operations"
+      },
+      {
+        "type": "text",
+        "content": "Two hoeing and weedings are enough to control the weeds. Pre-plant application of Trifluralin (Treflan) @ 0.75 kg/ha along with one hand weeding keeps weed under check."
+      },
+      {
+        "type": "subheading",
+        "content": "Irrigation"
+      },
+      {
+        "type": "text",
+        "content": "The first irrigation is given immediately after sowing and subsequently after every 8–10 days. Avoid water stress at pod and seed development stage."
+      },
+      {
+        "type": "subheading",
+        "content": "Harvesting"
+      },
+      {
+        "type": "text",
+        "content": "When common methi is used as leafy vegetable, the young shoots are nipped off in about one month after sowing. The picking of leaves is done by nipping 2cm above ground level leaving the stubs which produces new shoots. Avg. yield is 70–80 q/ha."
+      },
+      {
+        "type": "subheading",
+        "content": "Fenugreek seed production"
+      },
+      {
+        "type": "text",
+        "content": "The methi is raised for seed production in the same way as for green leaves production. After one month of sowing one-two cutting of green leaves should be taken and then crop is left for raising seed. After one cutting 20 kg N/ha and then irrigate the field. Methi is predominantly a self pollinated and an isolation distance of 10 and 5 m should be maintained for foundation and certified seed production. Crop is ready for seed harvest when pods turn brown and leaves get dry. Green leaves yield: 70–80q/ha ; Seed Yield: 15–19q/ha"
+      }
+    ]
+  },
+  {
+    "heading": "Kasuri Methi (Trigonella corniculata) in Jammu",
+    "content": [
+      {
+        "type": "subheading",
+        "content": "Climate"
+      },
+      {
+        "type": "text",
+        "content": "Kasuri methi requires a relatively cooler climate. It can tolerate frost and freezing weather. The areas where rains are heavy and continuous, growing methi should be avoided."
+      },
+      {
+        "type": "subheading",
+        "content": "Soil"
+      },
+      {
+        "type": "text",
+        "content": "Kasuri Methi can be grown on a wide range of soils. The ideal soil is clay loam. The favorable soil pH is 6–7."
+      },
+      {
+        "type": "subheading",
+        "content": "Sowing time"
+      },
+      {
+        "type": "table",
+        "content": {
+          "rows": [
+            [
+              "Zone",
+              "Sowing Time"
+            ],
+            [
+              "Sub-Tropical",
+              "Sept- November"
+            ],
+            [
+              "Intermediate (Mid)",
+              "Aug. - September"
+            ],
+            [
+              "Intermediate (High)",
+              "March- April, May-June"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "subheading",
+        "content": "Varieties"
+      },
+      {
+        "type": "text",
+        "content": "Kasuri Methi : It is a late cultivar. Plants are small statured and erect. It takes about 150–160 days from seed to seed. Leaves are small and scented and pods are sickle shaped. 4–5 cuttings can be taken as green."
+      },
+      {
+        "type": "subheading",
+        "content": "Manures and Fertilizers"
+      },
+      {
+        "type": "text",
+        "content": "FYM (t/ha) - 15 ; N (Urea) kg/ha - 60 (120.0) ; P 2 O 5 (DAP) kg/ha - 20 (44.0) ; K 2 O (MOP) kg/ha - 20 (34.0)"
+      },
+      {
+        "type": "text",
+        "content": "Apply whole FYM, phosphorus, potash and 1/4t h N at the time of sowing and remaining nitrogen@20 kg/ ha after every cutting to get green, tender and succulent leaves."
+      },
+      {
+        "type": "subheading",
+        "content": "Intercultural operations"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "Two hoeing and weedings are enough to control the weeds.",
+          "Pre plant application of Trifluralin (Treflan) @ 0.75 kg/ha along with one hand weeding keeps weed under check."
+        ]
+      },
+      {
+        "type": "subheading",
+        "content": "Irrigation"
+      },
+      {
+        "type": "text",
+        "content": "The first irrigation is given immediately after sowing and subsequently after every 8–10 days. Avoid water stress at pod and seed development stage."
+      },
+      {
+        "type": "subheading",
+        "content": "Harvesting"
+      },
+      {
+        "type": "text",
+        "content": "The crop is meant for flavor and aroma. It is dried as spice crop. The green leaf yield of Kasuri type vary from 90–100q/ha while the common type produces an yield of 70–80q/ha."
+      },
+      {
+        "type": "subheading",
+        "content": "Kasuri methi seed production"
+      },
+      {
+        "type": "text",
+        "content": "The crop is raised for seed production in th e same way as for green leaves production. After one month of sowing one-two cutting of green leaves should be taken and then crop is left for raising seed. After one cutting 20 kg N/ha and then irrigate the field. It is predominantly self pollinated and an isolation distance of 10 and 5 m should be maintained for foundation and certified seed production. Crop is ready for seed harvest when pods turn brown and leaves get dry. Green leaves yield: 90–100q/ ha ; Seed Yield: 6–7q/ha"
+      },
+      {
+        "type": "source",
+        "content": "PoP for vegetable crops - Directorate of Extension Sher-e-Kashmir University of Agricultural Sciences & Technology of Jammu",
+        "link": "https://diragrijmu.nic.in/Vegetable%20PoP%202020.pdf"
+      }
+    ]
+  }
+]
