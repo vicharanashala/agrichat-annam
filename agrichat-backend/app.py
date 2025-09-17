@@ -958,7 +958,7 @@ async def continue_session(session_id: str, request: SessionQueryRequest):
     html_answer = markdown.markdown(answer_only, extensions=["extra", "nl2br"])
 
     crop = session.get("crop", "unknown")
-    state = state or session.get("state", "unknown")
+    current_state = request.state or session.get("state", "unknown")
 
     sessions_collection.update_one(
         {"session_id": session_id},
@@ -967,7 +967,7 @@ async def continue_session(session_id: str, request: SessionQueryRequest):
             "$set": {
                 "has_unread": True,
                 "crop": crop,
-                "state": state,
+                "state": current_state,
                 "timestamp": datetime.now(IST).isoformat()
             },
         },
@@ -977,10 +977,8 @@ async def continue_session(session_id: str, request: SessionQueryRequest):
     if updated:
         updated.pop("_id", None)
         
-        # Handle recommendations - either from parallel processing or sequential
         if not DISABLE_RECOMMENDATIONS:
             if not PARALLEL_RECOMMENDATIONS:
-                # Sequential recommendations if parallel is disabled
                 try:
                     recommendations = get_question_recommendations(
                         user_question=request.question,
