@@ -489,33 +489,33 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     if (!question) return;
 
-    // Get toggle values
-    const fastMode = document.getElementById("fastModeToggle").checked;
-    const enableRecommendations = document.getElementById("recommendationsToggle").checked;
-    const parallelProcessing = document.getElementById("parallelToggle").checked;
+    // Get database toggle values
+    const goldenDb = document.getElementById("goldenDbToggle").checked;
+    const ragDb = document.getElementById("ragDbToggle").checked;
+    const popsDb = document.getElementById("popsDbToggle").checked;
+    const llmFallback = document.getElementById("llmFallbackToggle").checked;
 
     const formData = new FormData();
     formData.append("question", question);
-    formData.append("device_id", deviceId);
-    formData.append("state", state);
-    formData.append("language", lang);
-    formData.append("fast_mode", fastMode);
-    formData.append("enable_recommendations", enableRecommendations);
-    formData.append("parallel_processing", parallelProcessing);
-    formData.append("file", audioBlob, "recording.webm");
+    formData.append("golden_db", goldenDb);
+    formData.append("rag_db", ragDb);
+    formData.append("pops_db", popsDb);
+    formData.append("llm_fallback", llmFallback);
 
     showLoader();
-    const res = await apiCall(`${API_BASE}/query-form`, {
+    const res = await apiCall(`${API_BASE}/test-database-toggle`, {
       method: "POST",
       body: formData,
     });
 
     const data = await res.json();
     console.log('API response:', data);
-    currentSession = data.session;
-    loadChat(currentSession);
+
+    // Since this is a test endpoint, create a simple session-like display
+    hideStartScreen();
+    appendMessage("user", question);
+    appendMessage("bot", data.answer);
     hideLoader();
-    loadSessions();
     textarea.value = "";
   });
 
@@ -528,35 +528,91 @@ window.addEventListener("DOMContentLoaded", async () => {
     appendMessage("user", question);
     input.value = "";
 
-    // Get toggle values from chat form
-    const fastMode = document.getElementById("chatFastModeToggle").checked;
-    const enableRecommendations = document.getElementById("chatRecommendationsToggle").checked;
-    const parallelProcessing = document.getElementById("chatParallelToggle").checked;
+    // Get database toggle values from chat form
+    const goldenDb = document.getElementById("chatGoldenDbToggle").checked;
+    const ragDb = document.getElementById("chatRagDbToggle").checked;
+    const popsDb = document.getElementById("chatPopsDbToggle").checked;
+    const llmFallback = document.getElementById("chatLlmFallbackToggle").checked;
 
     const formData = new FormData();
     formData.append("question", question);
-    formData.append("device_id", deviceId);
-    formData.append("state", localStorage.getItem("agrichat_user_state") || "");
-    formData.append("fast_mode", fastMode);
-    formData.append("enable_recommendations", enableRecommendations);
-    formData.append("parallel_processing", parallelProcessing);
+    formData.append("golden_db", goldenDb);
+    formData.append("rag_db", ragDb);
+    formData.append("pops_db", popsDb);
+    formData.append("llm_fallback", llmFallback);
 
     showLoader();
-    const res = await apiCall(`${API_BASE}/session/${currentSession.session_id}/query-form`, {
+    const res = await apiCall(`${API_BASE}/test-database-toggle`, {
       method: "POST",
       body: formData,
     });
     const data = await res.json();
-    const last = data.session.messages.at(-1);
     hideLoader();
-    appendMessage("bot", last.answer);
+    appendMessage("bot", data.answer);
 
-    currentSession = data.session;
-
-    if (enableRecommendations && currentSession.recommendations && currentSession.recommendations.length > 0) {
-      displayRecommendations(currentSession.recommendations);
-    }
+    // Since this is a test endpoint, we don't update session or show recommendations
   });
+
+  // Database toggle synchronization
+  function syncDatabaseToggles() {
+    // Sync from start form to chat form
+    document.getElementById("chatGoldenDbToggle").checked = document.getElementById("goldenDbToggle").checked;
+    document.getElementById("chatRagDbToggle").checked = document.getElementById("ragDbToggle").checked;
+    document.getElementById("chatPopsDbToggle").checked = document.getElementById("popsDbToggle").checked;
+    document.getElementById("chatLlmFallbackToggle").checked = document.getElementById("llmFallbackToggle").checked;
+
+    // Save to localStorage
+    localStorage.setItem("agrichat_golden_db", document.getElementById("goldenDbToggle").checked);
+    localStorage.setItem("agrichat_rag_db", document.getElementById("ragDbToggle").checked);
+    localStorage.setItem("agrichat_pops_db", document.getElementById("popsDbToggle").checked);
+    localStorage.setItem("agrichat_llm_fallback", document.getElementById("llmFallbackToggle").checked);
+  }
+
+  function syncDatabaseTogglesReverse() {
+    // Sync from chat form to start form
+    document.getElementById("goldenDbToggle").checked = document.getElementById("chatGoldenDbToggle").checked;
+    document.getElementById("ragDbToggle").checked = document.getElementById("chatRagDbToggle").checked;
+    document.getElementById("popsDbToggle").checked = document.getElementById("chatPopsDbToggle").checked;
+    document.getElementById("llmFallbackToggle").checked = document.getElementById("chatLlmFallbackToggle").checked;
+
+    // Save to localStorage
+    localStorage.setItem("agrichat_golden_db", document.getElementById("chatGoldenDbToggle").checked);
+    localStorage.setItem("agrichat_rag_db", document.getElementById("chatRagDbToggle").checked);
+    localStorage.setItem("agrichat_pops_db", document.getElementById("chatPopsDbToggle").checked);
+    localStorage.setItem("agrichat_llm_fallback", document.getElementById("chatLlmFallbackToggle").checked);
+  }
+
+  // Load saved toggle states
+  function loadDatabaseToggleStates() {
+    const goldenDb = localStorage.getItem("agrichat_golden_db") === "true";
+    const ragDb = localStorage.getItem("agrichat_rag_db") !== "false"; // Default true
+    const popsDb = localStorage.getItem("agrichat_pops_db") === "true";
+    const llmFallback = localStorage.getItem("agrichat_llm_fallback") === "true";
+
+    // Set start form toggles
+    document.getElementById("goldenDbToggle").checked = goldenDb;
+    document.getElementById("ragDbToggle").checked = ragDb;
+    document.getElementById("popsDbToggle").checked = popsDb;
+    document.getElementById("llmFallbackToggle").checked = llmFallback;
+
+    // Set chat form toggles
+    document.getElementById("chatGoldenDbToggle").checked = goldenDb;
+    document.getElementById("chatRagDbToggle").checked = ragDb;
+    document.getElementById("chatPopsDbToggle").checked = popsDb;
+    document.getElementById("chatLlmFallbackToggle").checked = llmFallback;
+  }
+
+  // Add event listeners for toggle synchronization
+  ["goldenDbToggle", "ragDbToggle", "popsDbToggle", "llmFallbackToggle"].forEach(id => {
+    document.getElementById(id).addEventListener("change", syncDatabaseToggles);
+  });
+
+  ["chatGoldenDbToggle", "chatRagDbToggle", "chatPopsDbToggle", "chatLlmFallbackToggle"].forEach(id => {
+    document.getElementById(id).addEventListener("change", syncDatabaseTogglesReverse);
+  });
+
+  // Load saved states on page load
+  loadDatabaseToggleStates();
 
   document.getElementById("restoreBtn").addEventListener("click", async () => {
     if (currentSession) {

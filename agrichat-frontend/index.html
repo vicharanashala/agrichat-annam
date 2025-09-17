@@ -219,11 +219,11 @@
       <form id="chat-form" class="chat-form" style="display: none;">
         <textarea id="user-input" placeholder="Ask your agricultural question here..." required rows="3"></textarea>
 
-        <!-- Query Options Toggle Button (Collapsible) -->
+        <!-- Database Selection Toggle Button (Collapsible) -->
         <div class="chat-options-container">
           <button type="button" class="options-toggle-btn" id="chatOptionsToggle">
-            <i class="fas fa-cogs"></i>
-            <span>Options</span>
+            <i class="fas fa-database"></i>
+            <span>Database Options</span>
             <i class="fas fa-chevron-down toggle-icon"></i>
           </button>
 
@@ -231,34 +231,45 @@
             <div class="toggles-container">
               <div class="toggle-group">
                 <label class="toggle-switch">
-                  <input type="checkbox" id="chatFastModeToggle" checked>
+                  <input type="checkbox" id="chatGoldenDbToggle">
                   <span class="toggle-slider"></span>
                 </label>
                 <div class="toggle-info">
-                  <span class="toggle-label">Fast Mode</span>
-                  <small class="toggle-description">Quick responses</small>
+                  <span class="toggle-label">Golden Database</span>
+                  <small class="toggle-description">High-quality verified knowledge</small>
                 </div>
               </div>
 
               <div class="toggle-group">
                 <label class="toggle-switch">
-                  <input type="checkbox" id="chatRecommendationsToggle" checked>
+                  <input type="checkbox" id="chatRagDbToggle" checked>
                   <span class="toggle-slider"></span>
                 </label>
                 <div class="toggle-info">
-                  <span class="toggle-label">Recommendations</span>
-                  <small class="toggle-description">Show related questions</small>
+                  <span class="toggle-label">RAG Database</span>
+                  <small class="toggle-description">General agricultural information</small>
                 </div>
               </div>
 
               <div class="toggle-group">
                 <label class="toggle-switch">
-                  <input type="checkbox" id="chatParallelToggle" checked>
+                  <input type="checkbox" id="chatPopsDbToggle">
                   <span class="toggle-slider"></span>
                 </label>
                 <div class="toggle-info">
-                  <span class="toggle-label">Parallel Processing</span>
-                  <small class="toggle-description">Faster response times</small>
+                  <span class="toggle-label">PoPs Database</span>
+                  <small class="toggle-description">Package of Practices</small>
+                </div>
+              </div>
+
+              <div class="toggle-group">
+                <label class="toggle-switch">
+                  <input type="checkbox" id="chatLlmFallbackToggle">
+                  <span class="toggle-slider"></span>
+                </label>
+                <div class="toggle-info">
+                  <span class="toggle-label">LLM Fallback</span>
+                  <small class="toggle-description">AI model responses</small>
                 </div>
               </div>
             </div>
@@ -318,43 +329,54 @@
             placeholder="Ask me anything about farming, crops, soil, weather, or agricultural practices..." required
             rows="3"></textarea>
 
-          <!-- Query Options Toggles -->
-          <div class="query-options" style="margin: 15px 0;">
+          <!-- Database Selection Toggles -->
+          <div class="database-options" style="margin: 15px 0;">
             <div class="options-header">
-              <i class="fas fa-cogs"></i>
-              <span>Query Options</span>
+              <i class="fas fa-database"></i>
+              <span>Database Selection</span>
             </div>
             <div class="toggles-container">
               <div class="toggle-group">
                 <label class="toggle-switch">
-                  <input type="checkbox" id="fastModeToggle" checked>
+                  <input type="checkbox" id="goldenDbToggle">
                   <span class="toggle-slider"></span>
                 </label>
                 <div class="toggle-info">
-                  <span class="toggle-label">Fast Mode</span>
-                  <small class="toggle-description">Quick responses using optimized processing</small>
+                  <span class="toggle-label">Golden Database</span>
+                  <small class="toggle-description">High-quality verified agricultural knowledge</small>
                 </div>
               </div>
 
               <div class="toggle-group">
                 <label class="toggle-switch">
-                  <input type="checkbox" id="recommendationsToggle" checked>
+                  <input type="checkbox" id="ragDbToggle" checked>
                   <span class="toggle-slider"></span>
                 </label>
                 <div class="toggle-info">
-                  <span class="toggle-label">Show Recommendations</span>
-                  <small class="toggle-description">Display related questions after answers</small>
+                  <span class="toggle-label">RAG Database</span>
+                  <small class="toggle-description">General agricultural information and guidance</small>
                 </div>
               </div>
 
               <div class="toggle-group">
                 <label class="toggle-switch">
-                  <input type="checkbox" id="parallelToggle" checked>
+                  <input type="checkbox" id="popsDbToggle">
                   <span class="toggle-slider"></span>
                 </label>
                 <div class="toggle-info">
-                  <span class="toggle-label">Parallel Processing</span>
-                  <small class="toggle-description">Process recommendations and answers simultaneously</small>
+                  <span class="toggle-label">PoPs Database</span>
+                  <small class="toggle-description">Package of Practices for specific crops</small>
+                </div>
+              </div>
+
+              <div class="toggle-group">
+                <label class="toggle-switch">
+                  <input type="checkbox" id="llmFallbackToggle">
+                  <span class="toggle-slider"></span>
+                </label>
+                <div class="toggle-info">
+                  <span class="toggle-label">LLM Fallback</span>
+                  <small class="toggle-description">AI model responses when databases don't have answers</small>
                 </div>
               </div>
             </div>
