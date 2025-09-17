@@ -489,17 +489,45 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     if (!question) return;
 
-    const formData = new FormData();
-    formData.append("question", question);
-    formData.append("device_id", deviceId);
-    formData.append("state", state);
-    formData.append("language", lang);
-    formData.append("file", audioBlob, "recording.webm");
+    // Handle audio transcription if audio is present
+    let finalQuestion = question;
+    if (audioBlob) {
+      try {
+        console.log('Transcribing audio...');
+        const formData = new FormData();
+        formData.append("file", audioBlob, "recording.webm");
+        formData.append("language", lang);
 
-    showLoader();
-    const res = await apiCall(`${API_BASE}/query-legacy`, {
+        const transcribeRes = await apiCall(`${API_BASE}/transcribe-audio`, {
+          method: "POST",
+          body: formData,
+        });
+
+        const transcribeData = await transcribeRes.json();
+        if (transcribeData.transcript) {
+          finalQuestion = transcribeData.transcript;
+          console.log('Audio transcribed:', finalQuestion);
+        }
+      } catch (error) {
+        console.error('Audio transcription failed:', error);
+        // Continue with original question if transcription fails
+      }
+    }
+
+    // Send the query to the correct API endpoint
+    const requestData = {
+      question: finalQuestion,
+      device_id: deviceId,
+      state: state,
+      language: lang
+    };
+
+    const res = await apiCall(`${API_BASE}/query`, {
       method: "POST",
-      body: formData,
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestData),
     });
 
     const data = await res.json();
