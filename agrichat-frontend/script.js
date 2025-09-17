@@ -303,69 +303,9 @@ function copyToClipboard(button) {
   });
 }
 
-function hideStartScreen() {
-  const startScreen = document.getElementById("startScreen");
-  const chatWindow = document.getElementById("chatWindow");
-  const chatForm = document.getElementById("chat-form");
 
-  if (startScreen) {
-    startScreen.style.display = "none";
-    console.log('[UI] Start screen hidden');
-  } else {
-    console.error('[UI] startScreen element not found');
-  }
-
-  if (chatWindow) {
-    chatWindow.style.display = "block";
-    console.log('[UI] Chat window shown');
-  } else {
-    console.error('[UI] chatWindow element not found');
-  }
-
-  if (chatForm) {
-    chatForm.style.display = "flex";
-    console.log('[UI] Chat form shown');
-  } else {
-    console.error('[UI] chat-form element not found');
-  }
-}
-
-function showChatInterface() {
-  const chatWindow = document.getElementById("chatWindow");
-  const chatForm = document.getElementById("chat-form");
-  const exportBtn = document.getElementById("exportBtn");
-
-  if (chatWindow) {
-    chatWindow.style.display = "block";
-    console.log('[UI] Chat window interface shown');
-  } else {
-    console.error('[UI] chatWindow element not found in showChatInterface');
-  }
-
-  if (chatForm) {
-    chatForm.style.display = "flex";
-    console.log('[UI] Chat form interface shown');
-  } else {
-    console.error('[UI] chat-form element not found in showChatInterface');
-  }
-
-  if (exportBtn) {
-    exportBtn.style.display = "block";
-    console.log('[UI] Export button shown');
-  } else {
-    console.log('[UI] Export button not found (may not exist on this page)');
-  }
-}
 
 function appendMessage(sender, text, index = null, rating = null) {
-  console.log('[UI] Appending message:', { sender, text: text.substring(0, 100) + '...' });
-
-  const chatWindow = document.getElementById("chatWindow");
-  if (!chatWindow) {
-    console.error('[UI] chatWindow element not found in appendMessage');
-    return;
-  }
-
   const div = document.createElement("div");
   div.className = `message ${sender}`;
 
@@ -394,9 +334,8 @@ function appendMessage(sender, text, index = null, rating = null) {
   `;
   }
 
-  chatWindow.appendChild(div);
-  chatWindow.scrollTop = chatWindow.scrollHeight;
-  console.log('[UI] Message appended successfully');
+
+  document.getElementById("chatWindow").appendChild(div);
 }
 
 function displayRecommendations(recommendations) {
@@ -550,68 +489,26 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     if (!question) return;
 
-    // Get database toggle values
-    const goldenDb = document.getElementById("goldenDbToggle").checked;
-    const ragDb = document.getElementById("ragDbToggle").checked;
-    const popsDb = document.getElementById("popsDbToggle").checked;
-    const llmFallback = document.getElementById("llmFallbackToggle").checked;
-
     const formData = new FormData();
     formData.append("question", question);
     formData.append("device_id", deviceId);
     formData.append("state", state);
     formData.append("language", lang);
-    formData.append("golden_db", goldenDb);
-    formData.append("rag_db", ragDb);
-    formData.append("pops_db", popsDb);
-    formData.append("llm_fallback", llmFallback);
+    formData.append("file", audioBlob, "recording.webm");
 
-    console.log('[API] Sending request to query-form with data:', {
-      question,
-      device_id: deviceId,
-      state,
-      language: lang,
-      golden_db: goldenDb,
-      rag_db: ragDb,
-      pops_db: popsDb,
-      llm_fallback: llmFallback
+    showLoader();
+    const res = await apiCall(`${API_BASE}/query`, {
+      method: "POST",
+      body: formData,
     });
 
-    try {
-      const res = await apiCall(`${API_BASE}/query-form`, {
-        method: "POST",
-        body: formData,
-      });
-
-      console.log('[API] Response status:', res.status);
-      console.log('[API] Response headers:', res.headers);
-
-      const data = await res.json();
-      console.log('[API] Full API response:', data);
-      console.log('[API] Session created:', data.session);
-
-      // Set the current session from the response
-      currentSession = data.session;
-      console.log('[SESSION] Current session set:', currentSession);
-
-      // Now we have a proper session, show the chat interface
-      hideStartScreen();
-      showChatInterface();
-      appendMessage("user", question);
-      appendMessage("bot", data.session.answer);
-
-      // Display recommendations if available
-      if (data.session.recommendations && data.session.recommendations.length > 0) {
-        displayRecommendations(data.session.recommendations);
-      }
-
-      hideLoader();
-      textarea.value = "";
-    } catch (error) {
-      console.error('[API] Error in start form submission:', error);
-      hideLoader();
-      alert('Error processing your query. Please try again.');
-    }
+    const data = await res.json();
+    console.log('API response:', data);
+    currentSession = data.session;
+    loadChat(currentSession);
+    hideLoader();
+    loadSessions();
+    textarea.value = "";
   });
 
   document.getElementById("chat-form").addEventListener("submit", async (e) => {
@@ -623,129 +520,27 @@ window.addEventListener("DOMContentLoaded", async () => {
     appendMessage("user", question);
     input.value = "";
 
-    // Get database toggle values from chat form
-    const goldenDb = document.getElementById("chatGoldenDbToggle").checked;
-    const ragDb = document.getElementById("chatRagDbToggle").checked;
-    const popsDb = document.getElementById("chatPopsDbToggle").checked;
-    const llmFallback = document.getElementById("chatLlmFallbackToggle").checked;
-
     const formData = new FormData();
     formData.append("question", question);
     formData.append("device_id", deviceId);
     formData.append("state", localStorage.getItem("agrichat_user_state") || "");
-    formData.append("golden_db", goldenDb);
-    formData.append("rag_db", ragDb);
-    formData.append("pops_db", popsDb);
-    formData.append("llm_fallback", llmFallback);
 
     showLoader();
-    console.log('[API] Chat form - Sending request to session endpoint with data:', {
-      question,
-      device_id: deviceId,
-      state: localStorage.getItem("agrichat_user_state") || "",
-      golden_db: goldenDb,
-      rag_db: ragDb,
-      pops_db: popsDb,
-      llm_fallback: llmFallback,
-      session_id: currentSession.session_id
+    const res = await apiCall(`${API_BASE}/session/${currentSession.session_id}/query`, {
+      method: "POST",
+      body: formData,
     });
+    const data = await res.json();
+    const last = data.session.messages.at(-1);
+    hideLoader();
+    appendMessage("bot", last.answer);
 
-    try {
-      const res = await apiCall(`${API_BASE}/session/${currentSession.session_id}/query-form`, {
-        method: "POST",
-        body: formData,
-      });
+    currentSession = data.session;
 
-      console.log('[API] Chat form - Response status:', res.status);
-      const data = await res.json();
-      console.log('[API] Chat form - Full response:', data);
-
-      // Update current session with the latest data
-      currentSession = data.session;
-      console.log('[SESSION] Session updated:', currentSession);
-
-      // Get the latest message (last in the messages array)
-      const messages = data.session.messages || [];
-      const latestMessage = messages[messages.length - 1];
-
-      if (latestMessage) {
-        console.log('[API] Chat form - Answer:', latestMessage.answer);
-        appendMessage("bot", latestMessage.answer);
-
-        // Display recommendations if available
-        if (data.session.recommendations && data.session.recommendations.length > 0) {
-          displayRecommendations(data.session.recommendations);
-        }
-      }
-
-      hideLoader();
-    } catch (error) {
-      console.error('[API] Chat form - Error:', error);
-      hideLoader();
-      appendMessage("bot", "Sorry, there was an error processing your request.");
+    if (currentSession.recommendations && currentSession.recommendations.length > 0) {
+      displayRecommendations(currentSession.recommendations);
     }
   });
-
-  // Database toggle synchronization
-  function syncDatabaseToggles() {
-    // Sync from start form to chat form
-    document.getElementById("chatGoldenDbToggle").checked = document.getElementById("goldenDbToggle").checked;
-    document.getElementById("chatRagDbToggle").checked = document.getElementById("ragDbToggle").checked;
-    document.getElementById("chatPopsDbToggle").checked = document.getElementById("popsDbToggle").checked;
-    document.getElementById("chatLlmFallbackToggle").checked = document.getElementById("llmFallbackToggle").checked;
-
-    // Save to localStorage
-    localStorage.setItem("agrichat_golden_db", document.getElementById("goldenDbToggle").checked);
-    localStorage.setItem("agrichat_rag_db", document.getElementById("ragDbToggle").checked);
-    localStorage.setItem("agrichat_pops_db", document.getElementById("popsDbToggle").checked);
-    localStorage.setItem("agrichat_llm_fallback", document.getElementById("llmFallbackToggle").checked);
-  }
-
-  function syncDatabaseTogglesReverse() {
-    // Sync from chat form to start form
-    document.getElementById("goldenDbToggle").checked = document.getElementById("chatGoldenDbToggle").checked;
-    document.getElementById("ragDbToggle").checked = document.getElementById("chatRagDbToggle").checked;
-    document.getElementById("popsDbToggle").checked = document.getElementById("chatPopsDbToggle").checked;
-    document.getElementById("llmFallbackToggle").checked = document.getElementById("chatLlmFallbackToggle").checked;
-
-    // Save to localStorage
-    localStorage.setItem("agrichat_golden_db", document.getElementById("chatGoldenDbToggle").checked);
-    localStorage.setItem("agrichat_rag_db", document.getElementById("chatRagDbToggle").checked);
-    localStorage.setItem("agrichat_pops_db", document.getElementById("chatPopsDbToggle").checked);
-    localStorage.setItem("agrichat_llm_fallback", document.getElementById("chatLlmFallbackToggle").checked);
-  }
-
-  // Load saved toggle states
-  function loadDatabaseToggleStates() {
-    const goldenDb = localStorage.getItem("agrichat_golden_db") === "true";
-    const ragDb = localStorage.getItem("agrichat_rag_db") !== "false"; // Default true
-    const popsDb = localStorage.getItem("agrichat_pops_db") === "true";
-    const llmFallback = localStorage.getItem("agrichat_llm_fallback") === "true";
-
-    // Set start form toggles
-    document.getElementById("goldenDbToggle").checked = goldenDb;
-    document.getElementById("ragDbToggle").checked = ragDb;
-    document.getElementById("popsDbToggle").checked = popsDb;
-    document.getElementById("llmFallbackToggle").checked = llmFallback;
-
-    // Set chat form toggles
-    document.getElementById("chatGoldenDbToggle").checked = goldenDb;
-    document.getElementById("chatRagDbToggle").checked = ragDb;
-    document.getElementById("chatPopsDbToggle").checked = popsDb;
-    document.getElementById("chatLlmFallbackToggle").checked = llmFallback;
-  }
-
-  // Add event listeners for toggle synchronization
-  ["goldenDbToggle", "ragDbToggle", "popsDbToggle", "llmFallbackToggle"].forEach(id => {
-    document.getElementById(id).addEventListener("change", syncDatabaseToggles);
-  });
-
-  ["chatGoldenDbToggle", "chatRagDbToggle", "chatPopsDbToggle", "chatLlmFallbackToggle"].forEach(id => {
-    document.getElementById(id).addEventListener("change", syncDatabaseTogglesReverse);
-  });
-
-  // Load saved states on page load
-  loadDatabaseToggleStates();
 
   document.getElementById("restoreBtn").addEventListener("click", async () => {
     if (currentSession) {
@@ -1096,126 +891,3 @@ function showNotification(message, type = 'info') {
 }
 
 document.addEventListener('DOMContentLoaded', initializeVoiceRecording);
-
-// Toggle Switch Functionality
-document.addEventListener('DOMContentLoaded', function () {
-  // Chat options panel toggle
-  const chatOptionsToggle = document.getElementById('chatOptionsToggle');
-  const chatOptionsPanel = document.getElementById('chatOptionsPanel');
-
-  if (chatOptionsToggle && chatOptionsPanel) {
-    chatOptionsToggle.addEventListener('click', function () {
-      const isVisible = chatOptionsPanel.style.display !== 'none';
-      chatOptionsPanel.style.display = isVisible ? 'none' : 'block';
-      chatOptionsToggle.classList.toggle('active', !isVisible);
-    });
-  }
-
-  // Synchronize toggle values between start form and chat form
-  function syncToggles() {
-    // Get values from start form
-    const startFastMode = document.getElementById('fastModeToggle');
-    const startRecommendations = document.getElementById('recommendationsToggle');
-    const startParallel = document.getElementById('parallelToggle');
-
-    // Get elements from chat form
-    const chatFastMode = document.getElementById('chatFastModeToggle');
-    const chatRecommendations = document.getElementById('chatRecommendationsToggle');
-    const chatParallel = document.getElementById('chatParallelToggle');
-
-    if (startFastMode && chatFastMode) {
-      // Sync from start to chat
-      startFastMode.addEventListener('change', function () {
-        chatFastMode.checked = this.checked;
-        saveTogglePreferences();
-      });
-
-      // Sync from chat to start
-      chatFastMode.addEventListener('change', function () {
-        startFastMode.checked = this.checked;
-        saveTogglePreferences();
-      });
-    }
-
-    if (startRecommendations && chatRecommendations) {
-      startRecommendations.addEventListener('change', function () {
-        chatRecommendations.checked = this.checked;
-        saveTogglePreferences();
-      });
-
-      chatRecommendations.addEventListener('change', function () {
-        startRecommendations.checked = this.checked;
-        saveTogglePreferences();
-      });
-    }
-
-    if (startParallel && chatParallel) {
-      startParallel.addEventListener('change', function () {
-        chatParallel.checked = this.checked;
-        saveTogglePreferences();
-      });
-
-      chatParallel.addEventListener('change', function () {
-        startParallel.checked = this.checked;
-        saveTogglePreferences();
-      });
-    }
-  }
-
-  // Save toggle preferences to localStorage
-  function saveTogglePreferences() {
-    const preferences = {
-      fastMode: document.getElementById('fastModeToggle')?.checked ?? true,
-      recommendations: document.getElementById('recommendationsToggle')?.checked ?? true,
-      parallel: document.getElementById('parallelToggle')?.checked ?? true
-    };
-    localStorage.setItem('agrichat_toggle_preferences', JSON.stringify(preferences));
-  }
-
-  // Load toggle preferences from localStorage
-  function loadTogglePreferences() {
-    try {
-      const saved = localStorage.getItem('agrichat_toggle_preferences');
-      if (saved) {
-        const preferences = JSON.parse(saved);
-
-        // Apply to start form toggles
-        const startFastMode = document.getElementById('fastModeToggle');
-        const startRecommendations = document.getElementById('recommendationsToggle');
-        const startParallel = document.getElementById('parallelToggle');
-
-        if (startFastMode) startFastMode.checked = preferences.fastMode ?? true;
-        if (startRecommendations) startRecommendations.checked = preferences.recommendations ?? true;
-        if (startParallel) startParallel.checked = preferences.parallel ?? true;
-
-        // Apply to chat form toggles
-        const chatFastMode = document.getElementById('chatFastModeToggle');
-        const chatRecommendations = document.getElementById('chatRecommendationsToggle');
-        const chatParallel = document.getElementById('chatParallelToggle');
-
-        if (chatFastMode) chatFastMode.checked = preferences.fastMode ?? true;
-        if (chatRecommendations) chatRecommendations.checked = preferences.recommendations ?? true;
-        if (chatParallel) chatParallel.checked = preferences.parallel ?? true;
-      }
-    } catch (error) {
-      console.log('Failed to load toggle preferences:', error);
-    }
-  }
-
-  // Initialize toggle functionality
-  syncToggles();
-  loadTogglePreferences();
-
-  // Add visual feedback for toggle changes
-  document.querySelectorAll('.toggle-switch input').forEach(toggle => {
-    toggle.addEventListener('change', function () {
-      const toggleGroup = this.closest('.toggle-group');
-      if (toggleGroup) {
-        toggleGroup.style.transform = 'scale(0.98)';
-        setTimeout(() => {
-          toggleGroup.style.transform = 'scale(1)';
-        }, 100);
-      }
-    });
-  });
-});
