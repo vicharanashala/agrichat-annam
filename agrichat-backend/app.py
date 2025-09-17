@@ -805,16 +805,12 @@ async def new_session_form(
     device_id: str = Form(...), 
     state: str = Form(""), 
     language: str = Form("en"),
-    fast_mode: bool = Form(True),
-    enable_recommendations: bool = Form(True), 
-    parallel_processing: bool = Form(True),
     file: UploadFile = File(None)
 ):
-    """Endpoint for FormData requests with optional file uploads and toggle options"""
+    """Endpoint for FormData requests with optional file uploads"""
     api_start_time = time.time()
     session_id = str(uuid4())
     logger.info(f"[TIMING] API FormData endpoint started for question: {question[:50]}...")
-    logger.info(f"[OPTIONS] Fast Mode: {fast_mode}, Recommendations: {enable_recommendations}, Parallel: {parallel_processing}")
     
     # Handle audio file if provided
     if file and file.size > 0:
@@ -847,43 +843,21 @@ async def new_session_form(
         database_config=None
     )
     
-    # Process the request using the toggle parameters instead of global settings
+    # Process the request using the same logic as the main query endpoint
     async def process_answer():
         try:
             answer_processing_start = time.time()
             loop = asyncio.get_event_loop()
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                if fast_mode:
-                    # Use fast response handler if available and fast mode is enabled
-                    if fast_handler:
-                        raw_answer = await loop.run_in_executor(
-                            executor, 
-                            fast_handler.get_fast_response, 
-                            request.question, 
-                            request.state
-                        )
-                    else:
-                        # Fallback to regular processing
-                        raw_answer = await loop.run_in_executor(
-                            executor, 
-                            get_answer, 
-                            request.question, 
-                            None,
-                            request.state,
-                            session_id,
-                            None
-                        )
-                else:
-                    # Use CrewAI mode for detailed responses
-                    raw_answer = await loop.run_in_executor(
-                        executor, 
-                        get_answer, 
-                        request.question, 
-                        None,
-                        request.state,
-                        session_id,
-                        None
-                    )
+                raw_answer = await loop.run_in_executor(
+                    executor, 
+                    get_answer, 
+                    request.question, 
+                    None,
+                    request.state,
+                    session_id,
+                    None
+                )
             answer_processing_time = time.time() - answer_processing_start
             logger.info(f"[TIMING] Answer processing took: {answer_processing_time:.3f}s")
             return str(raw_answer).strip()
@@ -892,7 +866,7 @@ async def new_session_form(
             raise e
 
     async def process_recommendations():
-        if not enable_recommendations:
+        if DISABLE_RECOMMENDATIONS:
             return []
         try:
             recommendations_start = time.time()
@@ -905,7 +879,7 @@ async def new_session_form(
             return []
 
     try:
-        if parallel_processing and enable_recommendations:
+        if PARALLEL_RECOMMENDATIONS:
             answer_task = asyncio.create_task(process_answer())
             recommendations_task = asyncio.create_task(process_recommendations())
             answer, recommendations = await asyncio.gather(answer_task, recommendations_task)
@@ -913,17 +887,16 @@ async def new_session_form(
             answer = await process_answer()
             recommendations = await process_recommendations()
 
-        # Create session record with messages array format to match frontend expectations
+        # Create session record
         session = {
             "session_id": session_id,
             "device_id": request.device_id,
-            "timestamp": datetime.now(IST).isoformat(),
-            "messages": [{"question": request.question, "answer": answer, "rating": None}],
-            "crop": "unknown",
+            "question": request.question,
+            "answer": answer,
             "state": request.state,
-            "status": "active",
             "language": request.language,
-            "has_unread": True,
+            "timestamp": datetime.now(IST).isoformat(),
+            "status": "active",
             "recommendations": recommendations[:2],
             "total_processing_time": time.time() - api_start_time
         }
@@ -940,13 +913,12 @@ async def new_session_form(
         error_session = {
             "session_id": session_id,
             "device_id": request.device_id,
-            "timestamp": datetime.now(IST).isoformat(),
-            "messages": [{"question": request.question, "answer": "Sorry, I encountered an error. Please try again.", "rating": None}],
-            "crop": "unknown",
+            "question": request.question,
+            "answer": "Sorry, I encountered an error. Please try again.",
             "state": request.state,
-            "status": "active",
             "language": request.language,
-            "has_unread": True,
+            "timestamp": datetime.now(IST).isoformat(),
+            "status": "active",
             "recommendations": [],
             "error": str(e)
         }
@@ -1174,137 +1146,6 @@ async def continue_session(session_id: str, request: SessionQueryRequest):
             logger.info(f"[PERFORMANCE] Session recommendations disabled for speed optimization")
     
     return {"session": updated}
-
-@app.post("/api/session/{session_id}/query-form")
-async def continue_session_form(
-    session_id: str,
-    question: str = Form(...), 
-    device_id: str = Form(...), 
-    state: str = Form(""),
-    fast_mode: bool = Form(True),
-    enable_recommendations: bool = Form(True), 
-    parallel_processing: bool = Form(True),
-    file: UploadFile = File(None)
-):
-    """FormData endpoint for continuing sessions with toggle options"""
-    session = sessions_collection.find_one({"session_id": session_id})
-    if not session or session.get("status") == "archived" or session.get("device_id") != device_id:
-        return JSONResponse(status_code=403, content={"error": "Session is archived, missing or unauthorized"})
-
-    logger.info(f"[OPTIONS] Session Continue - Fast Mode: {fast_mode}, Recommendations: {enable_recommendations}, Parallel: {parallel_processing}")
-
-    # Handle audio file if provided
-    if file and file.size > 0:
-        try:
-            logger.info(f"[AUDIO] Processing audio file: {file.filename}")
-            temp_file_path = f"/tmp/{session_id}_{file.filename}"
-            with open(temp_file_path, "wb") as buffer:
-                content = await file.read()
-                buffer.write(content)
-            
-            # Transcribe audio
-            transcript = local_whisper(temp_file_path, session.get("language", "en"))
-            if transcript and transcript.strip():
-                question = transcript.strip()
-                logger.info(f"[AUDIO] Transcription successful: {question[:50]}...")
-            
-            os.remove(temp_file_path)
-        except Exception as e:
-            logger.error(f"[AUDIO] Error processing audio: {e}")
-
-    # Enhanced conversation history with context resolution
-    conversation_history = []
-    messages = session.get("messages", [])
-    current_state = state or session.get("state", "unknown")
-
-    # Build conversation context
-    for msg in messages[-5:]:  # Last 5 messages for context
-        if msg.get("question"):
-            conversation_history.append(HumanMessage(content=msg["question"]))
-        if msg.get("answer"):
-            conversation_history.append(AIMessage(content=msg["answer"]))
-
-    # Process answer with toggle options
-    async def process_session_answer():
-        try:
-            loop = asyncio.get_event_loop()
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                if fast_mode:
-                    if fast_handler:
-                        raw_answer = await loop.run_in_executor(
-                            executor, 
-                            fast_handler.get_fast_response, 
-                            question, 
-                            current_state
-                        )
-                    else:
-                        raw_answer = await loop.run_in_executor(
-                            executor, 
-                            get_answer, 
-                            question, 
-                            conversation_history,
-                            current_state,
-                            session_id,
-                            None
-                        )
-                else:
-                    raw_answer = await loop.run_in_executor(
-                        executor, 
-                        get_answer, 
-                        question, 
-                        conversation_history,
-                        current_state,
-                        session_id,
-                        None
-                    )
-            return str(raw_answer).strip()
-        except Exception as e:
-            logger.error(f"[DEBUG] Error in session answer processing: {e}")
-            return "Sorry, I encountered an error processing your question."
-
-    async def process_session_recommendations():
-        if not enable_recommendations:
-            return []
-        try:
-            recommendations = get_question_recommendations(question, current_state, 2)
-            return recommendations[:2]
-        except Exception as e:
-            logger.error(f"[DEBUG] Error getting session recommendations: {e}")
-            return []
-
-    try:
-        if parallel_processing and enable_recommendations:
-            answer_task = asyncio.create_task(process_session_answer())
-            recommendations_task = asyncio.create_task(process_session_recommendations())
-            answer, recommendations = await asyncio.gather(answer_task, recommendations_task)
-        else:
-            answer = await process_session_answer()
-            recommendations = await process_session_recommendations() if enable_recommendations else []
-
-        # Update session with new message
-        new_message = {"question": question, "answer": answer, "rating": None}
-        sessions_collection.update_one(
-            {"session_id": session_id},
-            {
-                "$push": {"messages": new_message},
-                "$set": {
-                    "has_unread": True,
-                    "recommendations": recommendations,
-                    "timestamp": datetime.now(IST).isoformat()
-                }
-            }
-        )
-
-        # Get updated session
-        updated = sessions_collection.find_one({"session_id": session_id})
-        if updated:
-            updated.pop("_id", None)
-
-        return {"session": updated}
-
-    except Exception as e:
-        logger.error(f"[DEBUG] Error in continue_session_form: {e}")
-        return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 @app.post("/api/query/stream")
 async def stream_query(question: str = Form(...), device_id: str = Form(...), state: str = Form(...), language: str = Form(...)):
