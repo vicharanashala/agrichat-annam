@@ -246,6 +246,94 @@ class ContentQualityScorer:
                 relevance < min_relevance or 
                 completeness < min_completeness or
                 overall < min_overall)
+    
+    def check_pops_answer_relevance(self, question: str, answer: str) -> Dict[str, any]:
+        """
+        Use a small LLM to check if the PoPs answer is relevant to the user's question
+        This provides a more nuanced relevance check specifically for PoPs responses
+        
+        Args:
+            question: The original user question
+            answer: The generated answer from PoPs database
+            
+        Returns:
+            Dict with is_relevant (bool), confidence (float), and reasoning (str)
+        """
+        try:
+            # Import the LLM interface
+            from local_llm_interface import run_local_llm
+            
+            relevance_prompt = f"""You are a relevance checker for agricultural answers. Your task is to determine if the provided answer directly addresses the user's question.
+
+USER QUESTION: {question}
+
+GENERATED ANSWER: {answer}
+
+INSTRUCTIONS:
+1. Carefully analyze if the answer directly addresses what the user is asking about
+2. Check if the answer provides information relevant to the specific topic/crop mentioned in the question  
+3. Consider if the answer would be helpful to someone who asked this question
+4. If the answer talks about a completely different topic, crop, or agricultural practice than what was asked, it's NOT relevant
+5. If the answer provides general information that doesn't specifically address the question, it's NOT relevant
+
+Respond in exactly this format:
+RELEVANT: YES/NO
+CONFIDENCE: [0.0-1.0]
+REASONING: [brief explanation of why it is or isn't relevant]
+
+Example responses:
+RELEVANT: NO
+CONFIDENCE: 0.9
+REASONING: User asked about tomato diseases but answer discusses rice cultivation methods
+
+RELEVANT: YES  
+CONFIDENCE: 0.8
+REASONING: User asked about neem tree spacing and answer provides specific spacing recommendations for neem trees"""
+
+            llm_response = run_local_llm(
+                relevance_prompt,
+                temperature=0.1,
+                max_tokens=150,
+                use_fallback=False
+            )
+            
+            response_lines = llm_response.strip().split('\n')
+            is_relevant = False
+            confidence = 0.0
+            reasoning = "Failed to parse response"
+            
+            for line in response_lines:
+                line = line.strip()
+                if line.startswith('RELEVANT:'):
+                    is_relevant = 'YES' in line.upper()
+                elif line.startswith('CONFIDENCE:'):
+                    try:
+                        confidence = float(line.split(':')[1].strip())
+                    except:
+                        confidence = 0.5
+                elif line.startswith('REASONING:'):
+                    reasoning = line.split(':', 1)[1].strip()
+            
+            print(f"[POPS RELEVANCE CHECK] Question: {question[:100]}...")
+            print(f"[POPS RELEVANCE CHECK] Answer: {answer[:100]}...")
+            print(f"[POPS RELEVANCE CHECK] Relevant: {is_relevant}, Confidence: {confidence:.2f}")
+            print(f"[POPS RELEVANCE CHECK] Reasoning: {reasoning}")
+            
+            return {
+                'is_relevant': is_relevant,
+                'confidence': confidence,
+                'reasoning': reasoning,
+                'raw_response': llm_response
+            }
+            
+        except Exception as e:
+            print(f"[POPS RELEVANCE CHECK] Error in LLM relevance check: {e}")
+            return {
+                'is_relevant': True,
+                'confidence': 0.5,
+                'reasoning': f"Relevance check failed: {e}",
+                'raw_response': ""
+            }
 
 class ChromaQueryHandler:
 
@@ -265,10 +353,12 @@ Current month: {current_month}
 
 INSTRUCTIONS:
 - Use ONLY the information from the provided context
-- STRICT RELEVANCE: The context must be directly relevant to the specific crop/topic asked about
-- If the user asks about a specific crop (e.g., tomatoes) but context only contains information about different crops (e.g., potatoes), respond exactly: "I don't have enough information to answer that."
-- Do NOT provide information about different crops as substitutes or alternatives
-- Do NOT adapt information from one crop to answer questions about another crop
+- INTELLIGENT RELEVANCE: Understand the scope of what the user is asking about
+- For variety questions: If user asks for "varieties of [crop]", provide ALL varieties of that crop from the context, not just sub-varieties of a specific variety
+- Example: "varieties of rice" should include different rice types (Basmati, non-Basmati, aromatic, etc.), not just varieties within Basmati
+- If the user asks about a specific crop (e.g., tomatoes) but context only contains information about completely different crops (e.g., potatoes), respond exactly: "I don't have enough information to answer that."
+- Do NOT provide information about completely different crops as substitutes
+- However, for variety questions, include ALL relevant varieties of the requested crop from the context
 - If context has sufficient and RELEVANT information, provide a clear and helpful answer
 - Provide agricultural information from the available context regardless of specific location, as practices are generally applicable across India
 - Do NOT add any information from external sources or your own knowledge
@@ -284,6 +374,11 @@ CRITICAL - For High Similarity Matches (Golden Database):
 - Present the complete information in a well-structured, readable format
 - NEVER leave out yield data, management practices, or cautionary information that appears in the context
 
+VARIETY QUESTION EXAMPLES:
+- Question: "What are the varieties of rice?" → Include ALL rice varieties from context (Basmati, non-Basmati, aromatic, short-grain, etc.)
+- Question: "What are the varieties of Basmati rice?" → Include specific Basmati varieties (Pusa Basmati 1121, 1509, etc.)
+- Question: "What are the varieties of wheat?" → Include ALL wheat varieties from context (durum, bread wheat, different cultivars, etc.)
+
 ### Context from Database:
 {context}
 
@@ -296,14 +391,18 @@ CRITICAL - For High Similarity Matches (Golden Database):
     CLASSIFIER_PROMPT = """
 You are a smart classifier assistant. Categorize the user query strictly into one of the following categories:
 
-- AGRICULTURE: if the question is related to farming, crops, fertilizers, pests, soil, irrigation, harvest, agronomy, etc.
+- AGRICULTURE: if the question is related to farming, crops, fertilizers, pests, soil, irrigation, harvest, agronomy, agricultural production, agricultural statistics, crop yields, farming techniques, agricultural states/regions, agricultural economics, etc. This includes questions about agricultural production statistics, which states grow which crops, agricultural data, etc.
 - GREETING: if it is a greeting, salutation, polite conversational opening, or introduction. This includes messages like "hi", "hello", "good morning", "Hello [name]", "Hi there", "How are you", "Nice to meet you", etc.
 - NON_AGRI: if the question is not agriculture-related or contains inappropriate, offensive, or irrelevant content.
 
 {region_instruction}
 Current month: {current_month}
 
-Important: Greetings can include names or additional polite phrases. Focus on the intent of the message.
+Important: 
+- Questions about agricultural production by state/region are AGRICULTURE
+- Questions about which states produce which crops are AGRICULTURE  
+- Questions about crop statistics, yields, and agricultural data are AGRICULTURE
+- Greetings can include names or additional polite phrases. Focus on the intent of the message.
 
 Respond with only one of these words: AGRICULTURE, GREETING, or NON_AGRI.
 
@@ -344,9 +443,9 @@ You are an agriculture assistant responding directly to the user who asked: "{qu
 {region_instruction}
 Current month: {current_month}
 
-Politely tell them that you can only help with agriculture-related questions. Be friendly and respectful.
+Give a short response (2-3 sentences maximum) saying you are an agriculture assistant based on Indian agriculture context and can only help with agriculture-related questions. Then suggest 1-2 specific agricultural topics they could ask about instead (like "crop recommendations for {current_month}" or "soil preparation tips").
 
-Respond as if you are talking directly to the user, not giving advice on what to say to someone else.
+Keep it concise and friendly.
 """
 
     POPS_PROMPT = """You are an expert agricultural advisor. Answer the user's question using ONLY the relevant information from the Package of Practices (PoPs) content provided below.
@@ -367,14 +466,17 @@ IMPORTANT: Always respond in the same language in which the query has been asked
 - Ignore information that is not directly related to the question asked
 
 **STEP 2 - ASSESS CONTENT AVAILABILITY:**
-- If the PoPs content has the specific information requested, provide it directly
+- If the PoPs content has the specific information requested, provide it with some explaination
+- If the PoPs content is only partially relevant, provide what is available but do NOT fabricate
 - If the PoPs content is relevant but not specific enough, provide what's available and note limitations ONLY if necessary
 - Do NOT mention "available PoPs content doesn't include..." unless the content is completely irrelevant
 - Also do not include the phrase "available PoPs content" in your response or PoPs does not contain this information.
 
 **STEP 3 - RESPONSE FORMAT:**
-- Start with a direct answer to the exact question asked but make sure the answer should not be very short.
-- Use bullet points for multiple related points
+- Provide a direct answer to the exact question asked without any title prefixes or headers
+- Do NOT start with phrases like "Direct Answer:", "Answer:", "Response:", or any other titles
+- Begin immediately with the actual answer content
+- Use bullet points for multiple related points when appropriate
 - Keep each point concise (1-2 sentences maximum)
 - Only include what is directly available in the PoPs content
 - Do NOT add disclaimers about content availability unless absolutely necessary
@@ -393,13 +495,15 @@ IMPORTANT: Always respond in the same language in which the query has been asked
 
 **EXAMPLES OF GOOD RESPONSES:**
 - Question: "What is the seed rate for wheat?"
-  Response: "• Seed rate: 100-125 kg/ha for timely sown wheat"
+  Response: "The seed rate for wheat is 100-125 kg/ha for timely sown wheat."
   
 - Question: "When to sow maize?"
   Response: "• Kharif maize: June-July\n• Rabi maize: October-November"
   
 - Question: "Can I grow coconut in Punjab?"
   Response: "Coconut cultivation is not suitable for Punjab's climate. Coconut requires tropical coastal conditions with high humidity and temperatures above 20°C year-round, which Punjab's continental climate cannot provide."
+
+**IMPORTANT**: Do NOT use title prefixes like "Direct Answer:", "Answer:", "Response:", etc. Start directly with the content.
 
 ### Response:"""
 
@@ -408,7 +512,6 @@ IMPORTANT: Always respond in the same language in which the query has been asked
         
         self.local_llm = local_llm
         
-        # Initialize Content Quality Scorer
         self.quality_scorer = ContentQualityScorer()
         
         self.db = Chroma(
@@ -1399,7 +1502,25 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                         'document_metadata': None
                     }
                 
-                is_response_relevant = not quality_scores['should_fallback']
+                # Enhanced PoPs-specific relevance check using small LLM
+                print(f"[POPS FALLBACK] Performing LLM-based relevance check...")
+                relevance_check = self.quality_scorer.check_pops_answer_relevance(question, final_response)
+                
+                # If LLM determines the answer is not relevant, fallback to LLM
+                if not relevance_check['is_relevant'] and relevance_check['confidence'] > 0.6:
+                    print(f"[POPS FALLBACK] LLM relevance check failed - Answer not relevant to question")
+                    print(f"[POPS FALLBACK] Confidence: {relevance_check['confidence']:.2f}, Reasoning: {relevance_check['reasoning']}")
+                    return {
+                        'answer': "__FALLBACK__",
+                        'source': "Fallback LLM",
+                        'cosine_similarity': cosine_score,
+                        'document_metadata': None
+                    }
+                
+                print(f"[POPS FALLBACK] LLM relevance check passed - Answer is relevant")
+                print(f"[POPS FALLBACK] Relevance confidence: {relevance_check['confidence']:.2f}")
+                
+                is_response_relevant = not quality_scores['should_fallback'] and relevance_check['is_relevant']
                 
                 print(f"[POPS FALLBACK] Response validation:")
                 print(f"   Length: {len(final_response.strip())} chars (min: 40)")
@@ -1407,6 +1528,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 print(f"   Has general agri content: {has_general_agri_content}")
                 print(f"   Has structured info: {has_structured_info}")
                 print(f"   Is response relevant: {is_response_relevant}")
+                print(f"   LLM relevance check: {relevance_check['is_relevant']} (confidence: {relevance_check['confidence']:.2f})")
                 print(f"   Is refusal: {is_refusal}")
                 print(f"   Response preview: {final_response[:100]}...")
                 
@@ -1477,18 +1599,26 @@ IMPORTANT: Always respond in the same language in which the query has been asked
         result = self.get_answer_with_source(question, conversation_history, user_state)
         return result['answer']
 
-    def get_answer_with_source(self, question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None, db_filter: str = None) -> Dict[str, any]:
+    def get_answer_with_source(self, question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None, db_filter: str = None, database_selection: Optional[List[str]] = None) -> Dict[str, any]:
         """
         Enhanced RAG approach that returns answer with source information and cosine similarity
         
-        Flow: Golden Database → RAG Database → PoPs Database → LLM Fallback
-        OR selective database querying based on db_filter
+        Flow: Based on database_selection parameter:
+        - ["rag"] → Golden Database → RAG Database → "No info"
+        - ["pops"] → PoPs Database → "No info"  
+        - ["llm"] → LLM only
+        - ["rag", "pops"] → RAG → PoPs → "No info"
+        - ["rag", "llm"] → RAG → LLM
+        - ["pops", "llm"] → PoPs → LLM
+        - ["rag", "pops", "llm"] → RAG → PoPs → LLM (current pipeline)
+        - None or [] → LLM fallback
         
         Args:
             question: User question
             conversation_history: Previous conversation context
             user_state: User's state/region
-            db_filter: Specific database to query ("golden", "rag", "pops")
+            db_filter: Legacy single database filter (for backward compatibility)
+            database_selection: List of databases to query in order ["rag", "pops", "llm"]
         
         Returns:
             Dict containing:
@@ -1497,37 +1627,70 @@ IMPORTANT: Always respond in the same language in which the query has been asked
             - cosine_similarity: Similarity score (0.0-1.0)
             - document_metadata: Metadata of the source document (if applicable)
         """
+        # Handle legacy db_filter parameter for backward compatibility
         if db_filter:
             return self._handle_filtered_database_query(question, conversation_history, user_state, db_filter)
         
-        result = self._get_answer_with_source_main(question, conversation_history, user_state)
+        # Handle new database_selection parameter
+        if database_selection is not None:
+            return self._handle_database_combination(question, conversation_history, user_state, database_selection)
         
-        if result['answer'] == "__FALLBACK__":
-            print("[FINAL FALLBACK] Main RAG/Golden search failed, trying PoPs database...")
-            effective_location = self.determine_effective_location(question, user_state)
+        # Default behavior: full pipeline (RAG → PoPs → LLM)
+        return self._handle_database_combination(question, conversation_history, user_state, ["rag", "pops", "llm"])
+
+    def _handle_database_combination(self, question: str, conversation_history: Optional[List[Dict]], user_state: str, database_selection: List[str]) -> Dict[str, any]:
+        """Handle queries with multiple database combinations"""
+        print(f"[DB_COMBINATION] Processing with databases: {database_selection}")
+        
+        # If no databases selected, fallback to LLM
+        if not database_selection:
+            print("[DB_COMBINATION] No databases selected, using LLM fallback")
+            return self._query_llm_only(question, conversation_history, user_state)
+        
+        # Process databases in order
+        for db in database_selection:
+            print(f"[DB_COMBINATION] Trying database: {db}")
             
-            processing_query = question
-            if conversation_history:
-                enhanced_query_result = self.context_manager.enhance_query_with_cot(question, conversation_history)
-                if enhanced_query_result['requires_cot'] or enhanced_query_result['context_used']:
-                    processing_query = enhanced_query_result['enhanced_query']
+            if db == "rag":
+                # Try unified RAG database (Golden + RAG content)
+                result = self._query_rag_database_only(question, conversation_history, user_state)
+                if result['answer'] != "I don't have enough information to answer that from the RAG database.":
+                    print(f"[DB_COMBINATION] ✓ RAG database provided answer")
+                    return result
+                else:
+                    print(f"[DB_COMBINATION] ✗ RAG database failed")
+                    
+            elif db == "pops":
+                # Try PoPs database
+                result = self._query_pops_database_only(question, conversation_history, user_state)
+                if result['answer'] != "I don't have enough information to answer that from the PoPs database.":
+                    print(f"[DB_COMBINATION] ✓ PoPs database provided answer")
+                    return result
+                else:
+                    print(f"[DB_COMBINATION] ✗ PoPs database failed")
+                    
+            elif db == "llm":
+                # Use LLM
+                print(f"[DB_COMBINATION] ✓ Using LLM fallback")
+                return self._query_llm_only(question, conversation_history, user_state)
             
-            pops_result = self.search_pops_fallback(processing_query, effective_location)
-            if pops_result['answer'] != "__FALLBACK__":
-                print("[FINAL FALLBACK] ✓ PoPs database provided answer")
-                return pops_result
             else:
-                print("[FINAL FALLBACK] PoPs database also failed, proceeding to LLM")
+                print(f"[DB_COMBINATION] Unknown database: {db}")
         
-        return result
+        # If we get here, all selected databases failed and LLM wasn't selected
+        print("[DB_COMBINATION] All selected databases failed, no LLM fallback")
+        return {
+            'answer': "I don't have enough information to answer that from the selected databases.",
+            'source': "No Database",
+            'cosine_similarity': 0.0,
+            'document_metadata': {}
+        }
     
     def _handle_filtered_database_query(self, question: str, conversation_history: Optional[List[Dict]], user_state: str, db_filter: str) -> Dict[str, any]:
         """Handle queries filtered to specific databases"""
         print(f"[DB_FILTER] Querying only {db_filter.upper()} database")
         
-        if db_filter == "golden":
-            return self._query_golden_database_only(question, conversation_history, user_state)
-        elif db_filter == "rag":
+        if db_filter == "rag":
             return self._query_rag_database_only(question, conversation_history, user_state)
         elif db_filter == "pops":
             return self._query_pops_database_only(question, conversation_history, user_state)
@@ -1539,47 +1702,10 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 'cosine_similarity': 0.0,
                 'document_metadata': {}
             }
-    
-    def _query_golden_database_only(self, question: str, conversation_history: Optional[List[Dict]], user_state: str) -> Dict[str, any]:
-        """Query only Golden database"""
-        print("[DB_FILTER] Querying Golden database only...")
-        
-        processing_query = question
-        if conversation_history:
-            enhanced_query_result = self.context_manager.enhance_query_with_cot(question, conversation_history)
-            if enhanced_query_result['requires_cot'] or enhanced_query_result['context_used']:
-                processing_query = enhanced_query_result['enhanced_query']
-        
-        results = self.db.similarity_search(processing_query, k=6)
-        
-        for doc in results:
-            if doc.metadata.get('collection') == 'golden':
-                distance = float(doc.metadata.get('distance', 1000.0))
-                cosine_score = 1 - distance if distance <= 1.0 else 1 / (1 + distance)
-                
-                if cosine_score >= 0.3:
-                    print(f"[DB_FILTER] Golden database match found with score: {cosine_score:.3f}")
-                    
-                    llm_response = self.generate_answer_with_golden_context(processing_query, doc.page_content, user_state)
-                    
-                    return {
-                        'answer': llm_response,
-                        'source': "Golden Database",
-                        'cosine_similarity': cosine_score,
-                        'document_metadata': doc.metadata
-                    }
-        
-        print("[DB_FILTER] No suitable Golden database results found")
-        return {
-            'answer': "I don't have enough information to answer that from the Golden database.",
-            'source': "Golden Database",
-            'cosine_similarity': 0.0,
-            'document_metadata': {}
-        }
-    
+
     def _query_rag_database_only(self, question: str, conversation_history: Optional[List[Dict]], user_state: str) -> Dict[str, any]:
-        """Query only RAG database"""
-        print("[DB_FILTER] Querying RAG database only...")
+        """Query unified RAG database (includes both Golden and RAG content)"""
+        print("[DB_FILTER] Querying unified RAG database (Golden + RAG content)...")
         
         processing_query = question
         if conversation_history:
@@ -1589,27 +1715,32 @@ IMPORTANT: Always respond in the same language in which the query has been asked
         
         results = self.db.similarity_search(processing_query, k=6)
         
+        # Process all results (both Golden and RAG content) together
         for doc in results:
-            if doc.metadata.get('collection') != 'golden':
-                distance = float(doc.metadata.get('distance', 1000.0))
-                cosine_score = 1 - distance if distance <= 1.0 else 1 / (1 + distance)
+            distance = float(doc.metadata.get('distance', 1000.0))
+            cosine_score = 1 - distance if distance <= 1.0 else 1 / (1 + distance)
+            
+            if cosine_score >= 0.3:
+                collection_type = doc.metadata.get('collection', 'rag')
+                print(f"[DB_FILTER] RAG database match found (type: {collection_type}) with score: {cosine_score:.3f}")
                 
-                if cosine_score >= 0.3:
-                    print(f"[DB_FILTER] RAG database match found with score: {cosine_score:.3f}")
-                    
+                # Use appropriate response generation based on content type
+                if collection_type == 'golden':
+                    llm_response = self.generate_answer_with_golden_context(processing_query, doc.page_content, user_state)
+                else:
                     context = f"Context: {doc.page_content}\n\nQuestion: {processing_query}"
                     llm_response = run_local_llm(
                         f"{self.REGION_INSTRUCTION}\n{self.BASE_PROMPT}\n\n{context}",
                         temperature=0.1,
                         max_tokens=1024
                     )
-                    
-                    return {
-                        'answer': llm_response,
-                        'source': "RAG Database",
-                        'cosine_similarity': cosine_score,
-                        'document_metadata': doc.metadata
-                    }
+                
+                return {
+                    'answer': llm_response,
+                    'source': "RAG Database",
+                    'cosine_similarity': cosine_score,
+                    'document_metadata': doc.metadata
+                }
         
         print("[DB_FILTER] No suitable RAG database results found")
         return {
@@ -1641,6 +1772,71 @@ IMPORTANT: Always respond in the same language in which the query has been asked
             }
         
         return result
+
+    def _query_llm_only(self, question: str, conversation_history: Optional[List[Dict]], user_state: str) -> Dict[str, any]:
+        """Query only LLM without any database"""
+        print("[DB_FILTER] Using LLM only...")
+        
+        processing_query = question
+        if conversation_history:
+            enhanced_query_result = self.context_manager.enhance_query_with_cot(question, conversation_history)
+            if enhanced_query_result['requires_cot'] or enhanced_query_result['context_used']:
+                processing_query = enhanced_query_result['enhanced_query']
+        
+        # Use the classification system to determine response type
+        category = self.classify_query(processing_query, conversation_history)
+        
+        if category == "GREETING":
+            response = self.generate_dynamic_response(processing_query, mode="GREETING")
+            return {
+                'answer': response,
+                'source': "Fallback LLM",
+                'cosine_similarity': 0.0,
+                'document_metadata': None
+            }
+        elif category == "NON_AGRI":
+            response = self.generate_dynamic_response(processing_query, mode="NON_AGRI")
+            return {
+                'answer': response,
+                'source': "Fallback LLM",
+                'cosine_similarity': 0.0,
+                'document_metadata': None
+            }
+        else:
+            # Agriculture question - use LLM directly
+            effective_location = self.determine_effective_location(question, user_state)
+            context_info = f"\nUser Location: {effective_location}" if effective_location else ""
+            
+            prompt = f"""You are an expert agricultural advisor specializing in Indian farming. Answer the following question with practical, actionable advice.
+
+{self.REGION_INSTRUCTION}
+
+Question: {processing_query}{context_info}
+
+Provide a comprehensive answer focusing on Indian agricultural practices, varieties, and conditions. Include specific recommendations where possible."""
+            
+            try:
+                llm_response = run_local_llm(
+                    prompt,
+                    temperature=0.3,
+                    max_tokens=1024,
+                    use_fallback=False
+                )
+                
+                return {
+                    'answer': llm_response.strip(),
+                    'source': "Fallback LLM",
+                    'cosine_similarity': 0.0,
+                    'document_metadata': None
+                }
+            except Exception as e:
+                print(f"[DB_FILTER] LLM error: {e}")
+                return {
+                    'answer': "I'm sorry, I'm unable to process your request at the moment. Please try again later.",
+                    'source': "Fallback LLM",
+                    'cosine_similarity': 0.0,
+                    'document_metadata': None
+                }
 
     def _get_answer_with_source_main(self, question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None) -> Dict[str, any]:
         """
@@ -1681,7 +1877,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                     fast_response = "Hello! I'm your agricultural assistant. I'm here to help with farming, crops, and agricultural practices. What would you like to know?"
                 
                 return {
-                    'answer': f"__NO_SOURCE__{fast_response}",
+                    'answer': fast_response,
                     'source': "Fallback LLM",
                     'cosine_similarity': 0.0,
                     'document_metadata': None
@@ -1707,7 +1903,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
             if category == "GREETING":
                 response = self.generate_dynamic_response(question, mode="GREETING")
                 return {
-                    'answer': f"__NO_SOURCE__{response}",
+                    'answer': response,
                     'source': "Fallback LLM",
                     'cosine_similarity': 0.0,
                     'document_metadata': None
@@ -1716,7 +1912,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
             if category == "NON_AGRI":
                 response = self.generate_dynamic_response(question, mode="NON_AGRI")
                 return {
-                    'answer': f"__NO_SOURCE__{response}",
+                    'answer': response,
                     'source': "Fallback LLM",
                     'cosine_similarity': 0.0,
                     'document_metadata': None
@@ -1749,7 +1945,6 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                     print(f"[RAG SEARCH] Few results found, trying unfiltered search...")
                     unfiltered_search_start = time.time()
                     fallback_results = self.db.similarity_search_with_score(primary_query, k=10, filter=None)
-                    unfiltered_search_time = time.time() - unfiltered_search_start
                     
                     for doc, score in fallback_results:
                         if not any(existing_doc.page_content == doc.page_content for existing_doc, _ in raw_results):
@@ -1764,17 +1959,12 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                     'document_metadata': None
                 }
             
-            database_search_time = time.time() - database_search_start
                 
-            rerank_start = time.time()
             relevant_docs = self.rerank_documents(processing_query, raw_results)
-            rerank_time = time.time() - rerank_start
             
             print(f"[SOURCE ATTRIBUTION] Reranked Results Count: {len(relevant_docs)}")
             
-            crop_filter_start = time.time()
             crop_filtered_docs = self.validate_crop_specificity(processing_query, relevant_docs)
-            crop_filter_time = time.time() - crop_filter_start
             
             relevant_docs = crop_filtered_docs
             
@@ -1787,7 +1977,6 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                     print("-" * 50)
             print("=" * 70)
             
-            quality_check_start = time.time()
             if not relevant_docs or not relevant_docs[0].page_content.strip():
                 print(f"[EARLY QUALITY CHECK] ✗ No relevant docs or empty content")
                 return {
@@ -1876,15 +2065,11 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                     'cosine_similarity': cosine_score,
                     'document_metadata': None
                 }
-            quality_check_time = time.time() - quality_check_start
             
             document_metadata = relevant_docs[0].metadata
             
-            llm_generation_start = time.time()
             try:
-                prompt_construction_start = time.time()
                 prompt = self.construct_structured_prompt(content, processing_query, effective_location)
-                prompt_construction_time = time.time() - prompt_construction_start
                 
                 print(f"[DEBUG] Context being sent to LLM: {content[:500]}...")
                 print(f"[DEBUG] User query: {processing_query}")
@@ -1896,11 +2081,9 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                     max_tokens=1024,
                     use_fallback=False
                 )
-                actual_llm_time = time.time() - actual_llm_start
                 
                 print(f"[DEBUG] LLM raw response: {generated_response}")
                 
-                response_processing_start = time.time()
                 final_response = self.filter_response_thinking(generated_response.strip())
                 
                 is_high_quality_match = cosine_score > 0.7
@@ -1961,10 +2144,6 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 
                 source_text = f"\n\n<small><i>Source: {determined_source}</i></small>"
                 final_response += source_text
-                response_processing_time = time.time() - response_processing_start
-                
-                llm_generation_time = time.time() - llm_generation_start
-                total_chroma_time = time.time() - chroma_handler_start
                 
                 return {
                     'answer': final_response,

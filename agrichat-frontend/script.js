@@ -92,6 +92,75 @@ if (!deviceId) {
 let currentSession = null;
 let showingArchived = false;
 
+// Database Toggle State Management
+let databaseToggles = {
+  rag: true,
+  pops: true,
+  llm: true
+};
+
+// Load database toggle preferences from localStorage
+function loadDatabasePreferences() {
+  const saved = localStorage.getItem("agrichat_database_preferences");
+  if (saved) {
+    try {
+      databaseToggles = { ...databaseToggles, ...JSON.parse(saved) };
+    } catch (e) {
+      console.warn("Failed to parse saved database preferences");
+    }
+  }
+
+  // Update UI toggles
+  document.getElementById("ragToggle").checked = databaseToggles.rag;
+  document.getElementById("popsToggle").checked = databaseToggles.pops;
+  document.getElementById("llmToggle").checked = databaseToggles.llm;
+}
+
+// Save database toggle preferences to localStorage
+function saveDatabasePreferences() {
+  localStorage.setItem("agrichat_database_preferences", JSON.stringify(databaseToggles));
+}
+
+// Get current database selection array for API
+function getDatabaseSelection() {
+  const selection = [];
+  if (databaseToggles.rag) selection.push("rag");
+  if (databaseToggles.pops) selection.push("pops");
+  if (databaseToggles.llm) selection.push("llm");
+
+  // Ensure at least one database is selected
+  if (selection.length === 0) {
+    selection.push("llm"); // Fallback to LLM if none selected
+    databaseToggles.llm = true;
+    document.getElementById("llmToggle").checked = true;
+    saveDatabasePreferences();
+  }
+
+  return selection;
+}
+
+// Initialize database toggle event listeners
+function initializeDatabaseToggles() {
+  const ragToggle = document.getElementById("ragToggle");
+  const popsToggle = document.getElementById("popsToggle");
+  const llmToggle = document.getElementById("llmToggle");
+
+  ragToggle.addEventListener("change", () => {
+    databaseToggles.rag = ragToggle.checked;
+    saveDatabasePreferences();
+  });
+
+  popsToggle.addEventListener("change", () => {
+    databaseToggles.pops = popsToggle.checked;
+    saveDatabasePreferences();
+  });
+
+  llmToggle.addEventListener("change", () => {
+    databaseToggles.llm = llmToggle.checked;
+    saveDatabasePreferences();
+  });
+}
+
 async function loadSessions() {
   try {
     console.log('[SESSIONS] Loading sessions for device:', deviceId);
@@ -421,6 +490,11 @@ function loadChat(session) {
 window.addEventListener("DOMContentLoaded", async () => {
   populateStateDropdowns();
   detectLocationAndLanguage();
+
+  // Initialize database toggles
+  loadDatabasePreferences();
+  initializeDatabaseToggles();
+
   const savedState = localStorage.getItem("agrichat_user_state");
   if (savedState) {
     const stateSelect = document.getElementById("stateSelect");
@@ -519,7 +593,12 @@ window.addEventListener("DOMContentLoaded", async () => {
       question: finalQuestion,
       device_id: deviceId,
       state: state,
-      language: lang
+      language: lang,
+      database_config: {
+        rag_enabled: databaseToggles.rag,
+        pops_enabled: databaseToggles.pops,
+        llm_enabled: databaseToggles.llm
+      }
     };
 
     const res = await apiCall(`${API_BASE}/query`, {
@@ -551,7 +630,12 @@ window.addEventListener("DOMContentLoaded", async () => {
     const requestData = {
       question: question,
       device_id: deviceId,
-      state: localStorage.getItem("agrichat_user_state") || ""
+      state: localStorage.getItem("agrichat_user_state") || "",
+      database_config: {
+        rag_enabled: databaseToggles.rag,
+        pops_enabled: databaseToggles.pops,
+        llm_enabled: databaseToggles.llm
+      }
     };
 
     showLoader();

@@ -41,7 +41,9 @@ def is_agricultural_query(question: str) -> bool:
         'kharif', 'rabi', 'zaid', 'monsoon', 'season', 'weather', 'climate', 'temperature', 'rainfall',
         'field', 'fields', 'garden', 'gardening', 'nursery', 'greenhouse', 'polyhouse', 'drip', 'sprinkler',
         'tractor', 'plough', 'cultivator', 'harrow', 'seeder', 'transplanter', 'thresher', 'combine',
-        'organic farming', 'precision agriculture', 'sustainable farming', 'integrated pest management'
+        'organic farming', 'precision agriculture', 'sustainable farming', 'integrated pest management',
+        'producer', 'largest producer', 'biggest producer', 'production statistics', 'agricultural state',
+        'farming state', 'crop production', 'agricultural output', 'yield statistics', 'farming statistics'
     ]
     
     if any(keyword in question_lower for keyword in agri_keywords):
@@ -51,8 +53,8 @@ def is_agricultural_query(question: str) -> bool:
         'prime minister', 'president', 'politics', 'political', 'government policy', 'election',
         'speed of light', 'physics', 'chemistry', 'mathematics', 'astronomy', 'space', 'nasa', 'mars',
         'moon', 'planet', 'galaxy', 'universe', 'quantum', 'relativity', 'newton', 'einstein',
-        'brics', 'country', 'countries', 'capital city', 'population', 'geography', 'history',
-        'classical dance', 'music', 'art', 'literature', 'culture', 'tradition', 'festival',
+        'brics', 'population', 'history',
+        'classical dance', 'music', 'art', 'literature', 'festival',
         'computer', 'software', 'programming', 'technology', 'internet', 'website', 'app',
         'medicine', 'doctor', 'hospital', 'disease treatment', 'surgery', 'pharmacy',
         'business', 'marketing', 'economics', 'finance', 'stock market', 'investment',
@@ -164,7 +166,14 @@ class FallbackAgriTool(BaseTool):
     
     SYSTEM_PROMPT: ClassVar[str] = """You are an Indian agricultural assistant. Follow these rules strictly:
 
-1. ONLY answer questions related to Indian agriculture, farming, crops, livestock, and rural development.
+1. For agricultural questions (farming, crops, livestock, rural development, agricultural production, etc.):
+   - Answer directly and helpfully without disclaimers
+   - Focus on Indian context, varieties, and practices
+   - Provide practical, actionable advice
+   - Consider Indian seasons, climate, and regional variations
+   - Keep responses concise and helpful
+   - DO NOT mention current month/date unless specifically relevant
+   - DO NOT add unnecessary disclaimers about being an agricultural assistant
 
 2. For NON-agricultural questions (politics, science, entertainment, general knowledge, etc.):
    - Respond EXACTLY with: "I'm an agricultural assistant focused on Indian farming. I can only help with agriculture-related questions. Please ask about crops, farming practices, soil management, pest control, or other agricultural topics."
@@ -175,14 +184,7 @@ class FallbackAgriTool(BaseTool):
    - Respond politely and introduce yourself as an agricultural assistant
    - Suggest some agricultural topics they can ask about
 
-4. For agricultural questions:
-   - Focus on Indian context, varieties, and practices
-   - Provide practical, actionable advice
-   - Consider Indian seasons, climate, and regional variations
-   - Keep responses concise and helpful
-   - DO NOT mention current month/date unless specifically relevant
-
-5. Response format:
+4. Response format:
    - Be direct and helpful
    - Avoid unnecessary verbosity
    - Focus on practical agricultural information
@@ -201,7 +203,6 @@ Response:"""
     def _run(self, question: str, conversation_history: Optional[List[Dict]] = None) -> str:
         print(f"[DEBUG] FallbackAgriTool called with question: {question}")
         
-        # Check if it's a greeting
         question_lower = question.lower().strip()
         greetings = ['hi', 'hello', 'hey', 'namaste', 'good morning', 'good afternoon', 'good evening', 'how are you']
         
@@ -210,12 +211,10 @@ Response:"""
                    "I can help you with crop management, soil health, pest control, fertilizers, "
                    "irrigation, farming techniques, and agricultural practices. What would you like to know?")
         
-        # Check if question is agricultural
         if not is_agricultural_query(question):
             return ("I'm an agricultural assistant focused on Indian farming. I can only help with agriculture-related questions. "
                    "Please ask about crops, farming practices, soil management, pest control, or other agricultural topics.")
         
-        # Process agricultural question with context if available
         if conversation_history and len(conversation_history) > 0:
             recent_context = []
             for entry in conversation_history[-2:]:
@@ -239,10 +238,9 @@ Current question: {question}
         print(f"[SOURCE] Local LLM used for agricultural question: {question}")
         log_fallback_to_csv(question, response_text)
         
-        # Clean response and add source attribution
         final_response = response_text.strip()
         if not any(greeting in question.lower() for greeting in greetings):
-            final_response += "\n\n<small><i>Source: LLM Fallback</i></small>"
+            final_response += "\n\n<small><i>Source: Fallback to LLM</i></small>"
         
         return final_response
 
