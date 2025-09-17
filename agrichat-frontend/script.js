@@ -308,6 +308,12 @@ function hideStartScreen() {
   document.getElementById("chatScreen").style.display = "block";
 }
 
+function showChatInterface() {
+  document.getElementById("chatWindow").style.display = "block";
+  document.getElementById("chat-form").style.display = "flex";
+  document.getElementById("exportBtn").style.display = "block";
+}
+
 function appendMessage(sender, text, index = null, rating = null) {
   const div = document.createElement("div");
   div.className = `message ${sender}`;
@@ -506,20 +512,40 @@ window.addEventListener("DOMContentLoaded", async () => {
     formData.append("llm_fallback", llmFallback);
 
     showLoader();
-    const res = await apiCall(`${API_BASE}/test-database-toggle`, {
-      method: "POST",
-      body: formData,
+    console.log('[API] Sending request to test-database-toggle with data:', {
+      question,
+      golden_db: goldenDb,
+      rag_db: ragDb,
+      pops_db: popsDb,
+      llm_fallback: llmFallback
     });
 
-    const data = await res.json();
-    console.log('API response:', data);
+    try {
+      const res = await apiCall(`${API_BASE}/test-database-toggle`, {
+        method: "POST",
+        body: formData,
+      });
 
-    // Since this is a test endpoint, create a simple session-like display
-    hideStartScreen();
-    appendMessage("user", question);
-    appendMessage("bot", data.answer);
-    hideLoader();
-    textarea.value = "";
+      console.log('[API] Response status:', res.status);
+      console.log('[API] Response headers:', res.headers);
+
+      const data = await res.json();
+      console.log('[API] Full API response:', data);
+      console.log('[API] Answer received:', data.answer);
+      console.log('[API] Database config:', data.database_config);
+
+      // Since this is a test endpoint, create a simple session-like display
+      hideStartScreen();
+      showChatInterface();
+      appendMessage("user", question);
+      appendMessage("bot", data.answer);
+      hideLoader();
+      textarea.value = "";
+    } catch (error) {
+      console.error('[API] Error in start form submission:', error);
+      hideLoader();
+      alert('Error processing your query. Please try again.');
+    }
   });
 
   document.getElementById("chat-form").addEventListener("submit", async (e) => {
@@ -545,13 +571,32 @@ window.addEventListener("DOMContentLoaded", async () => {
     formData.append("llm_fallback", llmFallback);
 
     showLoader();
-    const res = await apiCall(`${API_BASE}/test-database-toggle`, {
-      method: "POST",
-      body: formData,
+    console.log('[API] Chat form - Sending request with data:', {
+      question,
+      golden_db: goldenDb,
+      rag_db: ragDb,
+      pops_db: popsDb,
+      llm_fallback: llmFallback
     });
-    const data = await res.json();
-    hideLoader();
-    appendMessage("bot", data.answer);
+
+    try {
+      const res = await apiCall(`${API_BASE}/test-database-toggle`, {
+        method: "POST",
+        body: formData,
+      });
+
+      console.log('[API] Chat form - Response status:', res.status);
+      const data = await res.json();
+      console.log('[API] Chat form - Full response:', data);
+      console.log('[API] Chat form - Answer:', data.answer);
+
+      hideLoader();
+      appendMessage("bot", data.answer);
+    } catch (error) {
+      console.error('[API] Chat form - Error:', error);
+      hideLoader();
+      appendMessage("bot", "Sorry, there was an error processing your request.");
+    }
 
     // Since this is a test endpoint, we don't update session or show recommendations
   });
