@@ -1418,7 +1418,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 )
                 
                 if is_valid_pops_response:
-                    source_text = "\n\n<small><i>Source: Package of Practices Database</i></small>"
+                    source_text = "\n\n<small><i>Source: Fallback to Package of Practices Database</i></small>"
                     final_response += source_text
                     
                     print(f"[POPS FALLBACK] ✓ Successfully generated valid PoPs response")
@@ -1477,11 +1477,18 @@ IMPORTANT: Always respond in the same language in which the query has been asked
         result = self.get_answer_with_source(question, conversation_history, user_state)
         return result['answer']
 
-    def get_answer_with_source(self, question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None) -> Dict[str, any]:
+    def get_answer_with_source(self, question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None, db_filter: str = None) -> Dict[str, any]:
         """
         Enhanced RAG approach that returns answer with source information and cosine similarity
         
         Flow: Golden Database → RAG Database → PoPs Database → LLM Fallback
+        OR selective database querying based on db_filter
+        
+        Args:
+            question: User question
+            conversation_history: Previous conversation context
+            user_state: User's state/region
+            db_filter: Specific database to query ("golden", "rag", "pops")
         
         Returns:
             Dict containing:
@@ -1490,6 +1497,9 @@ IMPORTANT: Always respond in the same language in which the query has been asked
             - cosine_similarity: Similarity score (0.0-1.0)
             - document_metadata: Metadata of the source document (if applicable)
         """
+        if db_filter:
+            return self._handle_filtered_database_query(question, conversation_history, user_state, db_filter)
+        
         result = self._get_answer_with_source_main(question, conversation_history, user_state)
         
         if result['answer'] == "__FALLBACK__":
@@ -1508,6 +1518,127 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 return pops_result
             else:
                 print("[FINAL FALLBACK] PoPs database also failed, proceeding to LLM")
+        
+        return result
+    
+    def _handle_filtered_database_query(self, question: str, conversation_history: Optional[List[Dict]], user_state: str, db_filter: str) -> Dict[str, any]:
+        """Handle queries filtered to specific databases"""
+        print(f"[DB_FILTER] Querying only {db_filter.upper()} database")
+        
+        if db_filter == "golden":
+            return self._query_golden_database_only(question, conversation_history, user_state)
+        elif db_filter == "rag":
+            return self._query_rag_database_only(question, conversation_history, user_state)
+        elif db_filter == "pops":
+            return self._query_pops_database_only(question, conversation_history, user_state)
+        else:
+            print(f"[DB_FILTER] Unknown database filter: {db_filter}")
+            return {
+                'answer': "__FALLBACK__",
+                'source': "Unknown Filter",
+                'cosine_similarity': 0.0,
+                'document_metadata': {}
+            }
+    
+    def _query_golden_database_only(self, question: str, conversation_history: Optional[List[Dict]], user_state: str) -> Dict[str, any]:
+        """Query only Golden database"""
+        print("[DB_FILTER] Querying Golden database only...")
+        
+        processing_query = question
+        if conversation_history:
+            enhanced_query_result = self.context_manager.enhance_query_with_cot(question, conversation_history)
+            if enhanced_query_result['requires_cot'] or enhanced_query_result['context_used']:
+                processing_query = enhanced_query_result['enhanced_query']
+        
+        results = self.db.similarity_search(processing_query, k=6)
+        
+        for doc in results:
+            if doc.metadata.get('collection') == 'golden':
+                distance = float(doc.metadata.get('distance', 1000.0))
+                cosine_score = 1 - distance if distance <= 1.0 else 1 / (1 + distance)
+                
+                if cosine_score >= 0.3:
+                    print(f"[DB_FILTER] Golden database match found with score: {cosine_score:.3f}")
+                    
+                    llm_response = self.generate_answer_with_golden_context(processing_query, doc.page_content, user_state)
+                    
+                    return {
+                        'answer': llm_response,
+                        'source': "Golden Database",
+                        'cosine_similarity': cosine_score,
+                        'document_metadata': doc.metadata
+                    }
+        
+        print("[DB_FILTER] No suitable Golden database results found")
+        return {
+            'answer': "I don't have enough information to answer that from the Golden database.",
+            'source': "Golden Database",
+            'cosine_similarity': 0.0,
+            'document_metadata': {}
+        }
+    
+    def _query_rag_database_only(self, question: str, conversation_history: Optional[List[Dict]], user_state: str) -> Dict[str, any]:
+        """Query only RAG database"""
+        print("[DB_FILTER] Querying RAG database only...")
+        
+        processing_query = question
+        if conversation_history:
+            enhanced_query_result = self.context_manager.enhance_query_with_cot(question, conversation_history)
+            if enhanced_query_result['requires_cot'] or enhanced_query_result['context_used']:
+                processing_query = enhanced_query_result['enhanced_query']
+        
+        results = self.db.similarity_search(processing_query, k=6)
+        
+        for doc in results:
+            if doc.metadata.get('collection') != 'golden':
+                distance = float(doc.metadata.get('distance', 1000.0))
+                cosine_score = 1 - distance if distance <= 1.0 else 1 / (1 + distance)
+                
+                if cosine_score >= 0.3:
+                    print(f"[DB_FILTER] RAG database match found with score: {cosine_score:.3f}")
+                    
+                    context = f"Context: {doc.page_content}\n\nQuestion: {processing_query}"
+                    llm_response = run_local_llm(
+                        f"{self.REGION_INSTRUCTION}\n{self.BASE_PROMPT}\n\n{context}",
+                        temperature=0.1,
+                        max_tokens=1024
+                    )
+                    
+                    return {
+                        'answer': llm_response,
+                        'source': "RAG Database",
+                        'cosine_similarity': cosine_score,
+                        'document_metadata': doc.metadata
+                    }
+        
+        print("[DB_FILTER] No suitable RAG database results found")
+        return {
+            'answer': "I don't have enough information to answer that from the RAG database.",
+            'source': "RAG Database",
+            'cosine_similarity': 0.0,
+            'document_metadata': {}
+        }
+    
+    def _query_pops_database_only(self, question: str, conversation_history: Optional[List[Dict]], user_state: str) -> Dict[str, any]:
+        """Query only PoPs database"""
+        print("[DB_FILTER] Querying PoPs database only...")
+        
+        processing_query = question
+        if conversation_history:
+            enhanced_query_result = self.context_manager.enhance_query_with_cot(question, conversation_history)
+            if enhanced_query_result['requires_cot'] or enhanced_query_result['context_used']:
+                processing_query = enhanced_query_result['enhanced_query']
+        
+        effective_location = self.determine_effective_location(question, user_state)
+        result = self.search_pops_fallback(processing_query, effective_location)
+        
+        if result['answer'] == "__FALLBACK__":
+            return {
+                'answer': "I don't have enough information to answer that from the PoPs database.",
+                'source': "PoPs Database",
+                'cosine_similarity': 0.0,
+                'document_metadata': {}
+            }
         
         return result
 
@@ -1806,7 +1937,6 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                         'document_metadata': document_metadata
                     }
                 
-                # Apply Content Quality Scoring to main RAG responses as well
                 quality_scores = self.quality_scorer.evaluate_response(processing_query, final_response)
                 
                 print(f"[MAIN RAG] Content Quality Scoring:")
@@ -1815,8 +1945,6 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 print(f"   Completeness Score: {quality_scores['completeness_score']:.3f}")
                 print(f"   Overall Score: {quality_scores['overall_score']:.3f}")
                 print(f"   Should Fallback: {quality_scores['should_fallback']}")
-                
-                # For main RAG, use more lenient thresholds since it's higher quality data
                 if quality_scores['should_fallback'] and cosine_score < 0.6:
                     print(f"[MAIN RAG] Content quality low for non-high-confidence match, proceeding to fallback")
                     return {
@@ -1826,10 +1954,10 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                         'document_metadata': document_metadata
                     }
                 
-                determined_source = "RAG Database"
+                determined_source = "Using RAG Database"
                 
                 if cosine_score > 0.7:
-                    determined_source = "Golden Database"
+                    determined_source = "Using Golden Database"
                 
                 source_text = f"\n\n<small><i>Source: {determined_source}</i></small>"
                 final_response += source_text
@@ -1868,11 +1996,3 @@ IMPORTANT: Always respond in the same language in which the query has been asked
         return None
 
 
-if __name__ == "__main__":
-    handler = ChromaQueryHandler(chroma_path="/home/ubuntu/agrichat-annam/agrichat-backend/chromaDb")
-    test_question = "What is the sowing time of Cauliflower?"
-    result = handler.get_answer_with_source(test_question, user_state="haryana")
-    print("Final Answer:", result['answer'])
-    print("Source:", result['source'])
-    print("Cosine Similarity:", result['cosine_similarity'])
-    print("Document Metadata:", result['document_metadata'])

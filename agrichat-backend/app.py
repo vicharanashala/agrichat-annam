@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request, Form, Body, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
+from pydantic import BaseModel
 from pymongo import MongoClient
 from uuid import uuid4
 from datetime import datetime
@@ -31,6 +32,7 @@ from langchain.memory import ConversationBufferWindowMemory, ConversationSummary
 from langchain.schema import HumanMessage, AIMessage
 from Agentic_RAG.fast_response_handler import FastResponseHandler
 from Agentic_RAG.context_manager import ConversationContext
+from Agentic_RAG.database_config import DatabaseConfig
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -47,6 +49,19 @@ logger.info(f"[CONFIG] USE_FAST_MODE environment variable: {os.getenv('USE_FAST_
 logger.info(f"[CONFIG] Fast Mode Enabled: {USE_FAST_MODE}")
 logger.info(f"[CONFIG] Recommendations Disabled: {DISABLE_RECOMMENDATIONS}")
 logger.info(f"[CONFIG] Parallel Recommendations Enabled: {PARALLEL_RECOMMENDATIONS}")
+
+class QueryRequest(BaseModel):
+    question: str
+    device_id: str
+    state: str = ""
+    language: str = "en"
+    database_config: Optional[Dict] = None
+
+class SessionQueryRequest(BaseModel):
+    question: str
+    device_id: str
+    state: str = ""
+    database_config: Optional[Dict] = None
 
 fast_handler = None
 if USE_FAST_MODE:
@@ -125,36 +140,15 @@ def format_conversation_context(memory: ConversationBufferWindowMemory) -> str:
     
     return "\n".join(context_parts)
 
-def get_answer(question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None, session_id: str = None) -> str:
+def get_answer(question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None, session_id: str = None, db_config: DatabaseConfig = None) -> str:
     """
     Main answer function that routes to fast mode or CrewAI based on configuration.
     Simplified structure aligned with main.py pipeline.
     """
-    # Comment out complex context resolution - now handled by enhanced FastResponseHandler
-    # context_resolution_start = time.time()
-    # if session_id:
-    #     memory = get_session_memory(session_id)
-    #     context_str = format_conversation_context(memory)
-    #     resolved_question = resolve_context_question(question, context_str)
-    #     if resolved_question != question:
-    #         logger.info(f"[CONTEXT] Resolved '{question[:50]}...' to '{resolved_question[:50]}...'")
-    #         question = resolved_question
-    # context_resolution_time = time.time() - context_resolution_start
-    # logger.info(f"[TIMING] Context resolution took: {context_resolution_time:.3f}s")
-    
     if USE_FAST_MODE and fast_handler:
-        response = get_fast_answer(question, conversation_history, user_state)
+        response = get_fast_answer(question, conversation_history, user_state, db_config)
     else:
-        response = get_crewai_answer(question, conversation_history, user_state)
-    
-    # Comment out memory update - handled by enhanced handlers
-    # memory_update_start = time.time()
-    # if session_id:
-    #     memory.chat_memory.add_user_message(question)
-    #     memory.chat_memory.add_ai_message(response)
-    #     logger.info(f"[CONTEXT] Updated memory for session {session_id[:8]}...")
-    # memory_update_time = time.time() - memory_update_start
-    # logger.info(f"[TIMING] Memory update took: {memory_update_time:.3f}s")
+        response = get_crewai_answer(question, conversation_history, user_state, db_config)
     
     return response
 
@@ -331,19 +325,19 @@ def extract_topics_from_context(context: str) -> List[str]:
     
     return topics
 
-def get_fast_answer(question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None) -> str:
+def get_fast_answer(question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None, db_config: DatabaseConfig = None) -> str:
     """
     Fast mode using enhanced FastResponseHandler with source attribution.
     """
     logger.info(f"[FAST] Processing question with enhanced fast handler: {question}")
     try:
-        return fast_handler.get_answer(question, conversation_history, user_state)
+        return fast_handler.get_answer(question, conversation_history, user_state, db_config)
     except Exception as e:
         logger.error(f"[FAST] Error in fast mode: {e}")
         logger.info("[FAST] Falling back to CrewAI")
-        return get_crewai_answer(question, conversation_history, user_state)
+        return get_crewai_answer(question, conversation_history, user_state, db_config)
 
-def get_crewai_answer(question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None) -> str:
+def get_crewai_answer(question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None, db_config: DatabaseConfig = None) -> str:
     """
     CrewAI mode - original multi-agent approach for complex reasoning.
     """
@@ -766,10 +760,15 @@ async def list_sessions(request: Request):
     return {"sessions": [clean_session(s) for s in sessions]}
 
 @app.post("/api/query")
-async def new_session(question: str = Form(...), device_id: str = Form(...), state: str = Form(...), language: str = Form(...)):
+async def new_session(request: QueryRequest):
     api_start_time = time.time()
     session_id = str(uuid4())
-    logger.info(f"[TIMING] API endpoint started for question: {question[:50]}...")
+    logger.info(f"[TIMING] API endpoint started for question: {request.question[:50]}...")
+    
+    db_config = None
+    if request.database_config:
+        db_config = DatabaseConfig(**request.database_config)
+        logger.info(f"[DB_CONFIG] Received database configuration: {db_config.get_enabled_databases()}")
     
     # Start both answer processing and recommendations in parallel if enabled
     async def process_answer():
@@ -781,10 +780,11 @@ async def new_session(question: str = Form(...), device_id: str = Form(...), sta
                 raw_answer = await loop.run_in_executor(
                     executor, 
                     get_answer, 
-                    question, 
+                    request.question, 
                     None,  # conversation_history
-                    state,  # user_state
-                    session_id
+                    request.state,  # user_state
+                    session_id,
+                    db_config
                 )
             answer_processing_time = time.time() - answer_processing_start
             logger.info(f"[TIMING] Answer processing took: {answer_processing_time:.3f}s")
@@ -798,13 +798,25 @@ async def new_session(question: str = Form(...), device_id: str = Form(...), sta
         except Exception as e:
             logger.error(f"[DEBUG] Error in get_answer: {e}")
             raise e
+
+@app.post("/api/query-legacy")
+async def new_session_legacy(question: str = Form(...), device_id: str = Form(...), state: str = Form(...), language: str = Form(...)):
+    """Legacy endpoint for backward compatibility"""
+    request = QueryRequest(
+        question=question,
+        device_id=device_id,
+        state=state,
+        language=language,
+        database_config=None
+    )
+    return await new_session(request)
     
     # Create tasks for parallel execution
     tasks = [process_answer()]
     
     # Add recommendations task if enabled and parallel processing is on
     if not DISABLE_RECOMMENDATIONS and PARALLEL_RECOMMENDATIONS:
-        tasks.append(get_question_recommendations_async(question, state, 2))
+        tasks.append(get_question_recommendations_async(request.question, request.state, 2))
     
     try:
         # Execute tasks in parallel
@@ -841,13 +853,13 @@ async def new_session(question: str = Form(...), device_id: str = Form(...), sta
     session = {
         "session_id": session_id,
         "timestamp": datetime.now(IST).isoformat(),
-        "messages": [{"question": question, "answer": html_answer, "rating": None}],
+        "messages": [{"question": request.question, "answer": html_answer, "rating": None}],
         "crop": "unknown",
-        "state": state,
+        "state": request.state,
         "status": "active",
-        "language": language,
+        "language": request.language,
         "has_unread": True,
-        "device_id": device_id
+        "device_id": request.device_id
     }
 
     sessions_collection.insert_one(session)
@@ -862,8 +874,8 @@ async def new_session(question: str = Form(...), device_id: str = Form(...), sta
             # Sequential recommendations if parallel is disabled
             try:
                 recommendations = get_question_recommendations(
-                    user_question=question,
-                    user_state=state,
+                    user_question=request.question,
+                    user_state=request.state,
                     limit=2
                 )
                 logger.info(f"Added {len(recommendations)} recommendations to session response (sequential)")
@@ -895,10 +907,15 @@ async def get_session(session_id: str):
     return {"session": session}
 
 @app.post("/api/session/{session_id}/query")
-async def continue_session(session_id: str, question: str = Form(...), device_id: str = Form(...), state: str = Form("")):
+async def continue_session(session_id: str, request: SessionQueryRequest):
     session = sessions_collection.find_one({"session_id": session_id})
-    if not session or session.get("status") == "archived" or session.get("device_id") != device_id:
+    if not session or session.get("status") == "archived" or session.get("device_id") != request.device_id:
         return JSONResponse(status_code=403, content={"error": "Session is archived, missing or unauthorized"})
+
+    db_config = None
+    if request.database_config:
+        db_config = DatabaseConfig(**request.database_config)
+        logger.info(f"[DB_CONFIG] Received database configuration for session: {db_config.get_enabled_databases()}")
 
     # Start both answer processing and recommendations in parallel if enabled
     async def process_session_answer():
@@ -907,7 +924,7 @@ async def continue_session(session_id: str, question: str = Form(...), device_id
             conversation_history = []
             messages = session.get("messages", [])
             
-            current_state = state or session.get("state", "unknown")
+            current_state = request.state or session.get("state", "unknown")
             
             # Run answer processing in thread pool to avoid blocking
             loop = asyncio.get_event_loop()
@@ -915,10 +932,11 @@ async def continue_session(session_id: str, question: str = Form(...), device_id
                 raw_answer = await loop.run_in_executor(
                     executor, 
                     get_answer, 
-                    question, 
+                    request.question, 
                     [],  # conversation_history
                     current_state,
-                    session_id  # Pass session_id for context resolution
+                    session_id,  # Pass session_id for context resolution
+                    db_config
                 )
             return str(raw_answer).strip()
             
@@ -930,10 +948,10 @@ async def continue_session(session_id: str, question: str = Form(...), device_id
     tasks = [process_session_answer()]
     
     # Add recommendations task if enabled and parallel processing is on
-    current_state = state or session.get("state", "unknown")
+    current_state = request.state or session.get("state", "unknown")
     if not DISABLE_RECOMMENDATIONS and PARALLEL_RECOMMENDATIONS:
         logger.info("[PARALLEL] Starting session recommendations in parallel with answer processing")
-        tasks.append(get_question_recommendations_async(question, current_state, 2))
+        tasks.append(get_question_recommendations_async(request.question, current_state, 2))
     
     try:
         # Execute tasks in parallel
@@ -966,7 +984,7 @@ async def continue_session(session_id: str, question: str = Form(...), device_id
     sessions_collection.update_one(
         {"session_id": session_id},
         {
-            "$push": {"messages": {"question": question, "answer": html_answer, "rating": None}},
+            "$push": {"messages": {"question": request.question, "answer": html_answer, "rating": None}},
             "$set": {
                 "has_unread": True,
                 "crop": crop,
@@ -986,7 +1004,7 @@ async def continue_session(session_id: str, question: str = Form(...), device_id
                 # Sequential recommendations if parallel is disabled
                 try:
                     recommendations = get_question_recommendations(
-                        user_question=question,
+                        user_question=request.question,
                         user_state=current_state,
                         limit=2
                     )
@@ -1395,3 +1413,44 @@ async def get_recommendations(data: dict = Body(...)):
 #                 "retry_suggestion": "Please try again later or contact support if the issue persists"
 #             }
 #         )
+
+@app.post("/api/test-database-toggle")
+async def test_database_toggle(
+    question: str = Form(...),
+    golden_db: bool = Form(False),
+    rag_db: bool = Form(False), 
+    pops_db: bool = Form(False),
+    llm_fallback: bool = Form(False)
+):
+    """Test endpoint for database toggle functionality"""
+    db_config = DatabaseConfig(
+        golden_db_enabled=golden_db,
+        rag_db_enabled=rag_db,
+        pops_db_enabled=pops_db,
+        llm_fallback_enabled=llm_fallback
+    )
+    
+    try:
+        if db_config.is_traditional_mode():
+            response = get_fast_answer(question, None, "unknown", None)
+        else:
+            response = get_fast_answer(question, None, "unknown", db_config)
+        
+        return {
+            "question": question,
+            "answer": response,
+            "database_config": {
+                "golden_db_enabled": golden_db,
+                "rag_db_enabled": rag_db,
+                "pops_db_enabled": pops_db,
+                "llm_fallback_enabled": llm_fallback,
+                "mode": "traditional" if db_config.is_traditional_mode() else "selective",
+                "enabled_databases": db_config.get_enabled_databases()
+            }
+        }
+    except Exception as e:
+        logger.error(f"[TEST] Error in database toggle test: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Database toggle test failed: {str(e)}"}
+        )

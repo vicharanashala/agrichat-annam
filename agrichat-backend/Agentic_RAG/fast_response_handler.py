@@ -12,6 +12,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_dir)
 
 from tools import RAGTool, FallbackAgriTool
+from database_config import DatabaseConfig
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -68,26 +69,34 @@ class FastResponseHandler:
         else:
             return f"Hello! I'm your agricultural assistant specializing in Indian farming and crop management{state_context}. I'm here to help with crops, farming techniques, and agricultural practices tailored to Indian soil, climate, and regional conditions. What would you like to know?"
     
-    def get_answer(self, question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None) -> str:
+    def get_answer(self, question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None, db_config: DatabaseConfig = None) -> str:
         """
-        Fast rule-based response generation
+        Fast rule-based response generation with database toggle support
         
         Decision Logic:
         1. Check for simple greetings (0.1s) return immediately
-        2. Try RAG tool first (5-8s) our knowledge base
-        3. If RAG fails, use fallback tool (5-8s) LLM knowledge
+        2. Apply database configuration filters
+        3. If traditional mode (no toggles), use normal pipeline
+        4. If specific databases enabled, only query those sources
         
         Args:
             question: Current user question
             conversation_history: List of previous Q&A pairs for context
             user_state: User's state/region detected from frontend
+            db_config: Database configuration for selective querying
             
         Returns:
-            Generated response using fast rule-based approach
+            Generated response using fast rule-based approach with database filtering
         """
         import time
         fast_handler_start = time.time()
         logger.info(f"[TIMING] FastResponseHandler started for: {question[:50]}...")
+        
+        if db_config:
+            if db_config.is_traditional_mode():
+                logger.info(f"[DB_CONFIG] Traditional mode - using full pipeline")
+            else:
+                logger.info(f"[DB_CONFIG] Selective mode - enabled databases: {db_config.get_enabled_databases()}")
         
         context_log_start = time.time()
         if conversation_history:
@@ -114,27 +123,10 @@ class FastResponseHandler:
         logger.info(f"[TIMING] Greeting check took: {greeting_time:.3f}s")
         
         try:
-            rag_attempt_start = time.time()
-            logger.info(f"[FAST] Trying RAG tool first...")
-            rag_response = self.rag_tool._run(question, conversation_history, user_state)
-            rag_attempt_time = time.time() - rag_attempt_start
-            logger.info(f"[TIMING] RAG attempt took: {rag_attempt_time:.3f}s")
-            
-            if rag_response != "__FALLBACK__":
-                logger.info(f"[FAST] RAG tool succeeded")
-                total_fast_time = time.time() - fast_handler_start
-                logger.info(f"[TIMING] TOTAL FastResponseHandler took: {total_fast_time:.3f}s")
-                return rag_response
-            
-            fallback_attempt_start = time.time()
-            logger.info(f"[FAST] RAG tool failed, using fallback...")
-            fallback_response = self.fallback_tool._run(question, conversation_history)
-            fallback_attempt_time = time.time() - fallback_attempt_start
-            logger.info(f"[TIMING] Fallback attempt took: {fallback_attempt_time:.3f}s")
-            
-            total_fast_time = time.time() - fast_handler_start
-            logger.info(f"[TIMING] TOTAL FastResponseHandler took: {total_fast_time:.3f}s")
-            return fallback_response
+            if db_config and not db_config.is_traditional_mode():
+                return self.handle_selective_database_query(question, conversation_history, user_state, db_config)
+            else:
+                return self.handle_traditional_pipeline(question, conversation_history, user_state)
             
         except Exception as e:
             logger.error(f"[FAST] Error in fast processing: {e}")
@@ -152,6 +144,78 @@ class FastResponseHandler:
                 total_fast_time = time.time() - fast_handler_start
                 logger.info(f"[TIMING] TOTAL FastResponseHandler took: {total_fast_time:.3f}s")
                 return "I'm having trouble processing your question right now. Please try again or rephrase your question."
+    
+    def handle_traditional_pipeline(self, question: str, conversation_history: Optional[List[Dict]], user_state: str) -> str:
+        """Traditional full pipeline fallback behavior"""
+        import time
+        rag_attempt_start = time.time()
+        logger.info(f"[TRADITIONAL] Using full pipeline - RAG -> PoPs -> LLM")
+        rag_response = self.rag_tool._run(question, conversation_history, user_state)
+        rag_attempt_time = time.time() - rag_attempt_start
+        logger.info(f"[TIMING] RAG attempt took: {rag_attempt_time:.3f}s")
+        
+        if rag_response != "__FALLBACK__":
+            logger.info(f"[TRADITIONAL] RAG tool succeeded")
+            return rag_response
+        
+        fallback_attempt_start = time.time()
+        logger.info(f"[TRADITIONAL] RAG failed, using LLM fallback...")
+        fallback_response = self.fallback_tool._run(question, conversation_history)
+        fallback_attempt_time = time.time() - fallback_attempt_start
+        logger.info(f"[TIMING] Fallback attempt took: {fallback_attempt_time:.3f}s")
+        
+        return fallback_response
+    
+    def handle_selective_database_query(self, question: str, conversation_history: Optional[List[Dict]], user_state: str, db_config: DatabaseConfig) -> str:
+        """Handle queries with specific database selections"""
+        import time
+        enabled_dbs = db_config.get_enabled_databases()
+        logger.info(f"[SELECTIVE] Querying only enabled databases: {enabled_dbs}")
+        
+        for db_name in enabled_dbs:
+            try:
+                if db_name == "golden" or db_name == "rag":
+                    db_start = time.time()
+                    logger.info(f"[SELECTIVE] Trying {db_name.upper()} database...")
+                    response = self.rag_tool._run(question, conversation_history, user_state, db_filter=db_name)
+                    db_time = time.time() - db_start
+                    logger.info(f"[TIMING] {db_name.upper()} query took: {db_time:.3f}s")
+                    
+                    if response != "__FALLBACK__":
+                        logger.info(f"[SELECTIVE] {db_name.upper()} database returned answer")
+                        return response
+                    else:
+                        logger.info(f"[SELECTIVE] {db_name.upper()} database returned no answer")
+                
+                elif db_name == "pops":
+                    db_start = time.time()
+                    logger.info(f"[SELECTIVE] Trying PoPs database...")
+                    response = self.rag_tool._run(question, conversation_history, user_state, db_filter="pops")
+                    db_time = time.time() - db_start
+                    logger.info(f"[TIMING] PoPs query took: {db_time:.3f}s")
+                    
+                    if response != "__FALLBACK__":
+                        logger.info(f"[SELECTIVE] PoPs database returned answer")
+                        return response
+                    else:
+                        logger.info(f"[SELECTIVE] PoPs database returned no answer")
+                
+                elif db_name == "llm":
+                    db_start = time.time()
+                    logger.info(f"[SELECTIVE] Trying LLM fallback...")
+                    response = self.fallback_tool._run(question, conversation_history)
+                    db_time = time.time() - db_start
+                    logger.info(f"[TIMING] LLM query took: {db_time:.3f}s")
+                    
+                    logger.info(f"[SELECTIVE] LLM returned answer")
+                    return response
+                    
+            except Exception as e:
+                logger.error(f"[SELECTIVE] Error querying {db_name} database: {e}")
+                continue
+        
+        logger.info(f"[SELECTIVE] No enabled databases returned answers")
+        return "I don't have enough information to answer that from the selected databases."
     
     def get_performance_stats(self) -> Dict:
         """
