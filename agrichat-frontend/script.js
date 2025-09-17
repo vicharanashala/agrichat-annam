@@ -304,17 +304,68 @@ function copyToClipboard(button) {
 }
 
 function hideStartScreen() {
-  document.getElementById("startScreen").style.display = "none";
-  document.getElementById("chatScreen").style.display = "block";
+  const startScreen = document.getElementById("startScreen");
+  const chatWindow = document.getElementById("chatWindow");
+  const chatForm = document.getElementById("chat-form");
+
+  if (startScreen) {
+    startScreen.style.display = "none";
+    console.log('[UI] Start screen hidden');
+  } else {
+    console.error('[UI] startScreen element not found');
+  }
+
+  if (chatWindow) {
+    chatWindow.style.display = "block";
+    console.log('[UI] Chat window shown');
+  } else {
+    console.error('[UI] chatWindow element not found');
+  }
+
+  if (chatForm) {
+    chatForm.style.display = "flex";
+    console.log('[UI] Chat form shown');
+  } else {
+    console.error('[UI] chat-form element not found');
+  }
 }
 
 function showChatInterface() {
-  document.getElementById("chatWindow").style.display = "block";
-  document.getElementById("chat-form").style.display = "flex";
-  document.getElementById("exportBtn").style.display = "block";
+  const chatWindow = document.getElementById("chatWindow");
+  const chatForm = document.getElementById("chat-form");
+  const exportBtn = document.getElementById("exportBtn");
+
+  if (chatWindow) {
+    chatWindow.style.display = "block";
+    console.log('[UI] Chat window interface shown');
+  } else {
+    console.error('[UI] chatWindow element not found in showChatInterface');
+  }
+
+  if (chatForm) {
+    chatForm.style.display = "flex";
+    console.log('[UI] Chat form interface shown');
+  } else {
+    console.error('[UI] chat-form element not found in showChatInterface');
+  }
+
+  if (exportBtn) {
+    exportBtn.style.display = "block";
+    console.log('[UI] Export button shown');
+  } else {
+    console.log('[UI] Export button not found (may not exist on this page)');
+  }
 }
 
 function appendMessage(sender, text, index = null, rating = null) {
+  console.log('[UI] Appending message:', { sender, text: text.substring(0, 100) + '...' });
+
+  const chatWindow = document.getElementById("chatWindow");
+  if (!chatWindow) {
+    console.error('[UI] chatWindow element not found in appendMessage');
+    return;
+  }
+
   const div = document.createElement("div");
   div.className = `message ${sender}`;
 
@@ -343,8 +394,9 @@ function appendMessage(sender, text, index = null, rating = null) {
   `;
   }
 
-
-  document.getElementById("chatWindow").appendChild(div);
+  chatWindow.appendChild(div);
+  chatWindow.scrollTop = chatWindow.scrollHeight;
+  console.log('[UI] Message appended successfully');
 }
 
 function displayRecommendations(recommendations) {
