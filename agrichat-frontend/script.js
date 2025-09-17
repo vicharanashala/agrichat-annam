@@ -497,7 +497,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     formData.append("file", audioBlob, "recording.webm");
 
     showLoader();
-    const res = await apiCall(`${API_BASE}/query`, {
+    const res = await apiCall(`${API_BASE}/query-legacy`, {
       method: "POST",
       body: formData,
     });
@@ -520,15 +520,19 @@ window.addEventListener("DOMContentLoaded", async () => {
     appendMessage("user", question);
     input.value = "";
 
-    const formData = new FormData();
-    formData.append("question", question);
-    formData.append("device_id", deviceId);
-    formData.append("state", localStorage.getItem("agrichat_user_state") || "");
+    const requestData = {
+      question: question,
+      device_id: deviceId,
+      state: localStorage.getItem("agrichat_user_state") || ""
+    };
 
     showLoader();
     const res = await apiCall(`${API_BASE}/session/${currentSession.session_id}/query`, {
       method: "POST",
-      body: formData,
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestData),
     });
     const data = await res.json();
     const last = data.session.messages.at(-1);

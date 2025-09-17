@@ -660,7 +660,7 @@ app = FastAPI(lifespan=lifespan)
 
 origins = [
     "https://agri-annam.vercel.app",
-    "https://f3fc768cab21.ngrok-free.app",
+    "https://2a21fe4e8a66.ngrok-free.app",
     "https://localhost:3000",
     "https://127.0.0.1:3000",
     "http://localhost:3000",
@@ -702,16 +702,13 @@ client = MongoClient(MONGO_URI) if ENVIRONMENT == "development" else MongoClient
 db = client["agrichat"]
 sessions_collection = db["sessions"]
 
-# Optimize database indexes for better query performance
 def ensure_database_indexes():
     """Ensure proper indexes exist for optimized queries"""
     try:
-        # Index for session queries
         sessions_collection.create_index([("session_id", 1)])
         sessions_collection.create_index([("device_id", 1)])
         sessions_collection.create_index([("state", 1)])
         
-        # Compound index for recommendations queries
         sessions_collection.create_index([("state", 1), ("messages.question", 1)])
         sessions_collection.create_index([("timestamp", -1)])
         
@@ -719,7 +716,6 @@ def ensure_database_indexes():
     except Exception as e:
         logger.error(f"[PERF] Failed to create indexes: {e}")
 
-# Initialize indexes
 ensure_database_indexes()
 
 def clean_session(s):
@@ -770,46 +766,29 @@ async def new_session(request: QueryRequest):
         db_config = DatabaseConfig(**request.database_config)
         logger.info(f"[DB_CONFIG] Received database configuration: {db_config.get_enabled_databases()}")
     
-    # Start both answer processing and recommendations in parallel if enabled
     async def process_answer():
         try:
             answer_processing_start = time.time()
-            # Run answer processing in thread pool to avoid blocking
-            loop = asyncio.get_event_loop()
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                raw_answer = await loop.run_in_executor(
-                    executor, 
-                    get_answer, 
-                    request.question, 
-                    None,  # conversation_history
-                    request.state,  # user_state
-                    session_id,
-                    db_config
-                )
+            logger.info(f"[DEBUG] Starting get_answer call...")
+            
+            raw_answer = get_answer(
+                request.question, 
+                None,
+                request.state,
+                session_id,
+                db_config
+            )
+            
             answer_processing_time = time.time() - answer_processing_start
             logger.info(f"[TIMING] Answer processing took: {answer_processing_time:.3f}s")
-            
-            # Reduced debug logging for performance
-            if answer_processing_time > 10:  # Only log if slow
-                logger.info(f"[DEBUG] Slow answer processing detected: {answer_processing_time:.3f}s")
+            logger.info(f"[DEBUG] Raw answer received: {str(raw_answer)[:100]}...")
             
             return str(raw_answer).strip()
             
         except Exception as e:
             logger.error(f"[DEBUG] Error in get_answer: {e}")
+            logger.error(f"[DEBUG] Exception type: {type(e)}")
             raise e
-
-@app.post("/api/query-legacy")
-async def new_session_legacy(question: str = Form(...), device_id: str = Form(...), state: str = Form(...), language: str = Form(...)):
-    """Legacy endpoint for backward compatibility"""
-    request = QueryRequest(
-        question=question,
-        device_id=device_id,
-        state=state,
-        language=language,
-        database_config=None
-    )
-    return await new_session(request)
     
     # Create tasks for parallel execution
     tasks = [process_answer()]

@@ -146,17 +146,35 @@ class FastResponseHandler:
                 return "I'm having trouble processing your question right now. Please try again or rephrase your question."
     
     def handle_traditional_pipeline(self, question: str, conversation_history: Optional[List[Dict]], user_state: str) -> str:
-        """Traditional full pipeline fallback behavior"""
+        """Traditional full pipeline fallback behavior with enhanced logging"""
         import time
         rag_attempt_start = time.time()
-        logger.info(f"[TRADITIONAL] Using full pipeline - RAG -> PoPs -> LLM")
-        rag_response = self.rag_tool._run(question, conversation_history, user_state)
+        logger.info(f"[TRADITIONAL] Using full pipeline - RAG → PoPs → LLM")
+        
+        # Use get_answer_with_source for detailed information
+        rag_result = self.rag_tool._handler.get_answer_with_source(question, conversation_history, user_state)
         rag_attempt_time = time.time() - rag_attempt_start
         logger.info(f"[TIMING] RAG attempt took: {rag_attempt_time:.3f}s")
         
-        if rag_response != "__FALLBACK__":
-            logger.info(f"[TRADITIONAL] RAG tool succeeded")
-            return rag_response
+        if rag_result['answer'] != "__FALLBACK__":
+            # Enhanced logging with database source and semantic score
+            source = rag_result.get('source', 'Unknown')
+            similarity = rag_result.get('cosine_similarity', 0.0)
+            metadata = rag_result.get('document_metadata', {})
+            
+            logger.info(f"[RESPONSE SUCCESS] 🎯 Database Source: {source}")
+            logger.info(f"[RESPONSE SUCCESS] 📊 Semantic Score: {similarity:.4f}")
+            logger.info(f"[RESPONSE SUCCESS] 📋 Metadata: {metadata}")
+            logger.info(f"[RESPONSE SUCCESS] 💬 Answer Preview: {rag_result['answer'][:100]}...")
+            
+            # Console output for debugging
+            print(f"\n🎯 [API RESPONSE] Database Source: {source}")
+            print(f"📊 [API RESPONSE] Semantic Score: {similarity:.4f}")
+            print(f"📋 [API RESPONSE] Document Metadata: {metadata}")
+            print(f"💬 [API RESPONSE] Answer: {rag_result['answer'][:200]}...\n")
+            
+            logger.info(f"[TRADITIONAL] {source} succeeded with similarity score: {similarity:.4f}")
+            return rag_result['answer']
         
         fallback_attempt_start = time.time()
         logger.info(f"[TRADITIONAL] RAG failed, using LLM fallback...")
@@ -164,39 +182,84 @@ class FastResponseHandler:
         fallback_attempt_time = time.time() - fallback_attempt_start
         logger.info(f"[TIMING] Fallback attempt took: {fallback_attempt_time:.3f}s")
         
+        # Log fallback usage
+        logger.info(f"[RESPONSE FALLBACK] 🔄 Database Source: Fallback LLM")
+        logger.info(f"[RESPONSE FALLBACK] 📊 Semantic Score: 0.0000")
+        logger.info(f"[RESPONSE FALLBACK] 💬 Answer Preview: {fallback_response[:100]}...")
+        
+        print(f"\n🔄 [API RESPONSE] Database Source: Fallback LLM")
+        print(f"📊 [API RESPONSE] Semantic Score: 0.0000")
+        print(f"💬 [API RESPONSE] Answer: {fallback_response[:200]}...\n")
+        
         return fallback_response
     
     def handle_selective_database_query(self, question: str, conversation_history: Optional[List[Dict]], user_state: str, db_config: DatabaseConfig) -> str:
-        """Handle queries with specific database selections"""
+        """Handle queries with specific database selections with enhanced logging"""
         import time
         enabled_dbs = db_config.get_enabled_databases()
         logger.info(f"[SELECTIVE] Querying only enabled databases: {enabled_dbs}")
         
         for db_name in enabled_dbs:
             try:
-                if db_name == "golden" or db_name == "rag":
+                if db_name in ["golden", "rag"]:
                     db_start = time.time()
                     logger.info(f"[SELECTIVE] Trying {db_name.upper()} database...")
-                    response = self.rag_tool._run(question, conversation_history, user_state, db_filter=db_name)
+                    
+                    # Use get_answer_with_source for detailed information
+                    result = self.rag_tool._handler.get_answer_with_source(question, conversation_history, user_state, db_filter=db_name)
                     db_time = time.time() - db_start
                     logger.info(f"[TIMING] {db_name.upper()} query took: {db_time:.3f}s")
                     
-                    if response != "__FALLBACK__":
-                        logger.info(f"[SELECTIVE] {db_name.upper()} database returned answer")
-                        return response
+                    if result['answer'] != "__FALLBACK__":
+                        # Enhanced logging with database source and semantic score
+                        source = result.get('source', db_name.upper() + ' Database')
+                        similarity = result.get('cosine_similarity', 0.0)
+                        metadata = result.get('document_metadata', {})
+                        
+                        logger.info(f"[SELECTIVE SUCCESS] 🎯 Database Source: {source}")
+                        logger.info(f"[SELECTIVE SUCCESS] 📊 Semantic Score: {similarity:.4f}")
+                        logger.info(f"[SELECTIVE SUCCESS] 📋 Metadata: {metadata}")
+                        logger.info(f"[SELECTIVE SUCCESS] 💬 Answer Preview: {result['answer'][:100]}...")
+                        
+                        # Console output for debugging
+                        print(f"\n🎯 [API RESPONSE] Database Source: {source}")
+                        print(f"📊 [API RESPONSE] Semantic Score: {similarity:.4f}")
+                        print(f"📋 [API RESPONSE] Document Metadata: {metadata}")
+                        print(f"💬 [API RESPONSE] Answer: {result['answer'][:200]}...\n")
+                        
+                        logger.info(f"[SELECTIVE] {db_name.upper()} database returned answer with score: {similarity:.4f}")
+                        return result['answer']
                     else:
                         logger.info(f"[SELECTIVE] {db_name.upper()} database returned no answer")
                 
                 elif db_name == "pops":
                     db_start = time.time()
                     logger.info(f"[SELECTIVE] Trying PoPs database...")
-                    response = self.rag_tool._run(question, conversation_history, user_state, db_filter="pops")
+                    
+                    # Use get_answer_with_source for PoPs as well
+                    result = self.rag_tool._handler.get_answer_with_source(question, conversation_history, user_state, db_filter="pops")
                     db_time = time.time() - db_start
                     logger.info(f"[TIMING] PoPs query took: {db_time:.3f}s")
                     
-                    if response != "__FALLBACK__":
-                        logger.info(f"[SELECTIVE] PoPs database returned answer")
-                        return response
+                    if result['answer'] != "__FALLBACK__":
+                        # Enhanced logging with database source and semantic score
+                        source = result.get('source', 'PoPs Database')
+                        similarity = result.get('cosine_similarity', 0.0)
+                        metadata = result.get('document_metadata', {})
+                        
+                        logger.info(f"[SELECTIVE SUCCESS] 🎯 Database Source: {source}")
+                        logger.info(f"[SELECTIVE SUCCESS] 📊 Semantic Score: {similarity:.4f}")
+                        logger.info(f"[SELECTIVE SUCCESS] 📋 Metadata: {metadata}")
+                        logger.info(f"[SELECTIVE SUCCESS] 💬 Answer Preview: {result['answer'][:100]}...")
+                        
+                        # Console output for debugging
+                        print(f"\n🎯 [API RESPONSE] Database Source: {source}")
+                        print(f"📊 [API RESPONSE] Semantic Score: {similarity:.4f}")
+                        print(f"📋 [API RESPONSE] Document Metadata: {metadata}")
+                        print(f"💬 [API RESPONSE] Answer: {result['answer'][:200]}...\n")
+                        
+                        logger.info(f"[SELECTIVE] PoPs database returned answer with score: {similarity:.4f}")
+                        return result['answer']
                     else:
                         logger.info(f"[SELECTIVE] PoPs database returned no answer")
                 
@@ -207,12 +270,26 @@ class FastResponseHandler:
                     db_time = time.time() - db_start
                     logger.info(f"[TIMING] LLM query took: {db_time:.3f}s")
                     
+                    # Log LLM fallback usage
+                    logger.info(f"[SELECTIVE FALLBACK] 🔄 Database Source: LLM Fallback")
+                    logger.info(f"[SELECTIVE FALLBACK] 📊 Semantic Score: 0.0000")
+                    logger.info(f"[SELECTIVE FALLBACK] 💬 Answer Preview: {response[:100]}...")
+                    
+                    print(f"\n🔄 [API RESPONSE] Database Source: LLM Fallback")
+                    print(f"📊 [API RESPONSE] Semantic Score: 0.0000")
+                    print(f"💬 [API RESPONSE] Answer: {response[:200]}...\n")
+                    
                     logger.info(f"[SELECTIVE] LLM returned answer")
                     return response
                     
             except Exception as e:
                 logger.error(f"[SELECTIVE] Error querying {db_name} database: {e}")
                 continue
+        
+        # If no enabled database returned an answer
+        logger.warning(f"[SELECTIVE] No enabled databases returned answers")
+        print(f"\n⚠️ [API RESPONSE] No answers found from enabled databases: {enabled_dbs}")
+        print(f"📊 [API RESPONSE] Semantic Score: 0.0000\n")
         
         logger.info(f"[SELECTIVE] No enabled databases returned answers")
         return "I don't have enough information to answer that from the selected databases."
