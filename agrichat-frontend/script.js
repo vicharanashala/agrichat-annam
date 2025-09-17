@@ -303,7 +303,10 @@ function copyToClipboard(button) {
   });
 }
 
-
+function hideStartScreen() {
+  document.getElementById("startScreen").style.display = "none";
+  document.getElementById("chatScreen").style.display = "block";
+}
 
 function appendMessage(sender, text, index = null, rating = null) {
   const div = document.createElement("div");
