@@ -805,7 +805,11 @@ async def new_session_form(
     device_id: str = Form(...), 
     state: str = Form(""), 
     language: str = Form("en"),
-    file: UploadFile = File(None)
+    file: UploadFile = File(None),
+    golden_db: bool = Form(False),
+    rag_db: bool = Form(True), 
+    pops_db: bool = Form(False),
+    llm_fallback: bool = Form(False)
 ):
     """Endpoint for FormData requests with optional file uploads"""
     api_start_time = time.time()
@@ -834,13 +838,21 @@ async def new_session_form(
         except Exception as e:
             logger.error(f"[AUDIO] Error processing audio: {e}")
     
+    # Create database configuration
+    db_config = DatabaseConfig(
+        golden_db_enabled=golden_db,
+        rag_db_enabled=rag_db,
+        pops_db_enabled=pops_db,
+        llm_fallback_enabled=llm_fallback
+    )
+    
     # Create QueryRequest object
     request = QueryRequest(
         question=question,
         device_id=device_id,
         state=state,
         language=language,
-        database_config=None
+        database_config=db_config.to_dict()
     )
     
     # Process the request using the same logic as the main query endpoint
@@ -856,7 +868,7 @@ async def new_session_form(
                     None,
                     request.state,
                     session_id,
-                    None
+                    db_config
                 )
             answer_processing_time = time.time() - answer_processing_start
             logger.info(f"[TIMING] Answer processing took: {answer_processing_time:.3f}s")
@@ -898,6 +910,14 @@ async def new_session_form(
             "timestamp": datetime.now(IST).isoformat(),
             "status": "active",
             "recommendations": recommendations[:2],
+            "database_config": {
+                "golden_db_enabled": golden_db,
+                "rag_db_enabled": rag_db,
+                "pops_db_enabled": pops_db,
+                "llm_fallback_enabled": llm_fallback,
+                "mode": "traditional" if db_config.is_traditional_mode() else "selective",
+                "enabled_databases": db_config.get_enabled_databases()
+            },
             "total_processing_time": time.time() - api_start_time
         }
 
@@ -1130,6 +1150,129 @@ async def continue_session(session_id: str, request: SessionQueryRequest):
                 try:
                     recommendations = get_question_recommendations(
                         user_question=request.question,
+                        user_state=current_state,
+                        limit=2
+                    )
+                    updated["recommendations"] = recommendations
+                    logger.info(f"Added {len(recommendations)} session recommendations (sequential)")
+                except Exception as e:
+                    logger.error(f"Failed to get sequential session recommendations: {e}")
+                    updated["recommendations"] = []
+            else:
+                updated["recommendations"] = recommendations
+                logger.info(f"Added {len(recommendations)} session recommendations (parallel)")
+        else:
+            updated["recommendations"] = []
+            logger.info(f"[PERFORMANCE] Session recommendations disabled for speed optimization")
+    
+    return {"session": updated}
+
+@app.post("/api/session/{session_id}/query-form")
+async def continue_session_form(
+    session_id: str,
+    question: str = Form(...),
+    device_id: str = Form(...),
+    state: str = Form(""),
+    golden_db: bool = Form(False),
+    rag_db: bool = Form(True), 
+    pops_db: bool = Form(False),
+    llm_fallback: bool = Form(False)
+):
+    """Form-based session continuation endpoint with database toggle support"""
+    session = sessions_collection.find_one({"session_id": session_id})
+    if not session or session.get("status") == "archived" or session.get("device_id") != device_id:
+        return JSONResponse(status_code=403, content={"error": "Session is archived, missing or unauthorized"})
+
+    # Create database configuration
+    db_config = DatabaseConfig(
+        golden_db_enabled=golden_db,
+        rag_db_enabled=rag_db,
+        pops_db_enabled=pops_db,
+        llm_fallback_enabled=llm_fallback
+    )
+    
+    logger.info(f"[DB_CONFIG] Session continuation with database config: {db_config.get_enabled_databases()}")
+
+    # Start both answer processing and recommendations in parallel if enabled
+    async def process_session_answer():
+        try:
+            current_state = state or session.get("state", "unknown")
+            
+            # Run answer processing in thread pool to avoid blocking
+            loop = asyncio.get_event_loop()
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                raw_answer = await loop.run_in_executor(
+                    executor, 
+                    get_answer, 
+                    question, 
+                    [],  # conversation_history
+                    current_state,
+                    session_id,  # Pass session_id for context resolution
+                    db_config
+                )
+            return str(raw_answer).strip()
+            
+        except Exception as e:
+            logger.error(f"[DEBUG] Error in get_answer: {e}")
+            raise e
+    
+    # Create tasks for parallel execution
+    tasks = [process_session_answer()]
+    
+    # Add recommendations task if enabled and parallel processing is on
+    current_state = state or session.get("state", "unknown")
+    if not DISABLE_RECOMMENDATIONS and PARALLEL_RECOMMENDATIONS:
+        logger.info("[PARALLEL] Starting session recommendations in parallel with answer processing")
+        tasks.append(get_question_recommendations_async(question, current_state, 2))
+    
+    try:
+        # Execute answer processing and optionally recommendations in parallel
+        if len(tasks) > 1:
+            answer_only, recommendations = await asyncio.gather(*tasks)
+        else:
+            answer_only = await tasks[0]
+            recommendations = []
+    except Exception as e:
+        logger.error(f"[DEBUG] Error in parallel session processing: {e}")
+        return JSONResponse(status_code=500, content={"error": "LLM processing failed."})
+
+    html_answer = markdown.markdown(answer_only, extensions=["extra", "nl2br"])
+
+    crop = session.get("crop", "unknown")
+    current_state = state or session.get("state", "unknown")
+
+    sessions_collection.update_one(
+        {"session_id": session_id},
+        {
+            "$push": {"messages": {"question": question, "answer": html_answer, "rating": None}},
+            "$set": {
+                "has_unread": True,
+                "crop": crop,
+                "state": current_state,
+                "timestamp": datetime.now(IST).isoformat(),
+                "database_config": {
+                    "golden_db_enabled": golden_db,
+                    "rag_db_enabled": rag_db,
+                    "pops_db_enabled": pops_db,
+                    "llm_fallback_enabled": llm_fallback,
+                    "mode": "traditional" if db_config.is_traditional_mode() else "selective",
+                    "enabled_databases": db_config.get_enabled_databases()
+                }
+            },
+        },
+    )
+
+    updated = sessions_collection.find_one({"session_id": session_id})
+    if updated:
+        updated.pop("_id", None)
+        
+        # Handle recommendations - either from parallel processing or sequential
+        if not DISABLE_RECOMMENDATIONS:
+            if not PARALLEL_RECOMMENDATIONS:
+                # Sequential recommendations if parallel is disabled
+                try:
+                    recommendations = get_question_recommendations(
+                        user_question=question,
                         user_state=current_state,
                         limit=2
                     )

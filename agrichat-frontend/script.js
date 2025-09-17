@@ -558,14 +558,19 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     const formData = new FormData();
     formData.append("question", question);
+    formData.append("device_id", deviceId);
+    formData.append("state", state);
+    formData.append("language", lang);
     formData.append("golden_db", goldenDb);
     formData.append("rag_db", ragDb);
     formData.append("pops_db", popsDb);
     formData.append("llm_fallback", llmFallback);
 
-    showLoader();
-    console.log('[API] Sending request to test-database-toggle with data:', {
+    console.log('[API] Sending request to query-form with data:', {
       question,
+      device_id: deviceId,
+      state,
+      language: lang,
       golden_db: goldenDb,
       rag_db: ragDb,
       pops_db: popsDb,
@@ -573,7 +578,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     });
 
     try {
-      const res = await apiCall(`${API_BASE}/test-database-toggle`, {
+      const res = await apiCall(`${API_BASE}/query-form`, {
         method: "POST",
         body: formData,
       });
@@ -583,14 +588,23 @@ window.addEventListener("DOMContentLoaded", async () => {
 
       const data = await res.json();
       console.log('[API] Full API response:', data);
-      console.log('[API] Answer received:', data.answer);
-      console.log('[API] Database config:', data.database_config);
+      console.log('[API] Session created:', data.session);
 
-      // Since this is a test endpoint, create a simple session-like display
+      // Set the current session from the response
+      currentSession = data.session;
+      console.log('[SESSION] Current session set:', currentSession);
+
+      // Now we have a proper session, show the chat interface
       hideStartScreen();
       showChatInterface();
       appendMessage("user", question);
-      appendMessage("bot", data.answer);
+      appendMessage("bot", data.session.answer);
+
+      // Display recommendations if available
+      if (data.session.recommendations && data.session.recommendations.length > 0) {
+        displayRecommendations(data.session.recommendations);
+      }
+
       hideLoader();
       textarea.value = "";
     } catch (error) {
@@ -617,22 +631,27 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     const formData = new FormData();
     formData.append("question", question);
+    formData.append("device_id", deviceId);
+    formData.append("state", localStorage.getItem("agrichat_user_state") || "");
     formData.append("golden_db", goldenDb);
     formData.append("rag_db", ragDb);
     formData.append("pops_db", popsDb);
     formData.append("llm_fallback", llmFallback);
 
     showLoader();
-    console.log('[API] Chat form - Sending request with data:', {
+    console.log('[API] Chat form - Sending request to session endpoint with data:', {
       question,
+      device_id: deviceId,
+      state: localStorage.getItem("agrichat_user_state") || "",
       golden_db: goldenDb,
       rag_db: ragDb,
       pops_db: popsDb,
-      llm_fallback: llmFallback
+      llm_fallback: llmFallback,
+      session_id: currentSession.session_id
     });
 
     try {
-      const res = await apiCall(`${API_BASE}/test-database-toggle`, {
+      const res = await apiCall(`${API_BASE}/session/${currentSession.session_id}/query-form`, {
         method: "POST",
         body: formData,
       });
@@ -640,17 +659,31 @@ window.addEventListener("DOMContentLoaded", async () => {
       console.log('[API] Chat form - Response status:', res.status);
       const data = await res.json();
       console.log('[API] Chat form - Full response:', data);
-      console.log('[API] Chat form - Answer:', data.answer);
+
+      // Update current session with the latest data
+      currentSession = data.session;
+      console.log('[SESSION] Session updated:', currentSession);
+
+      // Get the latest message (last in the messages array)
+      const messages = data.session.messages || [];
+      const latestMessage = messages[messages.length - 1];
+
+      if (latestMessage) {
+        console.log('[API] Chat form - Answer:', latestMessage.answer);
+        appendMessage("bot", latestMessage.answer);
+
+        // Display recommendations if available
+        if (data.session.recommendations && data.session.recommendations.length > 0) {
+          displayRecommendations(data.session.recommendations);
+        }
+      }
 
       hideLoader();
-      appendMessage("bot", data.answer);
     } catch (error) {
       console.error('[API] Chat form - Error:', error);
       hideLoader();
       appendMessage("bot", "Sorry, there was an error processing your request.");
     }
-
-    // Since this is a test endpoint, we don't update session or show recommendations
   });
 
   // Database toggle synchronization
