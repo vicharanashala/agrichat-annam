@@ -799,6 +799,131 @@ async def new_session(request: QueryRequest):
             logger.error(f"[DEBUG] Error in get_answer: {e}")
             raise e
 
+@app.post("/api/query-form")
+async def new_session_form(
+    question: str = Form(...), 
+    device_id: str = Form(...), 
+    state: str = Form(""), 
+    language: str = Form("en"),
+    file: UploadFile = File(None)
+):
+    """Endpoint for FormData requests with optional file uploads"""
+    api_start_time = time.time()
+    session_id = str(uuid4())
+    logger.info(f"[TIMING] API FormData endpoint started for question: {question[:50]}...")
+    
+    # Handle audio file if provided
+    if file and file.size > 0:
+        try:
+            logger.info(f"[AUDIO] Processing audio file: {file.filename}")
+            # Save the uploaded file temporarily
+            temp_file_path = f"/tmp/{session_id}_{file.filename}"
+            with open(temp_file_path, "wb") as buffer:
+                content = await file.read()
+                buffer.write(content)
+            
+            # Transcribe audio
+            transcript = local_whisper(temp_file_path, language)
+            if transcript and transcript.strip():
+                question = transcript.strip()
+                logger.info(f"[AUDIO] Transcription successful: {question[:50]}...")
+            
+            # Clean up temp file
+            os.remove(temp_file_path)
+            
+        except Exception as e:
+            logger.error(f"[AUDIO] Error processing audio: {e}")
+    
+    # Create QueryRequest object
+    request = QueryRequest(
+        question=question,
+        device_id=device_id,
+        state=state,
+        language=language,
+        database_config=None
+    )
+    
+    # Process the request using the same logic as the main query endpoint
+    async def process_answer():
+        try:
+            answer_processing_start = time.time()
+            loop = asyncio.get_event_loop()
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                raw_answer = await loop.run_in_executor(
+                    executor, 
+                    get_answer, 
+                    request.question, 
+                    None,
+                    request.state,
+                    session_id,
+                    None
+                )
+            answer_processing_time = time.time() - answer_processing_start
+            logger.info(f"[TIMING] Answer processing took: {answer_processing_time:.3f}s")
+            return str(raw_answer).strip()
+        except Exception as e:
+            logger.error(f"[DEBUG] Error in get_answer: {e}")
+            raise e
+
+    async def process_recommendations():
+        if DISABLE_RECOMMENDATIONS:
+            return []
+        try:
+            recommendations_start = time.time()
+            recommendations = get_question_recommendations(request.question, request.state, 2)
+            recommendations_time = time.time() - recommendations_start
+            logger.info(f"[TIMING] Recommendations took: {recommendations_time:.3f}s")
+            return recommendations[:2]
+        except Exception as e:
+            logger.error(f"[DEBUG] Error getting recommendations: {e}")
+            return []
+
+    try:
+        if PARALLEL_RECOMMENDATIONS:
+            answer_task = asyncio.create_task(process_answer())
+            recommendations_task = asyncio.create_task(process_recommendations())
+            answer, recommendations = await asyncio.gather(answer_task, recommendations_task)
+        else:
+            answer = await process_answer()
+            recommendations = await process_recommendations()
+
+        # Create session record
+        session = {
+            "session_id": session_id,
+            "device_id": request.device_id,
+            "question": request.question,
+            "answer": answer,
+            "state": request.state,
+            "language": request.language,
+            "timestamp": datetime.now(IST).isoformat(),
+            "status": "active",
+            "recommendations": recommendations[:2],
+            "total_processing_time": time.time() - api_start_time
+        }
+
+        sessions_collection.insert_one(session.copy())
+
+        api_total_time = time.time() - api_start_time
+        logger.info(f"[TIMING] Total API request took: {api_total_time:.3f}s")
+
+        return {"session": session}
+
+    except Exception as e:
+        logger.error(f"[DEBUG] Error in new_session_form: {e}")
+        error_session = {
+            "session_id": session_id,
+            "device_id": request.device_id,
+            "question": request.question,
+            "answer": "Sorry, I encountered an error. Please try again.",
+            "state": request.state,
+            "language": request.language,
+            "timestamp": datetime.now(IST).isoformat(),
+            "status": "active",
+            "recommendations": [],
+            "error": str(e)
+        }
+        return {"session": error_session}
+
 @app.post("/api/query-legacy")
 async def new_session_legacy(question: str = Form(...), device_id: str = Form(...), state: str = Form(...), language: str = Form(...)):
     """Legacy endpoint for backward compatibility"""

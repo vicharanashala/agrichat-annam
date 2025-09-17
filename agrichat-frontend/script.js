@@ -497,7 +497,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     formData.append("file", audioBlob, "recording.webm");
 
     showLoader();
-    const res = await apiCall(`${API_BASE}/query`, {
+    const res = await apiCall(`${API_BASE}/query-form`, {
       method: "POST",
       body: formData,
     });
