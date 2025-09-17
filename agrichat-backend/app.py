@@ -852,7 +852,7 @@ async def new_session_form(
         device_id=device_id,
         state=state,
         language=language,
-        database_config=db_config.to_dict()
+        database_config=db_config.dict()
     )
     
     # Process the request using the same logic as the main query endpoint
@@ -899,14 +899,18 @@ async def new_session_form(
             answer = await process_answer()
             recommendations = await process_recommendations()
 
-        # Create session record
+        # Convert answer to HTML using markdown
+        html_answer = markdown.markdown(answer, extensions=["extra", "nl2br"])
+
+        # Create session record with proper messages structure
         session = {
             "session_id": session_id,
             "device_id": request.device_id,
-            "question": request.question,
-            "answer": answer,
+            "messages": [{"question": request.question, "answer": html_answer, "rating": None}],
             "state": request.state,
             "language": request.language,
+            "crop": "unknown",
+            "has_unread": True,
             "timestamp": datetime.now(IST).isoformat(),
             "status": "active",
             "recommendations": recommendations[:2],
@@ -933,10 +937,11 @@ async def new_session_form(
         error_session = {
             "session_id": session_id,
             "device_id": request.device_id,
-            "question": request.question,
-            "answer": "Sorry, I encountered an error. Please try again.",
+            "messages": [{"question": request.question, "answer": "Sorry, I encountered an error. Please try again.", "rating": None}],
             "state": request.state,
             "language": request.language,
+            "crop": "unknown",
+            "has_unread": True,
             "timestamp": datetime.now(IST).isoformat(),
             "status": "active",
             "recommendations": [],
