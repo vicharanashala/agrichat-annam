@@ -489,11 +489,19 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     if (!question) return;
 
+    // Get toggle values
+    const fastMode = document.getElementById("fastModeToggle").checked;
+    const enableRecommendations = document.getElementById("recommendationsToggle").checked;
+    const parallelProcessing = document.getElementById("parallelToggle").checked;
+
     const formData = new FormData();
     formData.append("question", question);
     formData.append("device_id", deviceId);
     formData.append("state", state);
     formData.append("language", lang);
+    formData.append("fast_mode", fastMode);
+    formData.append("enable_recommendations", enableRecommendations);
+    formData.append("parallel_processing", parallelProcessing);
     formData.append("file", audioBlob, "recording.webm");
 
     showLoader();
@@ -520,13 +528,21 @@ window.addEventListener("DOMContentLoaded", async () => {
     appendMessage("user", question);
     input.value = "";
 
+    // Get toggle values from chat form
+    const fastMode = document.getElementById("chatFastModeToggle").checked;
+    const enableRecommendations = document.getElementById("chatRecommendationsToggle").checked;
+    const parallelProcessing = document.getElementById("chatParallelToggle").checked;
+
     const formData = new FormData();
     formData.append("question", question);
     formData.append("device_id", deviceId);
     formData.append("state", localStorage.getItem("agrichat_user_state") || "");
+    formData.append("fast_mode", fastMode);
+    formData.append("enable_recommendations", enableRecommendations);
+    formData.append("parallel_processing", parallelProcessing);
 
     showLoader();
-    const res = await apiCall(`${API_BASE}/session/${currentSession.session_id}/query`, {
+    const res = await apiCall(`${API_BASE}/session/${currentSession.session_id}/query-form`, {
       method: "POST",
       body: formData,
     });
@@ -537,7 +553,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     currentSession = data.session;
 
-    if (currentSession.recommendations && currentSession.recommendations.length > 0) {
+    if (enableRecommendations && currentSession.recommendations && currentSession.recommendations.length > 0) {
       displayRecommendations(currentSession.recommendations);
     }
   });
@@ -891,3 +907,126 @@ function showNotification(message, type = 'info') {
 }
 
 document.addEventListener('DOMContentLoaded', initializeVoiceRecording);
+
+// Toggle Switch Functionality
+document.addEventListener('DOMContentLoaded', function () {
+  // Chat options panel toggle
+  const chatOptionsToggle = document.getElementById('chatOptionsToggle');
+  const chatOptionsPanel = document.getElementById('chatOptionsPanel');
+
+  if (chatOptionsToggle && chatOptionsPanel) {
+    chatOptionsToggle.addEventListener('click', function () {
+      const isVisible = chatOptionsPanel.style.display !== 'none';
+      chatOptionsPanel.style.display = isVisible ? 'none' : 'block';
+      chatOptionsToggle.classList.toggle('active', !isVisible);
+    });
+  }
+
+  // Synchronize toggle values between start form and chat form
+  function syncToggles() {
+    // Get values from start form
+    const startFastMode = document.getElementById('fastModeToggle');
+    const startRecommendations = document.getElementById('recommendationsToggle');
+    const startParallel = document.getElementById('parallelToggle');
+
+    // Get elements from chat form
+    const chatFastMode = document.getElementById('chatFastModeToggle');
+    const chatRecommendations = document.getElementById('chatRecommendationsToggle');
+    const chatParallel = document.getElementById('chatParallelToggle');
+
+    if (startFastMode && chatFastMode) {
+      // Sync from start to chat
+      startFastMode.addEventListener('change', function () {
+        chatFastMode.checked = this.checked;
+        saveTogglePreferences();
+      });
+
+      // Sync from chat to start
+      chatFastMode.addEventListener('change', function () {
+        startFastMode.checked = this.checked;
+        saveTogglePreferences();
+      });
+    }
+
+    if (startRecommendations && chatRecommendations) {
+      startRecommendations.addEventListener('change', function () {
+        chatRecommendations.checked = this.checked;
+        saveTogglePreferences();
+      });
+
+      chatRecommendations.addEventListener('change', function () {
+        startRecommendations.checked = this.checked;
+        saveTogglePreferences();
+      });
+    }
+
+    if (startParallel && chatParallel) {
+      startParallel.addEventListener('change', function () {
+        chatParallel.checked = this.checked;
+        saveTogglePreferences();
+      });
+
+      chatParallel.addEventListener('change', function () {
+        startParallel.checked = this.checked;
+        saveTogglePreferences();
+      });
+    }
+  }
+
+  // Save toggle preferences to localStorage
+  function saveTogglePreferences() {
+    const preferences = {
+      fastMode: document.getElementById('fastModeToggle')?.checked ?? true,
+      recommendations: document.getElementById('recommendationsToggle')?.checked ?? true,
+      parallel: document.getElementById('parallelToggle')?.checked ?? true
+    };
+    localStorage.setItem('agrichat_toggle_preferences', JSON.stringify(preferences));
+  }
+
+  // Load toggle preferences from localStorage
+  function loadTogglePreferences() {
+    try {
+      const saved = localStorage.getItem('agrichat_toggle_preferences');
+      if (saved) {
+        const preferences = JSON.parse(saved);
+
+        // Apply to start form toggles
+        const startFastMode = document.getElementById('fastModeToggle');
+        const startRecommendations = document.getElementById('recommendationsToggle');
+        const startParallel = document.getElementById('parallelToggle');
+
+        if (startFastMode) startFastMode.checked = preferences.fastMode ?? true;
+        if (startRecommendations) startRecommendations.checked = preferences.recommendations ?? true;
+        if (startParallel) startParallel.checked = preferences.parallel ?? true;
+
+        // Apply to chat form toggles
+        const chatFastMode = document.getElementById('chatFastModeToggle');
+        const chatRecommendations = document.getElementById('chatRecommendationsToggle');
+        const chatParallel = document.getElementById('chatParallelToggle');
+
+        if (chatFastMode) chatFastMode.checked = preferences.fastMode ?? true;
+        if (chatRecommendations) chatRecommendations.checked = preferences.recommendations ?? true;
+        if (chatParallel) chatParallel.checked = preferences.parallel ?? true;
+      }
+    } catch (error) {
+      console.log('Failed to load toggle preferences:', error);
+    }
+  }
+
+  // Initialize toggle functionality
+  syncToggles();
+  loadTogglePreferences();
+
+  // Add visual feedback for toggle changes
+  document.querySelectorAll('.toggle-switch input').forEach(toggle => {
+    toggle.addEventListener('change', function () {
+      const toggleGroup = this.closest('.toggle-group');
+      if (toggleGroup) {
+        toggleGroup.style.transform = 'scale(0.98)';
+        setTimeout(() => {
+          toggleGroup.style.transform = 'scale(1)';
+        }, 100);
+      }
+    });
+  });
+});

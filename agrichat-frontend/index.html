@@ -219,6 +219,52 @@
       <form id="chat-form" class="chat-form" style="display: none;">
         <textarea id="user-input" placeholder="Ask your agricultural question here..." required rows="3"></textarea>
 
+        <!-- Query Options Toggle Button (Collapsible) -->
+        <div class="chat-options-container">
+          <button type="button" class="options-toggle-btn" id="chatOptionsToggle">
+            <i class="fas fa-cogs"></i>
+            <span>Options</span>
+            <i class="fas fa-chevron-down toggle-icon"></i>
+          </button>
+
+          <div class="chat-options-panel" id="chatOptionsPanel" style="display: none;">
+            <div class="toggles-container">
+              <div class="toggle-group">
+                <label class="toggle-switch">
+                  <input type="checkbox" id="chatFastModeToggle" checked>
+                  <span class="toggle-slider"></span>
+                </label>
+                <div class="toggle-info">
+                  <span class="toggle-label">Fast Mode</span>
+                  <small class="toggle-description">Quick responses</small>
+                </div>
+              </div>
+
+              <div class="toggle-group">
+                <label class="toggle-switch">
+                  <input type="checkbox" id="chatRecommendationsToggle" checked>
+                  <span class="toggle-slider"></span>
+                </label>
+                <div class="toggle-info">
+                  <span class="toggle-label">Recommendations</span>
+                  <small class="toggle-description">Show related questions</small>
+                </div>
+              </div>
+
+              <div class="toggle-group">
+                <label class="toggle-switch">
+                  <input type="checkbox" id="chatParallelToggle" checked>
+                  <span class="toggle-slider"></span>
+                </label>
+                <div class="toggle-info">
+                  <span class="toggle-label">Parallel Processing</span>
+                  <small class="toggle-description">Faster response times</small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="chat-form-actions">
           <button type="submit" class="send-button" aria-label="Send">
             <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 28 28">
@@ -271,6 +317,48 @@
           <textarea id="start-input" name="question"
             placeholder="Ask me anything about farming, crops, soil, weather, or agricultural practices..." required
             rows="3"></textarea>
+
+          <!-- Query Options Toggles -->
+          <div class="query-options" style="margin: 15px 0;">
+            <div class="options-header">
+              <i class="fas fa-cogs"></i>
+              <span>Query Options</span>
+            </div>
+            <div class="toggles-container">
+              <div class="toggle-group">
+                <label class="toggle-switch">
+                  <input type="checkbox" id="fastModeToggle" checked>
+                  <span class="toggle-slider"></span>
+                </label>
+                <div class="toggle-info">
+                  <span class="toggle-label">Fast Mode</span>
+                  <small class="toggle-description">Quick responses using optimized processing</small>
+                </div>
+              </div>
+
+              <div class="toggle-group">
+                <label class="toggle-switch">
+                  <input type="checkbox" id="recommendationsToggle" checked>
+                  <span class="toggle-slider"></span>
+                </label>
+                <div class="toggle-info">
+                  <span class="toggle-label">Show Recommendations</span>
+                  <small class="toggle-description">Display related questions after answers</small>
+                </div>
+              </div>
+
+              <div class="toggle-group">
+                <label class="toggle-switch">
+                  <input type="checkbox" id="parallelToggle" checked>
+                  <span class="toggle-slider"></span>
+                </label>
+                <div class="toggle-info">
+                  <span class="toggle-label">Parallel Processing</span>
+                  <small class="toggle-description">Process recommendations and answers simultaneously</small>
+                </div>
+              </div>
+            </div>
+          </div>
 
           <div class="button-row">
 
