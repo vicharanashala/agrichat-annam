@@ -24,7 +24,7 @@ import asyncio
 import concurrent.futures
 import hashlib
 from functools import lru_cache
-from local_whisper_interface import local_whisper
+from local_whisper_interface import get_whisper_instance
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import re
@@ -660,7 +660,7 @@ app = FastAPI(lifespan=lifespan)
 
 origins = [
     "https://agri-annam.vercel.app",
-    "https://2a21fe4e8a66.ngrok-free.app",
+    "https://3416b3166fae.ngrok-free.app",
     "https://localhost:3000",
     "https://127.0.0.1:3000",
     "http://localhost:3000",
@@ -1138,7 +1138,9 @@ async def transcribe_audio(file: UploadFile = File(...), language: str = Form("E
 
         logger.info(f"Using language: {language} (Local Whisper)")
 
-        transcript = local_whisper.transcribe_audio(contents, file.filename)
+        # Get pre-loaded whisper instance (loaded at startup)
+        whisper_instance = get_whisper_instance()
+        transcript = whisper_instance.transcribe_audio(contents, file.filename)
 
         if transcript.startswith("Error:"):
             logger.error(f"Local Whisper transcription failed: {transcript}")

@@ -3,7 +3,7 @@ const config = {
         API_BASE: "http://localhost:8000/api"
     },
     production: {
-        API_BASE: "https://2a21fe4e8a66.ngrok-free.app/api"
+        API_BASE: "https://3416b3166fae.ngrok-free.app/api"
 
     }
 };

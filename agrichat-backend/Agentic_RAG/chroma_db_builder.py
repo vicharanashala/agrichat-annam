@@ -21,13 +21,14 @@ class ChromaDBBuilder:
         df = pd.read_csv(self.csv_path)
         column_map = {
         "DistrictName": "District",
-        "QUESTION (by AT)": "Question",
-        "Final Answer": "Answer"
+        "Refined KCC Query [HF]": "Question",
+        # "QUESTION [by Agri Team]": "Question",
+        "Final Answer": "Answer",
         }
         df.rename(columns=column_map, inplace=True)
         standard_columns = [
-        "Year", "Month", "Day", "State", "District", 
-        "Crop", "Season", "Sector", "Question", "Answer"
+        "Date", "State", "District", 
+        "Crop", "Season", "Question", "Answer"
         ]
         print(df.columns)
         for col in standard_columns:
@@ -36,15 +37,14 @@ class ChromaDBBuilder:
         docs = []
         for _, row in df.iterrows():
             metadata = {
-                "Year":          row.get("Year", "Others"),
-                "Month":         row.get("Month", "Others"),
-                "Day":           row.get("Day", "Others"),
+                "Date":          row.get("Date", "2025-07-01"),
                 "State":         row.get("State", "Others"),
                 "Crop":          row.get("Crop", "Others"),
                 "District":      row.get("District", "Others"),
                 "Season":        row.get("Season", "Others"),
-                "Sector":        row.get("Sector", "Others"),
             }
+            for k, v in metadata.items():
+               print(f"[DEBUG] {k}: {v}")
             meta_str = " | ".join(f"{k}: {v}" for k, v in metadata.items() if v)
             question = row.get("Question", "Others")
             answer = row.get("Answer", "Others")
@@ -72,7 +72,7 @@ class ChromaDBBuilder:
 
 if __name__ == "__main__":
     storage_dir = r"/home/ubuntu/agrichat-annam/agrichat-backend/chromaDb"
-    csv_file = r"/home/ubuntu/agrichat-annam/agrichat-backend/Agentic_RAG/knowledge base.csv"
+    csv_file = r"/home/ubuntu/agrichat-annam/agrichat-backend/Agentic_RAG/5 States x 50 Q&A - Tamilnadu 50.csv"
     builder = ChromaDBBuilder(csv_path=csv_file, persist_dir=storage_dir)
     builder.load_csv_to_documents()
     builder.store_documents_to_chroma()

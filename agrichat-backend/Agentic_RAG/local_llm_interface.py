@@ -26,6 +26,17 @@ class OllamaLLMInterface:
         try:
             selected_model = self.fallback_model if use_fallback else self.model_name
             
+            print(f"[LLM_DEBUG] ==========================================")
+            print(f"[LLM_DEBUG] Model Selection:")
+            print(f"[LLM_DEBUG] - Primary model: {self.model_name}")
+            print(f"[LLM_DEBUG] - Fallback model: {self.fallback_model}")
+            print(f"[LLM_DEBUG] - Use fallback: {use_fallback}")
+            print(f"[LLM_DEBUG] - Selected model: {selected_model}")
+            print(f"[LLM_DEBUG] - Ollama endpoint: {self.ollama_endpoint}")
+            print(f"[LLM_DEBUG] - Temperature: {temperature}")
+            print(f"[LLM_DEBUG] - Max tokens: {max_tokens}")
+            print(f"[LLM_DEBUG] ==========================================")
+            
             if use_fallback:
                 print(f"[LLM] Using fallback model: {selected_model}")
             else:
@@ -45,6 +56,9 @@ class OllamaLLMInterface:
                 }
             }
             
+            print(f"[LLM_DEBUG] Payload options: {payload['options']}")
+            print(f"[LLM_DEBUG] Prompt preview: {prompt[:200]}...")
+            
             response = self.session.post(
                 f"{self.ollama_endpoint}/api/generate",
                 json=payload,
@@ -52,9 +66,14 @@ class OllamaLLMInterface:
                 timeout=120
             )
             
+            print(f"[LLM_DEBUG] API response status: {response.status_code}")
+            
             if response.status_code == 200:
                 result = response.json()
-                return result.get("response", "No response generated")
+                generated_response = result.get("response", "No response generated")
+                print(f"[LLM_DEBUG] Generated response length: {len(generated_response)} characters")
+                print(f"[LLM_DEBUG] Response preview: {generated_response[:200]}...")
+                return generated_response
             else:
                 print(f"[ERROR] Ollama API returned status {response.status_code}: {response.text}")
                 return "I apologize, but I'm having trouble generating a response right now."
@@ -117,4 +136,14 @@ def run_local_llm(prompt: str, temperature: float = 0.1, max_tokens: int = 1024,
     - use_fallback=False: Uses fast Llama 3.1 8B for RAG pipeline
     - use_fallback=True: Uses powerful Gemma 3 27B for complex fallback queries
     """
-    return local_llm.generate_content(prompt, temperature, max_tokens, use_fallback)
+    print(f"[RUN_LLM_DEBUG] ==========================================")
+    print(f"[RUN_LLM_DEBUG] Function called with:")
+    print(f"[RUN_LLM_DEBUG] - use_fallback: {use_fallback}")
+    print(f"[RUN_LLM_DEBUG] - temperature: {temperature}")
+    print(f"[RUN_LLM_DEBUG] - max_tokens: {max_tokens}")
+    print(f"[RUN_LLM_DEBUG] ==========================================")
+    
+    result = local_llm.generate_content(prompt, temperature, max_tokens, use_fallback)
+    
+    print(f"[RUN_LLM_DEBUG] Final result length: {len(result)} characters")
+    return result

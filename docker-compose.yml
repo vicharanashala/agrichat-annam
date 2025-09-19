@@ -52,6 +52,7 @@ services:
       - ./agrichat-backend/logs:/app/logs
       - ./agrichat-backend/chromaDb:/app/chromaDb
       - ./agrichat-backend/ssl:/app/ssl
+      - whisper_cache:/app/.cache/whisper
     restart: unless-stopped
     # GPU Support
     runtime: nvidia
@@ -90,3 +91,4 @@ networks:
 
 volumes:
   mongodb_data:
+  whisper_cache:

@@ -388,6 +388,20 @@ VARIETY QUESTION EXAMPLES:
 ### Answer:
 """
 
+    BASE_PROMPT = """
+You are an agricultural assistant. Answer the user's question using ONLY the information provided in the context below. Do not add any external knowledge or information.
+
+IMPORTANT: Always respond in the same language in which the query has been asked.
+
+INSTRUCTIONS:
+- Use ONLY the information from the provided context
+- If context has sufficient and RELEVANT information, provide a clear and helpful answer
+- Provide agricultural information from the available context regardless of specific location, as practices are generally applicable across India
+- Do NOT add any information from external sources or your own knowledge
+- Structure your response clearly with bullet points or short paragraphs
+- If context is insufficient or irrelevant, respond exactly: "I don't have enough information to answer that."
+"""
+
     CLASSIFIER_PROMPT = """
 You are a smart classifier assistant. Categorize the user query strictly into one of the following categories:
 
@@ -1260,9 +1274,9 @@ IMPORTANT: Always respond in the same language in which the query has been asked
         if is_general_question:
             summary_lines = []
             for line in content_lines:
-                if len(line) > 30 and len(line) < 200:  # Skip very short or very long lines
+                if len(line) > 30 and len(line) < 200:
                     summary_lines.append(line)
-                if len(summary_lines) >= 8:  # Limit general responses too
+                if len(summary_lines) >= 8:
                     break
             
             if summary_lines:
@@ -1273,7 +1287,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
         if len(content) > 1200:
             truncated = content[:1200]
             last_period = truncated.rfind('.')
-            if last_period > 800:  # If we have a reasonable amount before the last period
+            if last_period > 800:
                 truncated = truncated[:last_period + 1]
             else:
                 truncated += "..."
@@ -1437,8 +1451,8 @@ IMPORTANT: Always respond in the same language in which the query has been asked
             try:
                 generated_response = run_local_llm(
                     pops_prompt,
-                    temperature=0.1,  # Very low temperature for consistent, focused responses
-                    max_tokens=512,   # Reduced tokens to encourage concise answers
+                    temperature=0.1,  
+                    max_tokens=512,   
                     use_fallback=False
                 )
                 
@@ -1482,7 +1496,6 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                     'kg/ha', 'days', 'weeks', 'months', 'cm', 'inches'
                 ])
                 
-                # Use Content Quality Scorer for advanced response evaluation
                 quality_scores = self.quality_scorer.evaluate_response(question, final_response)
                 
                 print(f"[POPS FALLBACK] Content Quality Scoring:")
@@ -1492,7 +1505,6 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 print(f"   Overall Score: {quality_scores['overall_score']:.3f}")
                 print(f"   Should Fallback: {quality_scores['should_fallback']}")
                 
-                # If quality scorer suggests fallback, return fallback
                 if quality_scores['should_fallback']:
                     print(f"[POPS FALLBACK] Content quality too low, proceeding to LLM fallback")
                     return {
@@ -1502,11 +1514,9 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                         'document_metadata': None
                     }
                 
-                # Enhanced PoPs-specific relevance check using small LLM
                 print(f"[POPS FALLBACK] Performing LLM-based relevance check...")
                 relevance_check = self.quality_scorer.check_pops_answer_relevance(question, final_response)
                 
-                # If LLM determines the answer is not relevant, fallback to LLM
                 if not relevance_check['is_relevant'] and relevance_check['confidence'] > 0.6:
                     print(f"[POPS FALLBACK] LLM relevance check failed - Answer not relevant to question")
                     print(f"[POPS FALLBACK] Confidence: {relevance_check['confidence']:.2f}, Reasoning: {relevance_check['reasoning']}")
@@ -1627,57 +1637,68 @@ IMPORTANT: Always respond in the same language in which the query has been asked
             - cosine_similarity: Similarity score (0.0-1.0)
             - document_metadata: Metadata of the source document (if applicable)
         """
-        # Handle legacy db_filter parameter for backward compatibility
         if db_filter:
             return self._handle_filtered_database_query(question, conversation_history, user_state, db_filter)
         
-        # Handle new database_selection parameter
         if database_selection is not None:
             return self._handle_database_combination(question, conversation_history, user_state, database_selection)
         
-        # Default behavior: full pipeline (RAG → PoPs → LLM)
         return self._handle_database_combination(question, conversation_history, user_state, ["rag", "pops", "llm"])
 
     def _handle_database_combination(self, question: str, conversation_history: Optional[List[Dict]], user_state: str, database_selection: List[str]) -> Dict[str, any]:
         """Handle queries with multiple database combinations"""
-        print(f"[DB_COMBINATION] Processing with databases: {database_selection}")
+        print(f"[DB_COMBINATION] ==========================================")
+        print(f"[DB_COMBINATION] Processing question: {question}")
+        print(f"[DB_COMBINATION] Selected databases: {database_selection}")
+        print(f"[DB_COMBINATION] User state: {user_state}")
+        print(f"[DB_COMBINATION] ==========================================")
         
-        # If no databases selected, fallback to LLM
         if not database_selection:
-            print("[DB_COMBINATION] No databases selected, using LLM fallback")
+            print("[DB_COMBINATION] ⚠️ No databases selected, using LLM fallback")
             return self._query_llm_only(question, conversation_history, user_state)
         
-        # Process databases in order
-        for db in database_selection:
-            print(f"[DB_COMBINATION] Trying database: {db}")
+        for i, db in enumerate(database_selection, 1):
+            print(f"[DB_COMBINATION] Step {i}/{len(database_selection)}: Trying database '{db}'")
             
             if db == "rag":
-                # Try unified RAG database (Golden + RAG content)
+                print(f"[DB_COMBINATION] → Querying RAG database (Golden + RAG content)...")
                 result = self._query_rag_database_only(question, conversation_history, user_state)
-                if result['answer'] != "I don't have enough information to answer that from the RAG database.":
-                    print(f"[DB_COMBINATION] ✓ RAG database provided answer")
+                print(f"[DEBUG] RAG result preview: {result['answer'][:100]}...")
+                
+                is_no_info = result['answer'] == "I don't have enough information to answer that from the RAG database."
+                is_good_match = result['cosine_similarity'] >= 0.6
+                
+                if not is_no_info and is_good_match:
+                    print(f"[DB_COMBINATION] ✅ RAG database provided good quality answer (source: {result['source']}, score: {result['cosine_similarity']:.3f})")
                     return result
                 else:
-                    print(f"[DB_COMBINATION] ✗ RAG database failed")
+                    if is_no_info:
+                        print(f"[DB_COMBINATION] ❌ RAG database failed - no information found")
+                    else:
+                        print(f"[DB_COMBINATION] ⚠️ RAG database provided low quality answer (score: {result['cosine_similarity']:.3f}), continuing to next database")
                     
             elif db == "pops":
-                # Try PoPs database
+                print(f"[DB_COMBINATION] → Querying PoPs database...")
                 result = self._query_pops_database_only(question, conversation_history, user_state)
+                print(f"[DEBUG] PoPs result preview: {result['answer'][:100]}...")
                 if result['answer'] != "I don't have enough information to answer that from the PoPs database.":
-                    print(f"[DB_COMBINATION] ✓ PoPs database provided answer")
+                    print(f"[DB_COMBINATION] ✅ PoPs database provided answer (source: {result['source']})")
                     return result
                 else:
-                    print(f"[DB_COMBINATION] ✗ PoPs database failed")
+                    print(f"[DB_COMBINATION] ❌ PoPs database failed")
+                    print(f"[DB_COMBINATION] ❌ PoPs database failed")
                     
             elif db == "llm":
-                # Use LLM
-                print(f"[DB_COMBINATION] ✓ Using LLM fallback")
-                return self._query_llm_only(question, conversation_history, user_state)
+                print(f"[DB_COMBINATION] → Using LLM fallback...")
+                result = self._query_llm_only(question, conversation_history, user_state)
+                print(f"[DEBUG] LLM result preview: {result['answer'][:100]}...")
+                print(f"[DB_COMBINATION]  LLM provided answer (source: {result['source']})")
+                return result
             
             else:
-                print(f"[DB_COMBINATION] Unknown database: {db}")
+                print(f"[DB_COMBINATION]  Unknown database: {db}")
         
-        # If we get here, all selected databases failed and LLM wasn't selected
+        
         print("[DB_COMBINATION] All selected databases failed, no LLM fallback")
         return {
             'answer': "I don't have enough information to answer that from the selected databases.",
@@ -1706,35 +1727,81 @@ IMPORTANT: Always respond in the same language in which the query has been asked
     def _query_rag_database_only(self, question: str, conversation_history: Optional[List[Dict]], user_state: str) -> Dict[str, any]:
         """Query unified RAG database (includes both Golden and RAG content)"""
         print("[DB_FILTER] Querying unified RAG database (Golden + RAG content)...")
+        print(f"[DEBUG] Original question: {question}")
         
         processing_query = question
         if conversation_history:
             enhanced_query_result = self.context_manager.enhance_query_with_cot(question, conversation_history)
             if enhanced_query_result['requires_cot'] or enhanced_query_result['context_used']:
                 processing_query = enhanced_query_result['enhanced_query']
+                print(f"[DEBUG] Enhanced query: {processing_query}")
         
-        results = self.db.similarity_search(processing_query, k=6)
+        print(f"[DEBUG] Final processing query: {processing_query}")
+        results = self.db.similarity_search_with_score(processing_query, k=6)
+        print(f"[DEBUG] Retrieved {len(results)} documents from RAG database")
         
-        # Process all results (both Golden and RAG content) together
-        for doc in results:
-            distance = float(doc.metadata.get('distance', 1000.0))
-            cosine_score = 1 - distance if distance <= 1.0 else 1 / (1 + distance)
+        # Get query embedding for proper cosine similarity calculation
+        query_embedding = self.embedding_function.embed_query(processing_query)
+        
+        for i, (doc, distance) in enumerate(results):
+            # Get document embedding and calculate proper cosine similarity
+            doc_embedding = self.embedding_function.embed_query(doc.page_content)
+            cosine_score = self.cosine_sim(query_embedding, doc_embedding)
+            collection_type = doc.metadata.get('collection', 'rag')
+            print(f"[DEBUG] Doc {i+1}: Distance={distance:.4f}, Score={cosine_score:.3f}, Type={collection_type}, Content preview: {doc.page_content[:100]}...")
+            print(f"[DEBUG] Doc {i+1} Metadata: {doc.metadata}")
+        
+        for doc, distance in results:
+            # Get document embedding and calculate proper cosine similarity
+            doc_embedding = self.embedding_function.embed_query(doc.page_content)
+            cosine_score = self.cosine_sim(query_embedding, doc_embedding)
             
             if cosine_score >= 0.3:
                 collection_type = doc.metadata.get('collection', 'rag')
-                print(f"[DB_FILTER] RAG database match found (type: {collection_type}) with score: {cosine_score:.3f}")
+                print(f"[DB_FILTER] ✓ RAG database match found (type: {collection_type}) with score: {cosine_score:.3f}")
+                print(f"[DEBUG] Selected document content: {doc.page_content}")
+                print(f"[DEBUG] Selected document metadata: {doc.metadata}")
                 
-                # Use appropriate response generation based on content type
+                if cosine_score >= 0.7:
+                    print(f"[DEBUG] High similarity score ({cosine_score:.3f}) - extracting direct answer from database")
+                    content_lines = doc.page_content.split('\n')
+                    answer_text = ""
+                    capturing_answer = False
+                    
+                    for line in content_lines:
+                        if line.startswith('Answer:'):
+                            answer_text = line.replace('Answer:', '').strip()
+                            capturing_answer = True
+                        elif capturing_answer and line.strip():
+                            answer_text += " " + line.strip()
+                        elif capturing_answer and not line.strip():
+                            break
+                    
+                    if answer_text:
+                        print(f"[DEBUG] Extracted direct answer: {answer_text[:100]}...")
+                        source_info = f"\n\n**Source:** RAG Database (Golden)"
+                        
+                        return {
+                            'answer': answer_text + source_info,
+                            'source': "RAG Database (Golden)",
+                            'cosine_similarity': cosine_score,
+                            'document_metadata': doc.metadata
+                        }
+                
                 if collection_type == 'golden':
+                    print(f"[DEBUG] Using Golden database response generation")
                     llm_response = self.generate_answer_with_golden_context(processing_query, doc.page_content, user_state)
                 else:
+                    print(f"[DEBUG] Using RAG database response generation")
                     context = f"Context: {doc.page_content}\n\nQuestion: {processing_query}"
+                    print(f"[DEBUG] LLM Context being used: {context[:200]}...")
                     llm_response = run_local_llm(
                         f"{self.REGION_INSTRUCTION}\n{self.BASE_PROMPT}\n\n{context}",
                         temperature=0.1,
                         max_tokens=1024
                     )
                 
+                print(f"[DEBUG] Generated response: {llm_response[:150]}...")
                 return {
                     'answer': llm_response,
                     'source': "RAG Database",
@@ -1742,7 +1809,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                     'document_metadata': doc.metadata
                 }
         
-        print("[DB_FILTER] No suitable RAG database results found")
+        print("[DB_FILTER] ✗ No suitable RAG database results found (all scores below 0.3 threshold)")
         return {
             'answer': "I don't have enough information to answer that from the RAG database.",
             'source': "RAG Database",
@@ -1776,28 +1843,37 @@ IMPORTANT: Always respond in the same language in which the query has been asked
     def _query_llm_only(self, question: str, conversation_history: Optional[List[Dict]], user_state: str) -> Dict[str, any]:
         """Query only LLM without any database"""
         print("[DB_FILTER] Using LLM only...")
+        print(f"[DEBUG] LLM-only question: {question}")
         
         processing_query = question
         if conversation_history:
             enhanced_query_result = self.context_manager.enhance_query_with_cot(question, conversation_history)
             if enhanced_query_result['requires_cot'] or enhanced_query_result['context_used']:
                 processing_query = enhanced_query_result['enhanced_query']
+                print(f"[DEBUG] LLM enhanced query: {processing_query}")
         
         # Use the classification system to determine response type
         category = self.classify_query(processing_query, conversation_history)
+        print(f"[DEBUG] Query classified as: {category}")
         
         if category == "GREETING":
+            print(f"[DEBUG] Generating greeting response")
             response = self.generate_dynamic_response(processing_query, mode="GREETING")
+            source_text = "\n\n<small><i>Source: Fallback LLM</i></small>"
+            final_response = response + source_text
             return {
-                'answer': response,
+                'answer': final_response,
                 'source': "Fallback LLM",
                 'cosine_similarity': 0.0,
                 'document_metadata': None
             }
         elif category == "NON_AGRI":
+            print(f"[DEBUG] Generating non-agricultural response")
             response = self.generate_dynamic_response(processing_query, mode="NON_AGRI")
+            source_text = "\n\n<small><i>Source: Fallback LLM</i></small>"
+            final_response = response + source_text
             return {
-                'answer': response,
+                'answer': final_response,
                 'source': "Fallback LLM",
                 'cosine_similarity': 0.0,
                 'document_metadata': None
@@ -1806,6 +1882,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
             # Agriculture question - use LLM directly
             effective_location = self.determine_effective_location(question, user_state)
             context_info = f"\nUser Location: {effective_location}" if effective_location else ""
+            print(f"[DEBUG] Effective location for LLM: {effective_location}")
             
             prompt = f"""You are an expert agricultural advisor specializing in Indian farming. Answer the following question with practical, actionable advice.
 
@@ -1815,7 +1892,10 @@ Question: {processing_query}{context_info}
 
 Provide a comprehensive answer focusing on Indian agricultural practices, varieties, and conditions. Include specific recommendations where possible."""
             
+            print(f"[DEBUG] LLM prompt preview: {prompt[:200]}...")
+            
             try:
+                print(f"[DEBUG] Calling LLM with use_fallback=False (should use llama3.1:latest)")
                 llm_response = run_local_llm(
                     prompt,
                     temperature=0.3,
@@ -1823,16 +1903,26 @@ Provide a comprehensive answer focusing on Indian agricultural practices, variet
                     use_fallback=False
                 )
                 
+                print(f"[DEBUG] LLM response preview: {llm_response[:150]}...")
+                
+                # Add source attribution to the response
+                final_response = llm_response.strip()
+                source_text = "\n\n<small><i>Source: Fallback LLM</i></small>"
+                final_response += source_text
+                
                 return {
-                    'answer': llm_response.strip(),
+                    'answer': final_response,
                     'source': "Fallback LLM",
                     'cosine_similarity': 0.0,
                     'document_metadata': None
                 }
             except Exception as e:
                 print(f"[DB_FILTER] LLM error: {e}")
+                error_response = "I'm sorry, I'm unable to process your request at the moment. Please try again later."
+                source_text = "\n\n<small><i>Source: Fallback LLM</i></small>"
+                final_response = error_response + source_text
                 return {
-                    'answer': "I'm sorry, I'm unable to process your request at the moment. Please try again later.",
+                    'answer': final_response,
                     'source': "Fallback LLM",
                     'cosine_similarity': 0.0,
                     'document_metadata': None
