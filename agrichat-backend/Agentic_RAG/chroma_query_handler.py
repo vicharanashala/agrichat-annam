@@ -1668,7 +1668,28 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 is_no_info = result['answer'] == "I don't have enough information to answer that from the RAG database."
                 is_good_match = result['cosine_similarity'] >= 0.6
                 
+                is_crop_relevant = True
                 if not is_no_info and is_good_match:
+                    query_crop = self.extract_crop_from_query(question)
+                    if query_crop and 'document_metadata' in result and result['document_metadata']:
+                        doc_metadata = result['document_metadata']
+                        doc_crop = doc_metadata.get('Crop', '').lower() if doc_metadata else ''
+                        
+                        doc_content = result['answer'].lower()
+                        
+                        crop_match = (
+                            query_crop.lower() in doc_crop or
+                            query_crop.lower() in doc_content or
+                            doc_crop in query_crop.lower()
+                        )
+                        
+                        if not crop_match:
+                            print(f"[DB_COMBINATION] ⚠️ Cross-crop false positive detected!")
+                            print(f"[DB_COMBINATION] Query crop: '{query_crop}' vs Document crop: '{doc_crop}'")
+                            print(f"[DB_COMBINATION] High similarity ({result['cosine_similarity']:.3f}) but different crops - rejecting")
+                            is_crop_relevant = False
+                
+                if not is_no_info and is_good_match and is_crop_relevant:
                     print(f"[DB_COMBINATION] ✅ RAG database provided good quality answer (source: {result['source']}, score: {result['cosine_similarity']:.3f})")
                     return result
                 else:
@@ -1757,57 +1778,78 @@ IMPORTANT: Always respond in the same language in which the query has been asked
             cosine_score = self.cosine_sim(query_embedding, doc_embedding)
             
             if cosine_score >= 0.3:
-                collection_type = doc.metadata.get('collection', 'rag')
-                print(f"[DB_FILTER] ✓ RAG database match found (type: {collection_type}) with score: {cosine_score:.3f}")
-                print(f"[DEBUG] Selected document content: {doc.page_content}")
-                print(f"[DEBUG] Selected document metadata: {doc.metadata}")
+                # Add crop-specific validation to prevent cross-crop false positives
+                query_crop = self.extract_crop_from_query(processing_query)
+                is_crop_relevant = True
                 
-                if cosine_score >= 0.7:
-                    print(f"[DEBUG] High similarity score ({cosine_score:.3f}) - extracting direct answer from database")
-                    content_lines = doc.page_content.split('\n')
-                    answer_text = ""
-                    capturing_answer = False
+                if query_crop:
+                    doc_crop = doc.metadata.get('Crop', '').lower() if doc.metadata else ''
+                    doc_content = doc.page_content.lower()
                     
-                    for line in content_lines:
-                        if line.startswith('Answer:'):
-                            answer_text = line.replace('Answer:', '').strip()
-                            capturing_answer = True
-                        elif capturing_answer and line.strip():
-                            answer_text += " " + line.strip()
-                        elif capturing_answer and not line.strip():
-                            break
-                    
-                    if answer_text:
-                        print(f"[DEBUG] Extracted direct answer: {answer_text[:100]}...")
-                        source_info = f"\n\n**Source:** RAG Database (Golden)"
-                        
-                        return {
-                            'answer': answer_text + source_info,
-                            'source': "RAG Database (Golden)",
-                            'cosine_similarity': cosine_score,
-                            'document_metadata': doc.metadata
-                        }
-                
-                if collection_type == 'golden':
-                    print(f"[DEBUG] Using Golden database response generation")
-                    llm_response = self.generate_answer_with_golden_context(processing_query, doc.page_content, user_state)
-                else:
-                    print(f"[DEBUG] Using RAG database response generation")
-                    context = f"Context: {doc.page_content}\n\nQuestion: {processing_query}"
-                    print(f"[DEBUG] LLM Context being used: {context[:200]}...")
-                    llm_response = run_local_llm(
-                        f"{self.REGION_INSTRUCTION}\n{self.BASE_PROMPT}\n\n{context}",
-                        temperature=0.1,
-                        max_tokens=1024
+                    crop_match = (
+                        query_crop.lower() in doc_crop or
+                        query_crop.lower() in doc_content or
+                        doc_crop in query_crop.lower()
                     )
+                    
+                    if not crop_match:
+                        print(f"[CROP_VALIDATION] ⚠️ Cross-crop false positive detected!")
+                        print(f"[CROP_VALIDATION] Query crop: '{query_crop}' vs Document crop: '{doc_crop}'")
+                        print(f"[CROP_VALIDATION] Similarity: {cosine_score:.3f} but different crops - skipping document")
+                        is_crop_relevant = False
                 
-                print(f"[DEBUG] Generated response: {llm_response[:150]}...")
-                return {
-                    'answer': llm_response,
-                    'source': "RAG Database",
-                    'cosine_similarity': cosine_score,
-                    'document_metadata': doc.metadata
-                }
+                if is_crop_relevant:
+                    collection_type = doc.metadata.get('collection', 'rag')
+                    print(f"[DB_FILTER] ✓ RAG database match found (type: {collection_type}) with score: {cosine_score:.3f}")
+                    print(f"[DEBUG] Selected document content: {doc.page_content}")
+                    print(f"[DEBUG] Selected document metadata: {doc.metadata}")
+                    
+                    if cosine_score >= 0.7:
+                        print(f"[DEBUG] High similarity score ({cosine_score:.3f}) - extracting direct answer from database")
+                        content_lines = doc.page_content.split('\n')
+                        answer_text = ""
+                        capturing_answer = False
+                        
+                        for line in content_lines:
+                            if line.startswith('Answer:'):
+                                answer_text = line.replace('Answer:', '').strip()
+                                capturing_answer = True
+                            elif capturing_answer and line.strip():
+                                answer_text += " " + line.strip()
+                            elif capturing_answer and not line.strip():
+                                break
+                        
+                        if answer_text:
+                            print(f"[DEBUG] Extracted direct answer: {answer_text[:100]}...")
+                            source_info = f"\n\n**Source:** RAG Database (Golden)"
+                            
+                            return {
+                                'answer': answer_text + source_info,
+                                'source': "RAG Database (Golden)",
+                                'cosine_similarity': cosine_score,
+                                'document_metadata': doc.metadata
+                            }
+                    
+                    if collection_type == 'golden':
+                        print(f"[DEBUG] Using Golden database response generation")
+                        llm_response = self.generate_answer_with_golden_context(processing_query, doc.page_content, user_state)
+                    else:
+                        print(f"[DEBUG] Using RAG database response generation")
+                        context = f"Context: {doc.page_content}\n\nQuestion: {processing_query}"
+                        print(f"[DEBUG] LLM Context being used: {context[:200]}...")
+                        llm_response = run_local_llm(
+                            f"{self.REGION_INSTRUCTION}\n{self.BASE_PROMPT}\n\n{context}",
+                            temperature=0.1,
+                            max_tokens=1024
+                        )
+                    
+                    print(f"[DEBUG] Generated response: {llm_response[:150]}...")
+                    return {
+                        'answer': llm_response,
+                        'source': "RAG Database",
+                        'cosine_similarity': cosine_score,
+                        'document_metadata': doc.metadata
+                    }
         
         print("[DB_FILTER] ✗ No suitable RAG database results found (all scores below 0.3 threshold)")
         return {
