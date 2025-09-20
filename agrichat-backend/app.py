@@ -27,6 +27,8 @@ from functools import lru_cache
 from local_whisper_interface import get_whisper_instance
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
+from Agentic_RAG.local_llm_interface import local_embeddings
 import re
 from langchain.memory import ConversationBufferWindowMemory, ConversationSummaryBufferMemory
 from langchain.schema import HumanMessage, AIMessage
@@ -478,7 +480,7 @@ def preprocess_question(question: str) -> str:
     question = re.sub(r'\s+', ' ', question).strip()
     return question
 
-def get_question_recommendations(user_question: str, user_state: str = None, limit: int = 2) -> List[Dict]:
+def get_question_recommendations(user_question: str, user_state: str = None, limit: int = 4) -> List[Dict]:
     """
     Get question recommendations based on similarity to user's question and state
     Only returns recommendations for agriculture-related questions
@@ -487,7 +489,7 @@ def get_question_recommendations(user_question: str, user_state: str = None, lim
     Args:
         user_question: The user's current question
         user_state: User's state for state-specific recommendations
-        limit: Number of recommendations to return (default 2)
+        limit: Number of recommendations to return (default 4)
     
     Returns:
         List of recommended questions with their details (empty if not agriculture-related)
@@ -516,7 +518,7 @@ def get_question_recommendations(user_question: str, user_state: str = None, lim
             recommendations_cache[cache_key] = ([], current_time)
             return []
         
-        # Optimized pipeline with indexed fields and reduced data
+    # Optimized pipeline with indexed fields and reduced data
         pipeline = [
             {"$unwind": "$messages"},
             {"$match": {
@@ -530,14 +532,16 @@ def get_question_recommendations(user_question: str, user_state: str = None, lim
                     "state": "$state"
                 },
                 "count": {"$sum": 1},
-                "sample_answer": {"$first": "$messages.answer"}  # Keep full answer, truncate in Python
+                "sample_answer": {"$first": "$messages.answer"},  # Keep full answer, truncate in Python
+                "sample_source": {"$first": "$messages.source"}
             }},
             {"$match": {"count": {"$gte": 1}}},
             {"$project": {
                 "question": "$_id.question",
                 "state": "$_id.state",
                 "count": 1,
-                "sample_answer": 1
+                "sample_answer": 1,
+                "sample_source": 1
             }},
             {"$sort": {"count": -1}},  # Sort by popularity for better results
             {"$limit": 100}  # Reduced from 200 for faster processing
@@ -580,105 +584,189 @@ def get_question_recommendations(user_question: str, user_state: str = None, lim
             recommendations_cache[cache_key] = ([], current_time)
             return []
         
+        # Use semantic embeddings (cosine) for recommendations and prefer RAG-backed questions
         processed_user_question = preprocess_question(user_question)
-        
-        questions_list = []
-        metadata_list = []
-        
-        # Skip classification for faster processing - pre-filtered by agriculture category check
+
+        candidates = []
+
+        # Collect up to 200 candidate questions (already limited by aggregation)
         for item in questions_data:
             question = item['question']
             processed_question = preprocess_question(question)
-            
+
             # Skip identical questions
             if processed_question == processed_user_question:
                 continue
-                
-            questions_list.append(processed_question)
-            metadata_list.append({
+
+            candidates.append({
                 'original_question': question,
+                'processed_question': processed_question,
                 'state': item.get('state', 'unknown'),
                 'count': item['count'],
-                'sample_answer': item['sample_answer'][:200] + "..." if len(item['sample_answer']) > 200 else item['sample_answer']
+                'sample_answer': item['sample_answer'][:200] + "..." if len(item['sample_answer']) > 200 else item['sample_answer'],
+                'source': item.get('source', 'unknown') if isinstance(item, dict) else 'unknown'
             })
-            
-            # Early exit if we have enough candidates for processing
-            if len(questions_list) >= 50:  # Process only top 50 for speed
+
+            if len(candidates) >= 200:
                 break
-        
-        if not questions_list:
+
+        if not candidates:
             logger.info("[REC] No suitable questions found for recommendations after filtering")
-            # Cache empty result for no suitable questions
             recommendations_cache[cache_key] = ([], current_time)
             return []
-        
-        logger.info(f"[REC] Processing {len(questions_list)} questions for similarity matching")
-        
-        # Optimized TF-IDF with reduced features for speed
+
+        # Quick TF-IDF prefilter to limit candidates for embedding (improves speed)
+        processed_questions = [c['original_question'] for c in candidates]
         try:
-            vectorizer = TfidfVectorizer(
-                max_features=500,  # Reduced from 1000
-                stop_words='english',
-                ngram_range=(1, 2),
-                min_df=1,  # Minimum document frequency
-                max_df=0.95  # Maximum document frequency to filter common words
-            )
-            
-            all_questions = [processed_user_question] + questions_list
-            tfidf_matrix = vectorizer.fit_transform(all_questions)
-            
-            similarities = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:]).flatten()
-            logger.info(f"[REC] TF-IDF vectorization successful, computed {len(similarities)} similarities")
-            
-        except Exception as tfidf_error:
-            logger.error(f"[REC] TF-IDF vectorization failed: {tfidf_error}")
-            # Cache empty result for TF-IDF errors
+            tfidf_prefilter = TfidfVectorizer(max_features=300, stop_words='english', ngram_range=(1,2))
+            tfidf_matrix_pref = tfidf_prefilter.fit_transform([user_question] + processed_questions)
+            pref_similarities = cosine_similarity(tfidf_matrix_pref[0:1], tfidf_matrix_pref[1:]).flatten()
+            # pick top N candidates for embedding
+            top_n = min(50, len(candidates))
+            top_idx = pref_similarities.argsort()[::-1][:top_n]
+            prefiltered = [candidates[i] for i in top_idx]
+            logger.info(f"[REC] Prefiltered {len(prefiltered)} candidates for embedding from {len(candidates)} total")
+        except Exception as e:
+            logger.warning(f"[REC] Prefilter TF-IDF failed, falling back to full candidate set: {e}")
+            prefiltered = candidates
+
+        # Compute embeddings for user question and selected candidates
+        try:
+            user_emb = np.array(local_embeddings.embed_query(user_question))
+        except Exception as e:
+            logger.error(f"[REC] Failed to compute user embedding: {e}")
             recommendations_cache[cache_key] = ([], current_time)
             return []
-        
-        recommendations = []
-        for i, similarity_score in enumerate(similarities):
-            if similarity_score > 0.1:
-                rec = {
-                    'question': metadata_list[i]['original_question'],
-                    'state': metadata_list[i]['state'],
-                    'similarity_score': float(similarity_score),
-                    'popularity': metadata_list[i]['count'],
-                    'sample_answer': metadata_list[i]['sample_answer'][:200] + "..." if len(metadata_list[i]['sample_answer']) > 200 else metadata_list[i]['sample_answer']
-                }
-                recommendations.append(rec)
-        
+
+        # Optional in-memory cache for question embeddings
+        if not hasattr(get_question_recommendations, "_emb_cache"):
+            get_question_recommendations._emb_cache = {}
+
+        for cand in prefiltered:
+            key = cand['processed_question']
+            if key in get_question_recommendations._emb_cache:
+                cand_emb = get_question_recommendations._emb_cache[key]
+            else:
+                try:
+                    cand_emb = np.array(local_embeddings.embed_query(cand['original_question']))
+                    get_question_recommendations._emb_cache[key] = cand_emb
+                except Exception as e:
+                    logger.warning(f"[REC] Failed to embed candidate question '{cand['original_question'][:50]}': {e}")
+                    cand_emb = None
+            cand['embedding'] = cand_emb
+
+        # Compute cosine similarities and filter
+        def cosine(a, b):
+            try:
+                return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)))
+            except Exception:
+                return 0.0
+
+        ranked = []
+        for cand in prefiltered:
+            if cand.get('embedding') is None:
+                continue
+            sim = cosine(user_emb, cand['embedding'])
+            # Exclude near-duplicates and extremely low similarity
+            if sim >= 0.90 or sim < 0.15:
+                continue
+            ranked.append({
+                'question': cand['original_question'],
+                'processed_question': cand['processed_question'],
+                'state': cand['state'],
+                'similarity_score': sim,
+                'popularity': cand['count'],
+                'sample_answer': cand['sample_answer'],
+                'source': cand.get('sample_source', cand.get('source', 'unknown'))
+            })
+
+        # Deduplicate ranked candidates by their normalized form (processed_question).
+        # Keep the best candidate (highest similarity) for each normalized question.
+        unique_by_processed = {}
+        for r in ranked:
+            key = r.get('processed_question') or preprocess_question(r.get('question', ''))
+            existing = unique_by_processed.get(key)
+            if not existing:
+                unique_by_processed[key] = r
+            else:
+                # Prefer the entry with higher similarity, then higher popularity
+                if r['similarity_score'] > existing['similarity_score'] or (
+                    r['similarity_score'] == existing['similarity_score'] and r.get('popularity', 0) > existing.get('popularity', 0)
+                ):
+                    unique_by_processed[key] = r
+
+        ranked = list(unique_by_processed.values())
+
+        if not ranked:
+            logger.info("[REC] No candidates passed semantic filtering")
+            recommendations_cache[cache_key] = ([], current_time)
+            return []
+
+        # Prefer RAG-backed questions first
+        rag_candidates = [r for r in ranked if 'rag' in (r.get('source') or '').lower() or 'golden' in (r.get('source') or '').lower()]
+        other_candidates = [r for r in ranked if r not in rag_candidates]
+
+        rag_candidates.sort(key=lambda x: x['similarity_score'], reverse=True)
+        other_candidates.sort(key=lambda x: x['similarity_score'], reverse=True)
+
+        final_recs = []
+        for r in rag_candidates:
+            final_recs.append(r)
+            if len(final_recs) >= limit:
+                break
+        if len(final_recs) < limit:
+            for r in other_candidates:
+                final_recs.append(r)
+                if len(final_recs) >= limit:
+                    break
+
+        # If user_state present, boost and re-sort but keep RAG priority ordering
         if user_state:
-            def sort_key(rec):
-                state_boost = 0.2 if rec['state'].lower() == user_state.lower() else 0
-                return rec['similarity_score'] + state_boost
-            recommendations.sort(key=sort_key, reverse=True)
+            for rec in final_recs:
+                rec['boosted_score'] = rec['similarity_score'] + (0.12 if rec['state'].lower() == user_state.lower() else 0)
+            final_recs.sort(key=lambda x: x['boosted_score'], reverse=True)
         else:
-            recommendations.sort(key=lambda x: x['similarity_score'], reverse=True)
-        
-        top_recommendations = recommendations[:limit]
-        
-        logger.info(f"[REC] Generated {len(top_recommendations)} recommendations from {len(recommendations)} candidates for question: {user_question[:50]}...")
+            final_recs.sort(key=lambda x: x['similarity_score'], reverse=True)
+
+        # Build final top recommendations but ensure deduplication by a canonical form
+        def canonicalize(q: str) -> str:
+            q = (q or "").lower()
+            q = re.sub(r"[^a-z0-9\s]", "", q)
+            q = re.sub(r"\s+", " ", q).strip()
+            return q
+
+        top_recommendations = []
+        seen = set()
+        for rec in final_recs:
+            canon = canonicalize(rec.get('question', ''))
+            if canon in seen:
+                continue
+            seen.add(canon)
+            top_recommendations.append(rec)
+            if len(top_recommendations) >= limit:
+                break
+
+        logger.info(f"[REC] Generated {len(top_recommendations)} recommendations from {len(prefiltered)} candidates for question: {user_question[:50]}...")
         if top_recommendations:
             logger.info(f"[REC] Top recommendation similarity scores: {[rec['similarity_score'] for rec in top_recommendations]}")
-        
+
         # Cache the results
         recommendations_cache[cache_key] = (top_recommendations, current_time)
-        
+
         # Clean up cache if it gets too large (keep only 100 most recent entries)
         if len(recommendations_cache) > 100:
             # Remove oldest entries
             sorted_cache = sorted(recommendations_cache.items(), key=lambda x: x[1][1])
             for old_key, _ in sorted_cache[:50]:  # Remove 50 oldest entries
                 del recommendations_cache[old_key]
-        
+
         return top_recommendations
         
     except Exception as e:
         logger.error(f"Error generating recommendations: {e}")
         return []
 
-async def get_question_recommendations_async(user_question: str, user_state: str = None, limit: int = 2) -> List[Dict]:
+async def get_question_recommendations_async(user_question: str, user_state: str = None, limit: int = 4) -> List[Dict]:
     """
     Async version of get_question_recommendations for parallel processing
     """
@@ -840,7 +928,7 @@ async def new_session(request: QueryRequest):
     
     # Add recommendations task if enabled and parallel processing is on
     if not DISABLE_RECOMMENDATIONS and PARALLEL_RECOMMENDATIONS:
-        tasks.append(get_question_recommendations_async(request.question, request.state, 2))
+        tasks.append(get_question_recommendations_async(request.question, request.state, 4))
     
     try:
         # Execute tasks in parallel
@@ -891,6 +979,9 @@ async def new_session(request: QueryRequest):
             message['reasoning_steps'] = answer_result['reasoning_steps']
         if 'research_data' in answer_result:
             message['research_data'] = answer_result['research_data']
+        # Persist source for each message to enable RAG-priority recommendations
+        if 'source' in answer_result:
+            message['source'] = answer_result['source']
     
     session = {
         "session_id": session_id,
@@ -918,7 +1009,7 @@ async def new_session(request: QueryRequest):
                 recommendations = get_question_recommendations(
                     user_question=request.question,
                     user_state=request.state,
-                    limit=2
+                    limit=4
                 )
                 logger.info(f"Added {len(recommendations)} recommendations to session response (sequential)")
             except Exception as e:
@@ -993,7 +1084,7 @@ async def continue_session(session_id: str, request: SessionQueryRequest):
     current_state = request.state or session.get("state", "unknown")
     if not DISABLE_RECOMMENDATIONS and PARALLEL_RECOMMENDATIONS:
         logger.info("[PARALLEL] Starting session recommendations in parallel with answer processing")
-        tasks.append(get_question_recommendations_async(request.question, current_state, 2))
+    tasks.append(get_question_recommendations_async(request.question, current_state, 4))
     
     try:
         # Execute tasks in parallel
@@ -1035,6 +1126,9 @@ async def continue_session(session_id: str, request: SessionQueryRequest):
             new_message['reasoning_steps'] = answer_result['reasoning_steps']
         if 'research_data' in answer_result:
             new_message['research_data'] = answer_result['research_data']
+        # Persist source for message to support RAG-priority recommendations
+        if 'source' in answer_result:
+            new_message['source'] = answer_result['source']
 
     crop = session.get("crop", "unknown")
     current_state = request.state or session.get("state", "unknown")
@@ -1049,9 +1143,8 @@ async def continue_session(session_id: str, request: SessionQueryRequest):
                 "state": current_state,
                 "timestamp": datetime.now(IST).isoformat()
             },
-        },
+        }
     )
-
     updated = sessions_collection.find_one({"session_id": session_id})
     if updated:
         updated.pop("_id", None)
@@ -1062,7 +1155,7 @@ async def continue_session(session_id: str, request: SessionQueryRequest):
                     recommendations = get_question_recommendations(
                         user_question=request.question,
                         user_state=current_state,
-                        limit=2
+                        limit=4
                     )
                     updated["recommendations"] = recommendations
                     logger.info(f"Added {len(recommendations)} session recommendations (sequential)")

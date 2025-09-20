@@ -411,16 +411,16 @@ function createResearchDropdown(researchData, reasoningSteps) {
   console.log('=== Research Dropdown Debug ===');
   console.log('researchData received:', researchData);
   console.log('reasoningSteps received:', reasoningSteps);
-  
+
   // Only use hardcoded data if we have NO reasoning steps from backend at all
   const hasRealReasoningSteps = reasoningSteps && Array.isArray(reasoningSteps) && reasoningSteps.length > 0;
-  
+
   // Only add fallback data if we have absolutely no reasoning steps from backend
   if (!hasRealReasoningSteps) {
     console.log('No reasoning steps from backend, using fallback data');
     reasoningSteps = [
       "Using LLM only (no database search)",
-      "Original question received and processed", 
+      "Original question received and processed",
       "Query classified as: AGRICULTURE",
       "Effective location determined: Punjab",
       "Using primary model: llama3.1:latest",
@@ -560,6 +560,11 @@ function createDocumentsSection(researchData) {
       ${doc.content_preview || 'No content preview available'}
     </div>
     ${doc.selection_reason ? `<div class="doc-selection-reason">✓ ${doc.selection_reason}</div>` : ''}
+    ${doc.youtube_url ? `
+      <div class="doc-video-link">
+        <a href="${doc.youtube_url}" target="_blank" rel="noopener noreferrer">▶ Watch related video</a>
+      </div>
+    ` : ''}
   </div>`;
 }
 

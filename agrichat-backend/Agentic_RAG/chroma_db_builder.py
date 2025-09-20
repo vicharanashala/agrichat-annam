@@ -29,7 +29,7 @@ class ChromaDBBuilder:
         df.rename(columns=column_map, inplace=True)
         standard_columns = [
         "Date", "State", "District", 
-        "Crop", "Season", "Question", "Answer"
+        "Crop", "Season", "Question", "Answer","YT VIdeo Link"
         ]
         print(df.columns)
         for col in standard_columns:
@@ -43,6 +43,7 @@ class ChromaDBBuilder:
                 "Crop":          row.get("Crop", "Others"),
                 "District":      row.get("District", "Others"),
                 "Season":        row.get("Season", "Others"),
+                "YT Video Link":     row.get("YT VIdeo Link", "Others"),
             }
             for k, v in metadata.items():
                print(f"[DEBUG] {k}: {v}")
@@ -73,7 +74,7 @@ class ChromaDBBuilder:
 
 if __name__ == "__main__":
     storage_dir = r"/home/ubuntu/agrichat-annam/agrichat-backend/chromaDb"
-    csv_file = r"/home/ubuntu/agrichat-annam/Golden Dataset/5 States x 50 Q&A - Tamilnadu 50.csv"
+    csv_file = r"/home/ubuntu/agrichat-annam/agrichat-backend/Agentic_RAG/Db - Sheet1.csv"
     builder = ChromaDBBuilder(csv_path=csv_file, persist_dir=storage_dir)
     builder.load_csv_to_documents()
     builder.store_documents_to_chroma()

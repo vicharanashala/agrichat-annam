@@ -576,6 +576,36 @@ IMPORTANT: Always respond in the same language in which the query has been asked
             ]
         }
 
+    def _extract_youtube_url(self, metadata: Optional[dict]) -> Optional[str]:
+        """
+        Look for common metadata keys that might contain a YouTube or video URL and
+        return it if found. Normalizes a bit but does not validate beyond substring checks.
+        """
+        if not metadata or not isinstance(metadata, dict):
+            return None
+
+        # common keys that might contain links
+        link_keys = ['link', 'Link', 'url', 'URL', 'video', 'video_link', 'youtube', 'youtube_url']
+        for key in link_keys:
+            val = metadata.get(key)
+            if not val:
+                continue
+            if isinstance(val, (list, tuple)) and val:
+                val = val[0]
+            if not isinstance(val, str):
+                continue
+            if 'youtu' in val.lower() or 'youtube' in val.lower():
+                return val.strip()
+
+        # sometimes link may be embedded in other metadata fields
+        for k, v in metadata.items():
+            if not v or not isinstance(v, str):
+                continue
+            if 'youtu' in v.lower() or 'youtube' in v.lower():
+                return v.strip()
+
+        return None
+
     def _get_query_cache_key(self, query: str, user_state: str = None, filter_dict: dict = None) -> str:
         """Generate cache key for query results"""
         cache_data = f"{query}|{user_state or ''}|{str(filter_dict or {})}"
@@ -1381,6 +1411,45 @@ IMPORTANT: Always respond in the same language in which the query has been asked
             
             best_doc, best_score = pops_results[0]
             content = best_doc.page_content.strip()
+
+            # If the selected chunk looks like a summary or references tables/figures,
+            # try to pull other chunks from the same source file to surface details
+            try:
+                metadata = getattr(best_doc, 'metadata', {}) or {}
+                file_path = metadata.get('file_path') or metadata.get('source_file')
+                total_chunks = int(metadata.get('total_chunks', 1)) if metadata.get('total_chunks') else 1
+                # Keywords indicating the chunk may be a summary pointing to a table/figure
+                summary_indicators = ['table', 'figure', 'list of', 'table 1', 'figure 1', 'see table', 'see figure']
+                if file_path and total_chunks > 1 and any(ind in content.lower() for ind in summary_indicators):
+                    try:
+                        print(f"[POPS FALLBACK] Best chunk references table/figure; aggregating up to {total_chunks} chunks from {file_path}")
+                        more_results = self.pops_db.similarity_search_with_score(question, k=min(10, total_chunks), filter={"file_path": file_path})
+                        extra_lines = []
+                        variety_keywords = ['variety', 'varieties', 'cultivar', 'hybrid', 'pusa', 'samba', 'drr']
+                        for doc_i, score_i in more_results:
+                            doc_text = doc_i.page_content.strip()
+                            # collect lines that mention variety keywords or table entries
+                            for ln in doc_text.split('\n'):
+                                lnl = ln.strip()
+                                if not lnl:
+                                    continue
+                                if any(k in lnl.lower() for k in variety_keywords) or 'table' in lnl.lower():
+                                    extra_lines.append(lnl)
+                        if extra_lines:
+                            # append unique lines preserving order
+                            seen = set()
+                            unique_lines = []
+                            for l in extra_lines:
+                                if l not in seen:
+                                    seen.add(l)
+                                    unique_lines.append(l)
+                            augmented = content + '\n\n' + '\n'.join(unique_lines)
+                            print(f"[POPS FALLBACK] Augmented content with {len(unique_lines)} extra lines from same file")
+                            content = augmented
+                    except Exception as e:
+                        print(f"[POPS FALLBACK] Failed to aggregate additional chunks: {e}")
+            except Exception:
+                pass
             
             if len(content) < 50:
                 print(f"[POPS FALLBACK] Content too short ({len(content)} chars), proceeding to LLM")
@@ -1480,6 +1549,13 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                     "doesn't contain information",
                     "cannot be answered"
                 ])
+                # Treat responses that explicitly say specifics are missing as insufficient
+                insufficient_phrases = [
+                    'not provided', 'no specific', 'no specifics', 'does not include', "doesn't include",
+                    'not included', 'not mentioned', 'no list', 'not listed', 'not available', 'no details',
+                    'specific details not', 'specific variety', 'specific varieties not'
+                ]
+                is_insufficient_info = any(phrase in final_response.lower() for phrase in insufficient_phrases)
                 
                 pops_specific_keywords = [
                     'variety', 'varieties', 'cultivar', 'hybrid', 'seed rate', 'spacing', 
@@ -1510,14 +1586,41 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 print(f"   Completeness Score: {quality_scores['completeness_score']:.3f}")
                 print(f"   Overall Score: {quality_scores['overall_score']:.3f}")
                 print(f"   Should Fallback: {quality_scores['should_fallback']}")
-                
+                if cosine_score >= 0.75 and keyword_match:
+                    print("[POPS FALLBACK] Strong PoPs match detected (cosine>=0.75 and keyword match). Running quick verification before accepting.")
+                    try:
+                        # Run the content quality scorer and an LLM relevance check even for strong matches
+                        quick_scores = self.quality_scorer.evaluate_response(question, final_response)
+                        relevance_check = self.quality_scorer.check_pops_answer_relevance(question, final_response)
+
+                        print(f"[POPS FALLBACK] Quick specificity: {quick_scores['specificity_score']:.3f}, relevance: {quick_scores['relevance_score']:.3f}, overall: {quick_scores['overall_score']:.3f}")
+                        print(f"[POPS FALLBACK] LLM relevance check - is_relevant: {relevance_check['is_relevant']}, confidence: {relevance_check['confidence']:.2f}")
+
+                        # Acceptance rules for strong match: not a refusal, not too short, and both checks pass thresholds
+                        accept_quick = (not is_refusal and not is_too_short and not is_insufficient_info and quick_scores['overall_score'] >= 0.35 and relevance_check['is_relevant'] and relevance_check['confidence'] >= 0.5)
+                        if accept_quick:
+                            source_text = "\n\n<small><i>Source: Fallback to Package of Practices Database (strong match)</i></small>"
+                            final_response += source_text
+                            print("[POPS FALLBACK] ✓ Accepted PoPs response after verification")
+                            return {
+                                'answer': final_response,
+                                'source': "PoPs Database",
+                                'cosine_similarity': cosine_score,
+                                'distance': best_score,
+                                'document_metadata': best_doc.metadata
+                            }
+                        else:
+                            print("[POPS FALLBACK] Strong match failed quick verification, proceeding to full validation/fallback")
+                    except Exception as e:
+                        print(f"[POPS FALLBACK] Quick verification failed with error: {e}. Falling back to conservative path.")
+
                 if quality_scores['should_fallback']:
                     print(f"[POPS FALLBACK] Content quality too low, proceeding to LLM fallback")
                     return {
                         'answer': "__FALLBACK__",
                         'source': "Fallback LLM",
                         'cosine_similarity': cosine_score,
-                        'distance': best_score,  # Use actual ChromaDB distance
+                        'distance': best_score,
                         'document_metadata': None
                     }
                 
@@ -1542,6 +1645,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 
                 print(f"[POPS FALLBACK] Response validation:")
                 print(f"   Length: {len(final_response.strip())} chars (min: 40)")
+                print(f"   Is insufficient info: {is_insufficient_info}")
                 print(f"   Has PoPs-specific content: {has_pops_content}")
                 print(f"   Has general agri content: {has_general_agri_content}")
                 print(f"   Has structured info: {has_structured_info}")
@@ -1553,6 +1657,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 is_valid_pops_response = (
                     not is_too_short and 
                     not is_refusal and 
+                    not is_insufficient_info and
                     is_response_relevant and
                     (has_pops_content or (has_general_agri_content and has_structured_info))
                 )
@@ -1681,6 +1786,12 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 'content_preview': result['answer'][:150] + "..." if len(result['answer']) > 150 else result['answer'],
                 'selection_reason': f"High relevance match (similarity: {result.get('cosine_similarity', 0):.2f})"
             }
+            try:
+                youtube_url = self._extract_youtube_url(result.get('document_metadata'))
+                if youtube_url:
+                    research_doc['youtube_url'] = youtube_url
+            except Exception:
+                pass
             research_data.append(research_doc)
         
         reasoning_steps.append(f"Final result: {result['source']} (similarity: {result.get('cosine_similarity', 0):.3f})")
@@ -1711,8 +1822,6 @@ IMPORTANT: Always respond in the same language in which the query has been asked
             print("[DB_COMBINATION] ⚠️ No databases selected, using LLM fallback")
             reasoning_steps.append("No databases selected, using LLM fallback")
             return self._query_llm_only(question, conversation_history, user_state)
-            print("[DB_COMBINATION] ⚠️ No databases selected, using LLM fallback")
-            return self._query_llm_only(question, conversation_history, user_state)
         
         for i, db in enumerate(database_selection, 1):
             print(f"[DB_COMBINATION] Step {i}/{len(database_selection)}: Trying database '{db}'")
@@ -1723,7 +1832,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 print(f"[DEBUG] RAG result preview: {result['answer'][:100]}...")
                 
                 is_no_info = result['answer'] == "I don't have enough information to answer that from the RAG database."
-                is_good_match = result['cosine_similarity'] >= 0.6
+                is_good_match = result['cosine_similarity'] >= 0.7
                 
                 is_crop_relevant = True
                 if not is_no_info and is_good_match:
@@ -1840,7 +1949,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
             print(f"[DEBUG] Doc {i+1} Metadata: {doc.metadata}")
             
             # Add to research data
-            research_data.append({
+            research_entry = {
                 'rank': i + 1,
                 'distance': round(distance, 4),
                 'cosine_similarity': round(cosine_score, 3),
@@ -1848,7 +1957,16 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 'content_preview': doc.page_content[:200] + "..." if len(doc.page_content) > 200 else doc.page_content,
                 'metadata': doc.metadata,
                 'selected': False  # Will be updated if this document is selected
-            })
+            }
+            # Add YouTube URL if present in metadata
+            try:
+                youtube_url = self._extract_youtube_url(doc.metadata)
+                if youtube_url:
+                    research_entry['youtube_url'] = youtube_url
+            except Exception:
+                pass
+
+            research_data.append(research_entry)
         
         selected_doc_index = None
         for doc_idx, (doc, distance) in enumerate(results):
@@ -1859,7 +1977,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
             # Combined filtering using both distance and cosine similarity
             # Distance should be low (< 0.35) AND cosine similarity should be high (>= 0.7)
             distance_ok = distance < 0.35  # Low distance means high similarity in vector space
-            cosine_ok = cosine_score >= 0.5  # High cosine similarity means semantic relevance
+            cosine_ok = cosine_score >= 0.6  # High cosine similarity means semantic relevance
             
             reasoning_steps.append(f"Doc {i+1}: Distance={distance:.4f} ({'✓' if distance_ok else '❌'}), Similarity={cosine_score:.3f} ({'✓' if cosine_ok else '❌'})")
             print(f"[FILTER_DEBUG] Doc: Distance={distance:.4f} (ok: {distance_ok}), Cosine={cosine_score:.3f} (ok: {cosine_ok})")
@@ -1900,7 +2018,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                     research_data[doc_idx]['selected'] = True
                     research_data[doc_idx]['selection_reason'] = "Passed distance & cosine filters + crop validation"
                     
-                    if cosine_score >= 0.7:
+                    if cosine_score >= 0.6:
                         print(f"[DEBUG] High similarity score ({cosine_score:.3f}) - extracting direct answer from database")
                         content_lines = doc.page_content.split('\n')
                         answer_text = ""
