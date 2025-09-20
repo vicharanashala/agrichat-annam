@@ -374,7 +374,7 @@ function copyToClipboard(button) {
 
 
 
-function appendMessage(sender, text, index = null, rating = null) {
+function appendMessage(sender, text, index = null, rating = null, researchData = null) {
   const div = document.createElement("div");
   div.className = `message ${sender}`;
 
@@ -400,11 +400,125 @@ function appendMessage(sender, text, index = null, rating = null) {
         </svg>
       </button>
     </div>
+    ${createResearchDropdown(researchData)}
   `;
   }
 
-
   document.getElementById("chatWindow").appendChild(div);
+}
+
+function createResearchDropdown(researchData) {
+  if (!researchData || !Array.isArray(researchData) || researchData.length === 0) {
+    return `
+    <div class="research-dropdown">
+      <div class="research-header" onclick="toggleResearchDropdown(this)">
+        <div class="research-header-left">
+          <i class="fas fa-search"></i>
+          <span class="research-title">Research Process</span>
+          <span class="research-subtitle">(No document analysis performed)</span>
+        </div>
+        <span class="research-toggle">▼</span>
+      </div>
+      <div class="research-content">
+        <div class="no-research-data">
+          <i class="fas fa-info-circle"></i>
+          <div>This response was generated without document analysis</div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  const selectedDocs = researchData.filter(doc => doc.selected);
+  const totalDocs = researchData.length;
+
+  const summaryStats = {
+    total: totalDocs,
+    selected: selectedDocs.length,
+    avgDistance: totalDocs > 0 ? (researchData.reduce((sum, doc) => sum + (doc.distance || 0), 0) / totalDocs).toFixed(3) : 'N/A',
+    avgSimilarity: totalDocs > 0 ? (researchData.reduce((sum, doc) => sum + (doc.cosine_similarity || 0), 0) / totalDocs * 100).toFixed(1) + '%' : 'N/A'
+  };
+
+  return `
+  <div class="research-dropdown">
+    <div class="research-header" onclick="toggleResearchDropdown(this)">
+      <div class="research-header-left">
+        <i class="fas fa-search"></i>
+        <span class="research-title">Research Process</span>
+        <span class="research-subtitle">(${selectedDocs.length}/${totalDocs} documents selected)</span>
+      </div>
+      <span class="research-toggle">▼</span>
+    </div>
+    <div class="research-content">
+      <div class="research-summary">
+        <div class="research-summary-item">
+          <span class="research-summary-label">Documents Analyzed:</span>
+          <span class="research-summary-value">${totalDocs}</span>
+        </div>
+        <div class="research-summary-item">
+          <span class="research-summary-label">Documents Selected:</span>
+          <span class="research-summary-value">${selectedDocs.length}</span>
+        </div>
+        <div class="research-summary-item">
+          <span class="research-summary-label">Average Distance:</span>
+          <span class="research-summary-value">${summaryStats.avgDistance}</span>
+        </div>
+        <div class="research-summary-item">
+          <span class="research-summary-label">Average Similarity:</span>
+          <span class="research-summary-value">${summaryStats.avgSimilarity}</span>
+        </div>
+      </div>
+      <div class="research-documents">
+        ${researchData.map(doc => createDocumentItem(doc)).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+function createDocumentItem(doc) {
+  const isSelected = doc.selected;
+  const distance = parseFloat(doc.distance || 0);
+  const similarity = parseFloat(doc.cosine_similarity || 0);
+
+  // Score classifications
+  const distanceClass = distance < 0.3 ? 'high' : distance < 0.5 ? 'medium' : 'low';
+  const similarityClass = similarity > 0.7 ? 'high' : similarity > 0.5 ? 'medium' : 'low';
+
+  return `
+  <div class="research-doc ${isSelected ? 'selected' : ''}">
+    <div class="doc-header">
+      <div class="doc-rank">Rank ${doc.rank || 'N/A'}</div>
+      <div class="doc-scores">
+        <span class="doc-score ${distanceClass}">Dist: ${distance.toFixed(3)}</span>
+        <span class="doc-score ${similarityClass}">Sim: ${(similarity * 100).toFixed(1)}%</span>
+      </div>
+    </div>
+    <div class="doc-metadata">
+      <span class="doc-metadata-item">${doc.collection_type || 'Unknown'}</span>
+      ${doc.metadata && doc.metadata.crop ? `<span class="doc-metadata-item">Crop: ${doc.metadata.crop}</span>` : ''}
+      ${doc.metadata && doc.metadata.state ? `<span class="doc-metadata-item">State: ${doc.metadata.state}</span>` : ''}
+      ${doc.metadata && doc.metadata.category ? `<span class="doc-metadata-item">Category: ${doc.metadata.category}</span>` : ''}
+    </div>
+    <div class="doc-content">
+      ${doc.content_preview || 'No content preview available'}
+    </div>
+    ${doc.selection_reason ? `<div class="doc-selection-reason">✓ ${doc.selection_reason}</div>` : ''}
+  </div>`;
+}
+
+function toggleResearchDropdown(headerElement) {
+  const dropdown = headerElement.parentElement;
+  const content = dropdown.querySelector('.research-content');
+  const toggle = headerElement.querySelector('.research-toggle');
+
+  const isExpanded = content.classList.contains('expanded');
+
+  if (isExpanded) {
+    content.classList.remove('expanded');
+    toggle.classList.remove('expanded');
+  } else {
+    content.classList.add('expanded');
+    toggle.classList.add('expanded');
+  }
 }
 
 function displayRecommendations(recommendations) {
@@ -475,7 +589,7 @@ function loadChat(session) {
 
   session.messages.forEach((msg, idx) => {
     appendMessage("user", msg.question);
-    appendMessage("bot", msg.answer, idx, msg.rating || null);
+    appendMessage("bot", msg.answer, idx, msg.rating || null, msg.research_data || null);
   });
 
   if (session.recommendations && session.recommendations.length > 0) {
@@ -649,7 +763,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     const data = await res.json();
     const last = data.session.messages.at(-1);
     hideLoader();
-    appendMessage("bot", last.answer);
+    appendMessage("bot", last.answer, null, null, last.research_data || null);
 
     currentSession = data.session;
 

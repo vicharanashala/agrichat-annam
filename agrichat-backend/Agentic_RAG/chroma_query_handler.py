@@ -1761,6 +1761,9 @@ IMPORTANT: Always respond in the same language in which the query has been asked
         results = self.db.similarity_search_with_score(processing_query, k=6)
         print(f"[DEBUG] Retrieved {len(results)} documents from RAG database")
         
+        # Collect research data for frontend display
+        research_data = []
+        
         # Get query embedding for proper cosine similarity calculation
         query_embedding = self.embedding_function.embed_query(processing_query)
         
@@ -1771,13 +1774,32 @@ IMPORTANT: Always respond in the same language in which the query has been asked
             collection_type = doc.metadata.get('collection', 'rag')
             print(f"[DEBUG] Doc {i+1}: Distance={distance:.4f}, Score={cosine_score:.3f}, Type={collection_type}, Content preview: {doc.page_content[:100]}...")
             print(f"[DEBUG] Doc {i+1} Metadata: {doc.metadata}")
+            
+            # Add to research data
+            research_data.append({
+                'rank': i + 1,
+                'distance': round(distance, 4),
+                'cosine_similarity': round(cosine_score, 3),
+                'collection_type': collection_type,
+                'content_preview': doc.page_content[:200] + "..." if len(doc.page_content) > 200 else doc.page_content,
+                'metadata': doc.metadata,
+                'selected': False  # Will be updated if this document is selected
+            })
         
-        for doc, distance in results:
+        selected_doc_index = None
+        for doc_idx, (doc, distance) in enumerate(results):
             # Get document embedding and calculate proper cosine similarity
             doc_embedding = self.embedding_function.embed_query(doc.page_content)
             cosine_score = self.cosine_sim(query_embedding, doc_embedding)
             
-            if cosine_score >= 0.3:
+            # Combined filtering using both distance and cosine similarity
+            # Distance should be low (< 0.35) AND cosine similarity should be high (>= 0.7)
+            distance_ok = distance < 0.35  # Low distance means high similarity in vector space
+            cosine_ok = cosine_score >= 0.5  # High cosine similarity means semantic relevance
+            
+            print(f"[FILTER_DEBUG] Doc: Distance={distance:.4f} (ok: {distance_ok}), Cosine={cosine_score:.3f} (ok: {cosine_ok})")
+            
+            if distance_ok and cosine_ok:
                 # Add crop-specific validation to prevent cross-crop false positives
                 query_crop = self.extract_crop_from_query(processing_query)
                 is_crop_relevant = True
@@ -1804,6 +1826,11 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                     print(f"[DEBUG] Selected document content: {doc.page_content}")
                     print(f"[DEBUG] Selected document metadata: {doc.metadata}")
                     
+                    # Mark this document as selected in research data
+                    selected_doc_index = doc_idx
+                    research_data[doc_idx]['selected'] = True
+                    research_data[doc_idx]['selection_reason'] = "Passed distance & cosine filters + crop validation"
+                    
                     if cosine_score >= 0.7:
                         print(f"[DEBUG] High similarity score ({cosine_score:.3f}) - extracting direct answer from database")
                         content_lines = doc.page_content.split('\n')
@@ -1827,7 +1854,8 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                                 'answer': answer_text + source_info,
                                 'source': "RAG Database (Golden)",
                                 'cosine_similarity': cosine_score,
-                                'document_metadata': doc.metadata
+                                'document_metadata': doc.metadata,
+                                'research_data': research_data
                             }
                     
                     if collection_type == 'golden':
@@ -1848,15 +1876,17 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                         'answer': llm_response,
                         'source': "RAG Database",
                         'cosine_similarity': cosine_score,
-                        'document_metadata': doc.metadata
+                        'document_metadata': doc.metadata,
+                        'research_data': research_data
                     }
         
-        print("[DB_FILTER] ✗ No suitable RAG database results found (all scores below 0.3 threshold)")
+        print("[DB_FILTER] ✗ No suitable RAG database results found (distance >= 0.35 OR cosine similarity < 0.7)")
         return {
             'answer': "I don't have enough information to answer that from the RAG database.",
             'source': "RAG Database",
             'cosine_similarity': 0.0,
-            'document_metadata': {}
+            'document_metadata': {},
+            'research_data': research_data
         }
     
     def _query_pops_database_only(self, question: str, conversation_history: Optional[List[Dict]], user_state: str) -> Dict[str, any]:
@@ -1877,8 +1907,13 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 'answer': "I don't have enough information to answer that from the PoPs database.",
                 'source': "PoPs Database",
                 'cosine_similarity': 0.0,
-                'document_metadata': {}
+                'document_metadata': {},
+                'research_data': []
             }
+        
+        # Add empty research_data to PoPs result if not present
+        if 'research_data' not in result:
+            result['research_data'] = []
         
         return result
 
@@ -1907,7 +1942,8 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 'answer': final_response,
                 'source': "Fallback LLM",
                 'cosine_similarity': 0.0,
-                'document_metadata': None
+                'document_metadata': None,
+                'research_data': []
             }
         elif category == "NON_AGRI":
             print(f"[DEBUG] Generating non-agricultural response")
@@ -1918,7 +1954,8 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 'answer': final_response,
                 'source': "Fallback LLM",
                 'cosine_similarity': 0.0,
-                'document_metadata': None
+                'document_metadata': None,
+                'research_data': []
             }
         else:
             # Agriculture question - use LLM directly
@@ -1956,7 +1993,8 @@ Provide a comprehensive answer focusing on Indian agricultural practices, variet
                     'answer': final_response,
                     'source': "Fallback LLM",
                     'cosine_similarity': 0.0,
-                    'document_metadata': None
+                    'document_metadata': None,
+                    'research_data': []
                 }
             except Exception as e:
                 print(f"[DB_FILTER] LLM error: {e}")
@@ -1967,7 +2005,8 @@ Provide a comprehensive answer focusing on Indian agricultural practices, variet
                     'answer': final_response,
                     'source': "Fallback LLM",
                     'cosine_similarity': 0.0,
-                    'document_metadata': None
+                    'document_metadata': None,
+                    'research_data': []
                 }
 
     def _get_answer_with_source_main(self, question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None) -> Dict[str, any]:
