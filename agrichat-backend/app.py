@@ -140,10 +140,11 @@ def format_conversation_context(memory: ConversationBufferWindowMemory) -> str:
     
     return "\n".join(context_parts)
 
-def get_answer(question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None, session_id: str = None, db_config: DatabaseConfig = None) -> str:
+def get_answer(question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None, session_id: str = None, db_config: DatabaseConfig = None) -> Dict:
     """
     Main answer function that routes to fast mode or CrewAI based on configuration.
     Simplified structure aligned with main.py pipeline.
+    Returns complete result object with answer, reasoning_steps, and research_data.
     """
     if USE_FAST_MODE and fast_handler:
         response = get_fast_answer(question, conversation_history, user_state, db_config)
@@ -325,19 +326,63 @@ def extract_topics_from_context(context: str) -> List[str]:
     
     return topics
 
-def get_fast_answer(question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None, db_config: DatabaseConfig = None) -> str:
+def get_fast_answer(question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None, db_config: DatabaseConfig = None) -> Dict:
     """
     Fast mode using enhanced FastResponseHandler with source attribution.
+    Returns complete result object.
     """
     logger.info(f"[FAST] Processing question with enhanced fast handler: {question}")
     try:
-        return fast_handler.get_answer(question, conversation_history, user_state, db_config)
+        # Use the query_handler directly to get full result
+        if db_config:
+            database_selection = db_config.get_enabled_databases()
+        else:
+            database_selection = ["rag", "pops", "llm"]  # default
+        
+        result = query_handler.get_answer_with_source(
+            question=question,
+            conversation_history=conversation_history,
+            user_state=user_state,
+            database_selection=database_selection
+        )
+        return result
     except Exception as e:
         logger.error(f"[FAST] Error in fast mode: {e}")
         logger.info("[FAST] Falling back to CrewAI")
         return get_crewai_answer(question, conversation_history, user_state, db_config)
 
-def get_crewai_answer(question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None, db_config: DatabaseConfig = None) -> str:
+def get_crewai_answer(question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None, db_config: DatabaseConfig = None) -> Dict:
+    """
+    CrewAI mode - original multi-agent approach for complex reasoning.
+    Returns complete result object.
+    """
+    logger.info(f"[CREWAI] Processing question with CrewAI approach: {question}")
+    
+    try:
+        # Use the query_handler directly to get full result
+        if db_config:
+            database_selection = db_config.get_enabled_databases()
+        else:
+            database_selection = ["rag", "pops", "llm"]  # default
+        
+        result = query_handler.get_answer_with_source(
+            question=question,
+            conversation_history=conversation_history,
+            user_state=user_state,
+            database_selection=database_selection
+        )
+        return result
+    except Exception as e:
+        logger.error(f"[CREWAI] Error in CrewAI mode: {e}")
+        # Return fallback result object
+        return {
+            'answer': "I'm having trouble processing your question right now. Please try again later.",
+            'source': "Fallback",
+            'cosine_similarity': 0.0,
+            'document_metadata': None,
+            'research_data': [],
+            'reasoning_steps': [f"❌ Error occurred: {str(e)}"]
+        }
     """
     CrewAI mode - original multi-agent approach for complex reasoning.
     """
@@ -781,9 +826,9 @@ async def new_session(request: QueryRequest):
             
             answer_processing_time = time.time() - answer_processing_start
             logger.info(f"[TIMING] Answer processing took: {answer_processing_time:.3f}s")
-            logger.info(f"[DEBUG] Raw answer received: {str(raw_answer)[:100]}...")
+            logger.info(f"[DEBUG] Raw answer received: {str(raw_answer.get('answer', ''))[:100]}...")
             
-            return str(raw_answer).strip()
+            return raw_answer
             
         except Exception as e:
             logger.error(f"[DEBUG] Error in get_answer: {e}")
@@ -806,9 +851,9 @@ async def new_session(request: QueryRequest):
             logger.info(f"[TIMING] Parallel processing took: {parallel_time:.3f}s")
             
             # Handle results
-            answer_only = results[0]
-            if isinstance(answer_only, Exception):
-                raise answer_only
+            answer_result = results[0]
+            if isinstance(answer_result, Exception):
+                raise answer_result
                 
             recommendations = results[1] if len(results) > 1 and not isinstance(results[1], Exception) else []
             if isinstance(results[1], Exception):
@@ -816,12 +861,15 @@ async def new_session(request: QueryRequest):
                 recommendations = []
         else:
             # Sequential processing if parallel is disabled
-            answer_only = await tasks[0]
+            answer_result = await tasks[0]
             recommendations = []
     except Exception as e:
         logger.error(f"[DEBUG] Error in parallel processing: {e}")
         return JSONResponse(status_code=500, content={"error": "LLM processing failed."})
 
+    # Extract answer text for markdown processing
+    answer_only = answer_result.get('answer', '') if isinstance(answer_result, dict) else str(answer_result)
+    
     # Optimized markdown processing - reduced logging
     markdown_processing_start = time.time()
     html_answer = markdown.markdown(answer_only, extensions=["extra", "nl2br"])
@@ -829,10 +877,25 @@ async def new_session(request: QueryRequest):
     logger.info(f"[TIMING] Markdown processing took: {markdown_processing_time:.3f}s")
 
     session_creation_start = time.time()
+    
+    # Create session message with complete result data
+    message = {
+        "question": request.question, 
+        "answer": html_answer, 
+        "rating": None
+    }
+    
+    # Add reasoning_steps and research_data if available
+    if isinstance(answer_result, dict):
+        if 'reasoning_steps' in answer_result:
+            message['reasoning_steps'] = answer_result['reasoning_steps']
+        if 'research_data' in answer_result:
+            message['research_data'] = answer_result['research_data']
+    
     session = {
         "session_id": session_id,
         "timestamp": datetime.now(IST).isoformat(),
-        "messages": [{"question": request.question, "answer": html_answer, "rating": None}],
+        "messages": [message],
         "crop": "unknown",
         "state": request.state,
         "status": "active",
@@ -917,7 +980,7 @@ async def continue_session(session_id: str, request: SessionQueryRequest):
                     session_id,  # Pass session_id for context resolution
                     db_config
                 )
-            return str(raw_answer).strip()
+            return raw_answer
             
         except Exception as e:
             logger.error(f"[DEBUG] Error in get_answer: {e}")
@@ -938,9 +1001,9 @@ async def continue_session(session_id: str, request: SessionQueryRequest):
             results = await asyncio.gather(*tasks, return_exceptions=True)
             
             # Handle results
-            answer_only = results[0]
-            if isinstance(answer_only, Exception):
-                raise answer_only
+            answer_result = results[0]
+            if isinstance(answer_result, Exception):
+                raise answer_result
                 
             recommendations = results[1] if len(results) > 1 and not isinstance(results[1], Exception) else []
             if isinstance(results[1], Exception):
@@ -948,14 +1011,30 @@ async def continue_session(session_id: str, request: SessionQueryRequest):
                 recommendations = []
         else:
             # Sequential processing if parallel is disabled
-            answer_only = await tasks[0]
+            answer_result = await tasks[0]
             recommendations = []
             
     except Exception as e:
         logger.error(f"[DEBUG] Error in parallel session processing: {e}")
         return JSONResponse(status_code=500, content={"error": "LLM processing failed."})
 
+    # Extract answer text for markdown processing
+    answer_only = answer_result.get('answer', '') if isinstance(answer_result, dict) else str(answer_result)
     html_answer = markdown.markdown(answer_only, extensions=["extra", "nl2br"])
+
+    # Create session message with complete result data
+    new_message = {
+        "question": request.question, 
+        "answer": html_answer, 
+        "rating": None
+    }
+    
+    # Add reasoning_steps and research_data if available
+    if isinstance(answer_result, dict):
+        if 'reasoning_steps' in answer_result:
+            new_message['reasoning_steps'] = answer_result['reasoning_steps']
+        if 'research_data' in answer_result:
+            new_message['research_data'] = answer_result['research_data']
 
     crop = session.get("crop", "unknown")
     current_state = request.state or session.get("state", "unknown")
@@ -963,7 +1042,7 @@ async def continue_session(session_id: str, request: SessionQueryRequest):
     sessions_collection.update_one(
         {"session_id": session_id},
         {
-            "$push": {"messages": {"question": request.question, "answer": html_answer, "rating": None}},
+            "$push": {"messages": new_message},
             "$set": {
                 "has_unread": True,
                 "crop": crop,

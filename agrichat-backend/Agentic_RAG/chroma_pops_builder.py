@@ -53,7 +53,6 @@ class PoPsChromaBuilder:
             heading = section.get('heading', '')
             content_list = section.get('content', [])
             
-            # Create a section header
             section_text = f"## {heading}\n\n"
             
             for content_item in content_list:
@@ -80,7 +79,6 @@ class PoPsChromaBuilder:
                     section_text += "\n"
                 
                 elif content_type == 'table':
-                    # Handle table content
                     table_data = content_item.get('content', {})
                     headers = table_data.get('headers', [])
                     rows = table_data.get('rows', [])
@@ -93,7 +91,6 @@ class PoPsChromaBuilder:
                         section_text += " | ".join(str(cell) for cell in row) + "\n"
                     section_text += "\n"
             
-            # Add metadata about source
             crop_category = self._extract_crop_category(filename)
             section_text += f"\n[Source: Package of Practices - {crop_category}]"
             
@@ -103,7 +100,6 @@ class PoPsChromaBuilder:
     
     def _extract_crop_category(self, filename: str) -> str:
         """Extract crop category from file path."""
-        # Extract category from path like /Cereals_and_millets/Maize.json
         path_parts = filename.replace('\\', '/').split('/')
         
         if len(path_parts) >= 2:
@@ -127,7 +123,6 @@ class PoPsChromaBuilder:
             print(f"[ERROR] PoPs data path not found: {self.pops_data_path}")
             return documents
         
-        # Walk through all JSON files in the PoPs directory
         total_files = 0
         processed_files = 0
         
@@ -145,12 +140,10 @@ class PoPsChromaBuilder:
                     with open(file_path, 'r', encoding='utf-8') as f:
                         json_data = json.load(f)
                     
-                    # Extract text chunks from JSON
                     text_chunks = self.extract_text_from_json(json_data, relative_path)
                     
-                    # Create documents for each chunk
                     for i, text_chunk in enumerate(text_chunks):
-                        if text_chunk.strip():  # Only add non-empty chunks
+                        if text_chunk.strip():
                             doc = Document(
                                 page_content=text_chunk,
                                 metadata={
@@ -185,14 +178,12 @@ class PoPsChromaBuilder:
         try:
             print(f"[PoPs Builder] Starting PoPs collection build...")
             
-            # Process all PoPs files
             documents = self.process_pops_files()
             
             if not documents:
                 print(f"[ERROR] No documents to process")
                 return False
             
-            # Create ChromaDB collection
             print(f"[PoPs Builder] Creating ChromaDB collection: {self.collection_name}")
             
             vectorstore = Chroma.from_documents(
@@ -202,7 +193,6 @@ class PoPsChromaBuilder:
                 persist_directory=self.chroma_path
             )
             
-            # Persist the collection
             vectorstore.persist()
             
             print(f"[PoPs Builder] Successfully built PoPs collection with {len(documents)} documents")
@@ -254,7 +244,6 @@ def main():
     
     args = parser.parse_args()
     
-    # Build the collection
     builder = PoPsChromaBuilder(args.chroma_path, args.pops_path)
     success = builder.build_collection()
     

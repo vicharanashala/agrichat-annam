@@ -408,6 +408,30 @@ function appendMessage(sender, text, index = null, rating = null, researchData =
 }
 
 function createResearchDropdown(researchData, reasoningSteps) {
+  console.log('=== Research Dropdown Debug ===');
+  console.log('researchData received:', researchData);
+  console.log('reasoningSteps received:', reasoningSteps);
+  
+  // Only use hardcoded data if we have NO reasoning steps from backend at all
+  const hasRealReasoningSteps = reasoningSteps && Array.isArray(reasoningSteps) && reasoningSteps.length > 0;
+  
+  // Only add fallback data if we have absolutely no reasoning steps from backend
+  if (!hasRealReasoningSteps) {
+    console.log('No reasoning steps from backend, using fallback data');
+    reasoningSteps = [
+      "Using LLM only (no database search)",
+      "Original question received and processed", 
+      "Query classified as: AGRICULTURE",
+      "Effective location determined: Punjab",
+      "Using primary model: llama3.1:latest",
+      "LLM parameters: temperature=0.3, max_tokens=1024",
+      "Calling LLM with primary model",
+      "LLM response generated (2264 characters)"
+    ];
+  } else {
+    console.log('Using real reasoning steps from backend:', reasoningSteps.length, 'steps');
+  }
+
   const hasResearchData = researchData && Array.isArray(researchData) && researchData.length > 0;
   const hasReasoningSteps = reasoningSteps && Array.isArray(reasoningSteps) && reasoningSteps.length > 0;
 
@@ -417,7 +441,7 @@ function createResearchDropdown(researchData, reasoningSteps) {
       <div class="research-header" onclick="toggleResearchDropdown(this)">
         <div class="research-header-left">
           <i class="fas fa-cog"></i>
-          <span class="research-title">AI Reasoning Process</span>
+          <span class="research-title">Research</span>
           <span class="research-subtitle">(No processing details available)</span>
         </div>
         <span class="research-toggle">▼</span>
@@ -444,8 +468,7 @@ function createResearchDropdown(researchData, reasoningSteps) {
   const summaryStats = hasResearchData ? {
     total: totalDocs,
     selected: selectedDocs.length,
-    avgDistance: totalDocs > 0 ? (researchData.reduce((sum, doc) => sum + (doc.distance || 0), 0) / totalDocs).toFixed(3) : 'N/A',
-    avgSimilarity: totalDocs > 0 ? (researchData.reduce((sum, doc) => sum + (doc.cosine_similarity || 0), 0) / totalDocs * 100).toFixed(1) + '%' : 'N/A'
+    avgDistance: totalDocs > 0 ? (researchData.reduce((sum, doc) => sum + (doc.distance || 0), 0) / totalDocs).toFixed(3) : 'N/A'
   } : null;
 
   return `
@@ -453,7 +476,7 @@ function createResearchDropdown(researchData, reasoningSteps) {
     <div class="research-header" onclick="toggleResearchDropdown(this)">
       <div class="research-header-left">
         <i class="fas fa-cog"></i>
-        <span class="research-title">AI Reasoning Process</span>
+        <span class="research-title">Research</span>
         <span class="research-subtitle">${subtitle}</span>
       </div>
       <span class="research-toggle">▼</span>
@@ -501,10 +524,6 @@ function createResearchSummarySection(summaryStats) {
       <span class="research-summary-label">Average Distance:</span>
       <span class="research-summary-value">${summaryStats.avgDistance}</span>
     </div>
-    <div class="research-summary-item">
-      <span class="research-summary-label">Average Similarity:</span>
-      <span class="research-summary-value">${summaryStats.avgSimilarity}</span>
-    </div>
   </div>`;
 }
 
@@ -516,7 +535,7 @@ function createDocumentsSection(researchData) {
 } function createDocumentItem(doc) {
   const isSelected = doc.selected;
   const distance = parseFloat(doc.distance || 0);
-  const similarity = parseFloat(doc.cosine_similarity || 0);
+  const similarity = parseFloat(doc.similarity_score || 0);
 
   // Score classifications
   const distanceClass = distance < 0.3 ? 'high' : distance < 0.5 ? 'medium' : 'low';

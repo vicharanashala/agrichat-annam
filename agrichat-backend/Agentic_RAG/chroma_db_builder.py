@@ -22,8 +22,9 @@ class ChromaDBBuilder:
         column_map = {
         "DistrictName": "District",
         # "Refined KCC Query [HF]": "Question",
-        "QUESTION (by AT)": "Question",
+        "QUESTION [by Agri Team]": "Question",
         "Final Answer": "Answer",
+        "Source [Name and Link]": "Source"
         }
         df.rename(columns=column_map, inplace=True)
         standard_columns = [
@@ -72,7 +73,7 @@ class ChromaDBBuilder:
 
 if __name__ == "__main__":
     storage_dir = r"/home/ubuntu/agrichat-annam/agrichat-backend/chromaDb"
-    csv_file = r"/home/ubuntu/agrichat-annam/agrichat-backend/Agentic_RAG/Db - Sheet1.csv"
+    csv_file = r"/home/ubuntu/agrichat-annam/Golden Dataset/5 States x 50 Q&A - Tamilnadu 50.csv"
     builder = ChromaDBBuilder(csv_path=csv_file, persist_dir=storage_dir)
     builder.load_csv_to_documents()
     builder.store_documents_to_chroma()

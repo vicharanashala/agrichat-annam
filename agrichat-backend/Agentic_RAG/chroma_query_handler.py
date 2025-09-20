@@ -1354,6 +1354,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 'answer': "__FALLBACK__",
                 'source': "Fallback LLM",
                 'cosine_similarity': 0.0,
+                'distance': 1.0,  # Maximum distance indicates no database available
                 'document_metadata': None
             }
         
@@ -1368,6 +1369,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                     'answer': "__FALLBACK__",
                     'source': "Fallback LLM",
                     'cosine_similarity': 0.0,
+                    'distance': 1.0,  # Maximum distance indicates no results
                     'document_metadata': None
                 }
             
@@ -1386,6 +1388,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                     'answer': "__FALLBACK__",
                     'source': "Fallback LLM",
                     'cosine_similarity': 0.0,
+                    'distance': best_score,  # Use actual ChromaDB distance
                     'document_metadata': None
                 }
             
@@ -1403,6 +1406,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                     'answer': "__FALLBACK__",
                     'source': "Fallback LLM",
                     'cosine_similarity': cosine_score,
+                    'distance': best_score,  # Use actual ChromaDB distance
                     'document_metadata': None
                 }
             
@@ -1412,6 +1416,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                     'answer': "__FALLBACK__",
                     'source': "Fallback LLM",
                     'cosine_similarity': cosine_score,
+                    'distance': best_score,  # Use actual ChromaDB distance
                     'document_metadata': None
                 }
             
@@ -1440,6 +1445,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                     'answer': "__FALLBACK__",
                     'source': "Fallback LLM",
                     'cosine_similarity': cosine_score,
+                    'distance': best_score,  # Use actual ChromaDB distance
                     'document_metadata': None
                 }
             
@@ -1511,6 +1517,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                         'answer': "__FALLBACK__",
                         'source': "Fallback LLM",
                         'cosine_similarity': cosine_score,
+                        'distance': best_score,  # Use actual ChromaDB distance
                         'document_metadata': None
                     }
                 
@@ -1524,6 +1531,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                         'answer': "__FALLBACK__",
                         'source': "Fallback LLM",
                         'cosine_similarity': cosine_score,
+                        'distance': best_score,  # Use actual ChromaDB distance
                         'document_metadata': None
                     }
                 
@@ -1558,6 +1566,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                         'answer': final_response,
                         'source': "PoPs Database",
                         'cosine_similarity': cosine_score,
+                        'distance': best_score,  # Use actual ChromaDB distance
                         'document_metadata': best_doc.metadata
                     }
                 else:
@@ -1567,6 +1576,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                         'answer': "__FALLBACK__",
                         'source': "Fallback LLM",
                         'cosine_similarity': cosine_score,
+                        'distance': best_score,  # Use actual ChromaDB distance
                         'document_metadata': None
                     }
                     
@@ -1576,6 +1586,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                     'answer': "__FALLBACK__",
                     'source': "Fallback LLM",
                     'cosine_similarity': cosine_score,
+                    'distance': best_score,  # Use actual ChromaDB distance
                     'document_metadata': None
                 }
                 
@@ -1585,6 +1596,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 'answer': "__FALLBACK__",
                 'source': "Fallback LLM",
                 'cosine_similarity': 0.0,
+                'distance': 1.0,  # Maximum distance indicates search failed
                 'document_metadata': None
             }
 
@@ -1636,24 +1648,69 @@ IMPORTANT: Always respond in the same language in which the query has been asked
             - source: "Golden Database", "RAG Database", "PoPs Database", or "Fallback LLM"
             - cosine_similarity: Similarity score (0.0-1.0)
             - document_metadata: Metadata of the source document (if applicable)
+            - reasoning_steps: List of processing steps for frontend display
+            - research_data: List of retrieved documents with scores
         """
+        # Initialize tracking data for frontend display
+        reasoning_steps = []
+        research_data = []
+        
+        reasoning_steps.append("Original question received and processed")
+        
         if db_filter:
-            return self._handle_filtered_database_query(question, conversation_history, user_state, db_filter)
+            reasoning_steps.append(f"Using single database filter: {db_filter}")
+            result = self._handle_filtered_database_query(question, conversation_history, user_state, db_filter)
+        elif database_selection is not None:
+            reasoning_steps.append(f"Database selection: {', '.join(database_selection)}")
+            result = self._handle_database_combination(question, conversation_history, user_state, database_selection)
+        else:
+            reasoning_steps.append("Using default database combination: rag, pops, llm")
+            result = self._handle_database_combination(question, conversation_history, user_state, ["rag", "pops", "llm"])
         
-        if database_selection is not None:
-            return self._handle_database_combination(question, conversation_history, user_state, database_selection)
+        # Add basic research data if we have document metadata
+        if 'document_metadata' in result and result['document_metadata'] and not research_data:
+            research_doc = {
+                'content': result['answer'][:200] + "..." if len(result['answer']) > 200 else result['answer'],
+                'similarity_score': result.get('cosine_similarity', 0),
+                'distance': result.get('distance', 0),  # Use the actual ChromaDB distance, don't convert
+                'source': result['source'],
+                'metadata': result['document_metadata'],
+                'selected': True,
+                'rank': 1,
+                'collection_type': result['source'],
+                'content_preview': result['answer'][:150] + "..." if len(result['answer']) > 150 else result['answer'],
+                'selection_reason': f"High relevance match (similarity: {result.get('cosine_similarity', 0):.2f})"
+            }
+            research_data.append(research_doc)
         
-        return self._handle_database_combination(question, conversation_history, user_state, ["rag", "pops", "llm"])
+        reasoning_steps.append(f"Final result: {result['source']} (similarity: {result.get('cosine_similarity', 0):.3f})")
+        
+        # Add the collected data to the result
+        result['reasoning_steps'] = reasoning_steps
+        result['research_data'] = research_data
+        
+        return result
 
-    def _handle_database_combination(self, question: str, conversation_history: Optional[List[Dict]], user_state: str, database_selection: List[str]) -> Dict[str, any]:
+    def _handle_database_combination(self, question: str, conversation_history: Optional[List[Dict]], user_state: str, database_selection: List[str], reasoning_steps: Optional[List[str]] = None, research_data: Optional[List[Dict]] = None) -> Dict[str, any]:
         """Handle queries with multiple database combinations"""
+        if reasoning_steps is None:
+            reasoning_steps = []
+        if research_data is None:
+            research_data = []
+            
         print(f"[DB_COMBINATION] ==========================================")
         print(f"[DB_COMBINATION] Processing question: {question}")
         print(f"[DB_COMBINATION] Selected databases: {database_selection}")
         print(f"[DB_COMBINATION] User state: {user_state}")
         print(f"[DB_COMBINATION] ==========================================")
         
+        reasoning_steps.append(f"Query classified as: AGRICULTURE")
+        reasoning_steps.append(f"Effective location determined: {user_state or 'India'}")
+        
         if not database_selection:
+            print("[DB_COMBINATION] ⚠️ No databases selected, using LLM fallback")
+            reasoning_steps.append("No databases selected, using LLM fallback")
+            return self._query_llm_only(question, conversation_history, user_state)
             print("[DB_COMBINATION] ⚠️ No databases selected, using LLM fallback")
             return self._query_llm_only(question, conversation_history, user_state)
         
@@ -1866,6 +1923,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                                 'answer': answer_text + source_info,
                                 'source': "RAG Database (Golden)",
                                 'cosine_similarity': cosine_score,
+                                'distance': distance,
                                 'document_metadata': doc.metadata,
                                 'research_data': research_data
                             }
@@ -1889,6 +1947,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                         'answer': llm_response,
                         'source': "RAG Database",
                         'cosine_similarity': cosine_score,
+                        'distance': distance,
                         'document_metadata': doc.metadata,
                         'research_data': research_data,
                         'reasoning_steps': reasoning_steps
@@ -1900,6 +1959,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
             'answer': "I don't have enough information to answer that from the RAG database.",
             'source': "RAG Database",
             'cosine_similarity': 0.0,
+            'distance': 1.0,  # Maximum distance indicates no match
             'document_metadata': {},
             'research_data': research_data,
             'reasoning_steps': reasoning_steps
@@ -1931,6 +1991,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 'answer': "I don't have enough information to answer that from the PoPs database.",
                 'source': "PoPs Database",
                 'cosine_similarity': 0.0,
+                'distance': 1.0,  # Maximum distance indicates no match
                 'document_metadata': {},
                 'research_data': [],
                 'reasoning_steps': reasoning_steps
@@ -1991,6 +2052,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 'answer': final_response,
                 'source': "Fallback LLM",
                 'cosine_similarity': 0.0,
+                'distance': 1.0,  # Maximum distance indicates no database match
                 'document_metadata': None,
                 'research_data': [],
                 'reasoning_steps': reasoning_steps
@@ -2035,6 +2097,7 @@ Provide a comprehensive answer focusing on Indian agricultural practices, variet
                     'answer': final_response,
                     'source': "Fallback LLM",
                     'cosine_similarity': 0.0,
+                    'distance': 1.0,  # Maximum distance indicates no database match
                     'document_metadata': None,
                     'research_data': [],
                     'reasoning_steps': reasoning_steps
@@ -2049,6 +2112,7 @@ Provide a comprehensive answer focusing on Indian agricultural practices, variet
                     'answer': final_response,
                     'source': "Fallback LLM",
                     'cosine_similarity': 0.0,
+                    'distance': 1.0,  # Maximum distance indicates no database match
                     'document_metadata': None,
                     'research_data': []
                 }
