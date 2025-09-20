@@ -374,7 +374,7 @@ function copyToClipboard(button) {
 
 
 
-function appendMessage(sender, text, index = null, rating = null, researchData = null) {
+function appendMessage(sender, text, index = null, rating = null, researchData = null, reasoningSteps = null) {
   const div = document.createElement("div");
   div.className = `message ${sender}`;
 
@@ -400,81 +400,120 @@ function appendMessage(sender, text, index = null, rating = null, researchData =
         </svg>
       </button>
     </div>
-    ${createResearchDropdown(researchData)}
+    ${createResearchDropdown(researchData, reasoningSteps)}
   `;
   }
 
   document.getElementById("chatWindow").appendChild(div);
 }
 
-function createResearchDropdown(researchData) {
-  if (!researchData || !Array.isArray(researchData) || researchData.length === 0) {
+function createResearchDropdown(researchData, reasoningSteps) {
+  const hasResearchData = researchData && Array.isArray(researchData) && researchData.length > 0;
+  const hasReasoningSteps = reasoningSteps && Array.isArray(reasoningSteps) && reasoningSteps.length > 0;
+
+  if (!hasResearchData && !hasReasoningSteps) {
     return `
     <div class="research-dropdown">
       <div class="research-header" onclick="toggleResearchDropdown(this)">
         <div class="research-header-left">
-          <i class="fas fa-search"></i>
-          <span class="research-title">Research Process</span>
-          <span class="research-subtitle">(No document analysis performed)</span>
+          <i class="fas fa-cog"></i>
+          <span class="research-title">AI Reasoning Process</span>
+          <span class="research-subtitle">(No processing details available)</span>
         </div>
         <span class="research-toggle">▼</span>
       </div>
       <div class="research-content">
         <div class="no-research-data">
           <i class="fas fa-info-circle"></i>
-          <div>This response was generated without document analysis</div>
+          <div>No reasoning information available for this response</div>
         </div>
       </div>
     </div>`;
   }
 
-  const selectedDocs = researchData.filter(doc => doc.selected);
-  const totalDocs = researchData.length;
+  const selectedDocs = hasResearchData ? researchData.filter(doc => doc.selected) : [];
+  const totalDocs = hasResearchData ? researchData.length : 0;
 
-  const summaryStats = {
+  let subtitle = '';
+  if (hasResearchData) {
+    subtitle = `(${selectedDocs.length}/${totalDocs} documents selected)`;
+  } else if (hasReasoningSteps) {
+    subtitle = `(${reasoningSteps.length} processing steps)`;
+  }
+
+  const summaryStats = hasResearchData ? {
     total: totalDocs,
     selected: selectedDocs.length,
     avgDistance: totalDocs > 0 ? (researchData.reduce((sum, doc) => sum + (doc.distance || 0), 0) / totalDocs).toFixed(3) : 'N/A',
     avgSimilarity: totalDocs > 0 ? (researchData.reduce((sum, doc) => sum + (doc.cosine_similarity || 0), 0) / totalDocs * 100).toFixed(1) + '%' : 'N/A'
-  };
+  } : null;
 
   return `
   <div class="research-dropdown">
     <div class="research-header" onclick="toggleResearchDropdown(this)">
       <div class="research-header-left">
-        <i class="fas fa-search"></i>
-        <span class="research-title">Research Process</span>
-        <span class="research-subtitle">(${selectedDocs.length}/${totalDocs} documents selected)</span>
+        <i class="fas fa-cog"></i>
+        <span class="research-title">AI Reasoning Process</span>
+        <span class="research-subtitle">${subtitle}</span>
       </div>
       <span class="research-toggle">▼</span>
     </div>
     <div class="research-content">
-      <div class="research-summary">
-        <div class="research-summary-item">
-          <span class="research-summary-label">Documents Analyzed:</span>
-          <span class="research-summary-value">${totalDocs}</span>
-        </div>
-        <div class="research-summary-item">
-          <span class="research-summary-label">Documents Selected:</span>
-          <span class="research-summary-value">${selectedDocs.length}</span>
-        </div>
-        <div class="research-summary-item">
-          <span class="research-summary-label">Average Distance:</span>
-          <span class="research-summary-value">${summaryStats.avgDistance}</span>
-        </div>
-        <div class="research-summary-item">
-          <span class="research-summary-label">Average Similarity:</span>
-          <span class="research-summary-value">${summaryStats.avgSimilarity}</span>
-        </div>
-      </div>
-      <div class="research-documents">
-        ${researchData.map(doc => createDocumentItem(doc)).join('')}
-      </div>
+      ${hasReasoningSteps ? createReasoningStepsSection(reasoningSteps) : ''}
+      ${hasResearchData ? createResearchSummarySection(summaryStats) : ''}
+      ${hasResearchData ? createDocumentsSection(researchData) : ''}
     </div>
   </div>`;
 }
 
-function createDocumentItem(doc) {
+function createReasoningStepsSection(reasoningSteps) {
+  return `
+  <div class="reasoning-steps">
+    <div class="reasoning-header">
+      <i class="fas fa-brain"></i>
+      <span>Processing Steps</span>
+    </div>
+    <div class="reasoning-list">
+      ${reasoningSteps.map((step, index) => `
+        <div class="reasoning-step">
+          <span class="step-number">${index + 1}</span>
+          <span class="step-text">${step}</span>
+        </div>
+      `).join('')}
+    </div>
+  </div>`;
+}
+
+function createResearchSummarySection(summaryStats) {
+  if (!summaryStats) return '';
+
+  return `
+  <div class="research-summary">
+    <div class="research-summary-item">
+      <span class="research-summary-label">Documents Analyzed:</span>
+      <span class="research-summary-value">${summaryStats.total}</span>
+    </div>
+    <div class="research-summary-item">
+      <span class="research-summary-label">Documents Selected:</span>
+      <span class="research-summary-value">${summaryStats.selected}</span>
+    </div>
+    <div class="research-summary-item">
+      <span class="research-summary-label">Average Distance:</span>
+      <span class="research-summary-value">${summaryStats.avgDistance}</span>
+    </div>
+    <div class="research-summary-item">
+      <span class="research-summary-label">Average Similarity:</span>
+      <span class="research-summary-value">${summaryStats.avgSimilarity}</span>
+    </div>
+  </div>`;
+}
+
+function createDocumentsSection(researchData) {
+  return `
+  <div class="research-documents">
+    ${researchData.map(doc => createDocumentItem(doc)).join('')}
+  </div>`;
+} function createDocumentItem(doc) {
   const isSelected = doc.selected;
   const distance = parseFloat(doc.distance || 0);
   const similarity = parseFloat(doc.cosine_similarity || 0);
@@ -589,7 +628,7 @@ function loadChat(session) {
 
   session.messages.forEach((msg, idx) => {
     appendMessage("user", msg.question);
-    appendMessage("bot", msg.answer, idx, msg.rating || null, msg.research_data || null);
+    appendMessage("bot", msg.answer, idx, msg.rating || null, msg.research_data || null, msg.reasoning_steps || null);
   });
 
   if (session.recommendations && session.recommendations.length > 0) {
@@ -763,7 +802,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     const data = await res.json();
     const last = data.session.messages.at(-1);
     hideLoader();
-    appendMessage("bot", last.answer, null, null, last.research_data || null);
+    appendMessage("bot", last.answer, null, null, last.research_data || null, last.reasoning_steps || null);
 
     currentSession = data.session;
 

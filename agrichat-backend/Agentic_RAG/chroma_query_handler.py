@@ -1747,6 +1747,9 @@ IMPORTANT: Always respond in the same language in which the query has been asked
 
     def _query_rag_database_only(self, question: str, conversation_history: Optional[List[Dict]], user_state: str) -> Dict[str, any]:
         """Query unified RAG database (includes both Golden and RAG content)"""
+        reasoning_steps = []
+        reasoning_steps.append("Querying unified RAG database")
+        reasoning_steps.append(f"Original question: {question}")
         print("[DB_FILTER] Querying unified RAG database (Golden + RAG content)...")
         print(f"[DEBUG] Original question: {question}")
         
@@ -1755,10 +1758,13 @@ IMPORTANT: Always respond in the same language in which the query has been asked
             enhanced_query_result = self.context_manager.enhance_query_with_cot(question, conversation_history)
             if enhanced_query_result['requires_cot'] or enhanced_query_result['context_used']:
                 processing_query = enhanced_query_result['enhanced_query']
+                reasoning_steps.append(f"Enhanced query with context: {processing_query}")
                 print(f"[DEBUG] Enhanced query: {processing_query}")
         
+        reasoning_steps.append(f"Final processing query: {processing_query}")
         print(f"[DEBUG] Final processing query: {processing_query}")
         results = self.db.similarity_search_with_score(processing_query, k=6)
+        reasoning_steps.append(f"Retrieved {len(results)} documents from RAG database")
         print(f"[DEBUG] Retrieved {len(results)} documents from RAG database")
         
         # Collect research data for frontend display
@@ -1766,6 +1772,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
         
         # Get query embedding for proper cosine similarity calculation
         query_embedding = self.embedding_function.embed_query(processing_query)
+        reasoning_steps.append("🔢 Calculating cosine similarity scores for each document")
         
         for i, (doc, distance) in enumerate(results):
             # Get document embedding and calculate proper cosine similarity
@@ -1797,6 +1804,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
             distance_ok = distance < 0.35  # Low distance means high similarity in vector space
             cosine_ok = cosine_score >= 0.5  # High cosine similarity means semantic relevance
             
+            reasoning_steps.append(f"Doc {i+1}: Distance={distance:.4f} ({'✓' if distance_ok else '❌'}), Similarity={cosine_score:.3f} ({'✓' if cosine_ok else '❌'})")
             print(f"[FILTER_DEBUG] Doc: Distance={distance:.4f} (ok: {distance_ok}), Cosine={cosine_score:.3f} (ok: {cosine_ok})")
             
             if distance_ok and cosine_ok:
@@ -1815,13 +1823,17 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                     )
                     
                     if not crop_match:
-                        print(f"[CROP_VALIDATION] ⚠️ Cross-crop false positive detected!")
+                        reasoning_steps.append(f"Doc {i+1}: Crop validation failed - query crop '{query_crop}' vs doc crop '{doc_crop}'")
+                        print(f"[CROP_VALIDATION] Cross-crop false positive detected!")
                         print(f"[CROP_VALIDATION] Query crop: '{query_crop}' vs Document crop: '{doc_crop}'")
                         print(f"[CROP_VALIDATION] Similarity: {cosine_score:.3f} but different crops - skipping document")
                         is_crop_relevant = False
+                    else:
+                        reasoning_steps.append(f"Doc {i+1}: Crop validation passed - '{query_crop}' matches '{doc_crop}'")
                 
                 if is_crop_relevant:
                     collection_type = doc.metadata.get('collection', 'rag')
+                    reasoning_steps.append(f"Doc {i+1}: SELECTED - {collection_type} document with score {cosine_score:.3f}")
                     print(f"[DB_FILTER] ✓ RAG database match found (type: {collection_type}) with score: {cosine_score:.3f}")
                     print(f"[DEBUG] Selected document content: {doc.page_content}")
                     print(f"[DEBUG] Selected document metadata: {doc.metadata}")
@@ -1871,26 +1883,33 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                             max_tokens=1024
                         )
                     
+                    reasoning_steps.append(f"Generated response using selected document ({len(llm_response)} characters)")
                     print(f"[DEBUG] Generated response: {llm_response[:150]}...")
                     return {
                         'answer': llm_response,
                         'source': "RAG Database",
                         'cosine_similarity': cosine_score,
                         'document_metadata': doc.metadata,
-                        'research_data': research_data
+                        'research_data': research_data,
+                        'reasoning_steps': reasoning_steps
                     }
         
+        reasoning_steps.append("No suitable documents found (distance >= 0.35 OR cosine similarity < 0.7)")
         print("[DB_FILTER] ✗ No suitable RAG database results found (distance >= 0.35 OR cosine similarity < 0.7)")
         return {
             'answer': "I don't have enough information to answer that from the RAG database.",
             'source': "RAG Database",
             'cosine_similarity': 0.0,
             'document_metadata': {},
-            'research_data': research_data
+            'research_data': research_data,
+            'reasoning_steps': reasoning_steps
         }
     
     def _query_pops_database_only(self, question: str, conversation_history: Optional[List[Dict]], user_state: str) -> Dict[str, any]:
         """Query only PoPs database"""
+        reasoning_steps = []
+        reasoning_steps.append("Querying PoPs database only")
+        reasoning_steps.append(f"Original question: {question}")
         print("[DB_FILTER] Querying PoPs database only...")
         
         processing_query = question
@@ -1898,27 +1917,40 @@ IMPORTANT: Always respond in the same language in which the query has been asked
             enhanced_query_result = self.context_manager.enhance_query_with_cot(question, conversation_history)
             if enhanced_query_result['requires_cot'] or enhanced_query_result['context_used']:
                 processing_query = enhanced_query_result['enhanced_query']
+                reasoning_steps.append(f"Enhanced query with context: {processing_query}")
         
         effective_location = self.determine_effective_location(question, user_state)
+        reasoning_steps.append(f"Effective location determined: {effective_location}")
+        reasoning_steps.append("Searching PoPs database for relevant content")
+        
         result = self.search_pops_fallback(processing_query, effective_location)
         
         if result['answer'] == "__FALLBACK__":
+            reasoning_steps.append("o relevant content found in PoPs database")
             return {
                 'answer': "I don't have enough information to answer that from the PoPs database.",
                 'source': "PoPs Database",
                 'cosine_similarity': 0.0,
                 'document_metadata': {},
-                'research_data': []
+                'research_data': [],
+                'reasoning_steps': reasoning_steps
             }
         
+        reasoning_steps.append("Found relevant content in PoPs database")
         # Add empty research_data to PoPs result if not present
         if 'research_data' not in result:
             result['research_data'] = []
+        
+        # Add reasoning_steps to the result
+        result['reasoning_steps'] = reasoning_steps
         
         return result
 
     def _query_llm_only(self, question: str, conversation_history: Optional[List[Dict]], user_state: str) -> Dict[str, any]:
         """Query only LLM without any database"""
+        reasoning_steps = []
+        reasoning_steps.append("Using LLM only (no database search)")
+        reasoning_steps.append(f"Original question: {question}")
         print("[DB_FILTER] Using LLM only...")
         print(f"[DEBUG] LLM-only question: {question}")
         
@@ -1927,13 +1959,16 @@ IMPORTANT: Always respond in the same language in which the query has been asked
             enhanced_query_result = self.context_manager.enhance_query_with_cot(question, conversation_history)
             if enhanced_query_result['requires_cot'] or enhanced_query_result['context_used']:
                 processing_query = enhanced_query_result['enhanced_query']
+                reasoning_steps.append(f"Enhanced query with context: {processing_query}")
                 print(f"[DEBUG] LLM enhanced query: {processing_query}")
         
         # Use the classification system to determine response type
         category = self.classify_query(processing_query, conversation_history)
+        reasoning_steps.append(f"Query classified as: {category}")
         print(f"[DEBUG] Query classified as: {category}")
         
         if category == "GREETING":
+            reasoning_steps.append("Generating greeting response using dynamic template")
             print(f"[DEBUG] Generating greeting response")
             response = self.generate_dynamic_response(processing_query, mode="GREETING")
             source_text = "\n\n<small><i>Source: Fallback LLM</i></small>"
@@ -1943,9 +1978,11 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 'source': "Fallback LLM",
                 'cosine_similarity': 0.0,
                 'document_metadata': None,
-                'research_data': []
+                'research_data': [],
+                'reasoning_steps': reasoning_steps
             }
         elif category == "NON_AGRI":
+            reasoning_steps.append("Generating non-agricultural response template")
             print(f"[DEBUG] Generating non-agricultural response")
             response = self.generate_dynamic_response(processing_query, mode="NON_AGRI")
             source_text = "\n\n<small><i>Source: Fallback LLM</i></small>"
@@ -1955,12 +1992,14 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 'source': "Fallback LLM",
                 'cosine_similarity': 0.0,
                 'document_metadata': None,
-                'research_data': []
+                'research_data': [],
+                'reasoning_steps': reasoning_steps
             }
         else:
             # Agriculture question - use LLM directly
             effective_location = self.determine_effective_location(question, user_state)
             context_info = f"\nUser Location: {effective_location}" if effective_location else ""
+            reasoning_steps.append(f"Effective location determined: {effective_location}")
             print(f"[DEBUG] Effective location for LLM: {effective_location}")
             
             prompt = f"""You are an expert agricultural advisor specializing in Indian farming. Answer the following question with practical, actionable advice.
@@ -1971,9 +2010,11 @@ Question: {processing_query}{context_info}
 
 Provide a comprehensive answer focusing on Indian agricultural practices, varieties, and conditions. Include specific recommendations where possible."""
             
+            reasoning_steps.append(f"Using primary model")
             print(f"[DEBUG] LLM prompt preview: {prompt[:200]}...")
             
             try:
+                reasoning_steps.append("Calling LLM with selected model")
                 print(f"[DEBUG] Calling LLM with use_fallback=False (should use llama3.1:latest)")
                 llm_response = run_local_llm(
                     prompt,
@@ -1982,6 +2023,7 @@ Provide a comprehensive answer focusing on Indian agricultural practices, variet
                     use_fallback=False
                 )
                 
+                reasoning_steps.append(f"LLM response generated ({len(llm_response)} characters)")
                 print(f"[DEBUG] LLM response preview: {llm_response[:150]}...")
                 
                 # Add source attribution to the response
@@ -1994,9 +2036,11 @@ Provide a comprehensive answer focusing on Indian agricultural practices, variet
                     'source': "Fallback LLM",
                     'cosine_similarity': 0.0,
                     'document_metadata': None,
-                    'research_data': []
+                    'research_data': [],
+                    'reasoning_steps': reasoning_steps
                 }
             except Exception as e:
+                reasoning_steps.append(f"LLM error: {str(e)}")
                 print(f"[DB_FILTER] LLM error: {e}")
                 error_response = "I'm sorry, I'm unable to process your request at the moment. Please try again later."
                 source_text = "\n\n<small><i>Source: Fallback LLM</i></small>"
