@@ -381,8 +381,35 @@ function appendMessage(sender, text, index = null, rating = null, researchData =
   if (sender === "user") {
     div.innerHTML = ` ${text}`;
   } else {
+    // If researchData contains a youtube_url, inject a watch link right after the source attribution
+    let botAnswerHtml = text || '';
+    let youtubeUrl = null;
+    try {
+      if (researchData && Array.isArray(researchData)) {
+        for (const d of researchData) {
+          if (d && d.youtube_url) { youtubeUrl = d.youtube_url; break; }
+        }
+      }
+    } catch (e) {
+      youtubeUrl = null;
+    }
+
+    if (youtubeUrl) {
+      const watchHtml = ` <a class="inline-video-link" href="${youtubeUrl}" target="_blank" rel="noopener noreferrer">▶ Watch video</a>`;
+      if (botAnswerHtml.indexOf('</small>') !== -1) {
+        // insert immediately after the first closing small tag (where Source is often placed)
+        botAnswerHtml = botAnswerHtml.replace('</small>', `</small>${watchHtml}`);
+      } else if (botAnswerHtml.toLowerCase().indexOf('source:') !== -1) {
+        // As a fallback, append next to the word Source:
+        botAnswerHtml = botAnswerHtml.replace(/(source:\s*[^<\n\r]*)/i, `$1${watchHtml}`);
+      } else {
+        // final fallback: append at the end inside a small tag
+        botAnswerHtml = botAnswerHtml + `<div class="bot-source-video"><small>${watchHtml}</small></div>`;
+      }
+    }
+
     div.innerHTML = `
-    <div class="bot-answer">${text}</div>
+    <div class="bot-answer">${botAnswerHtml}</div>
     <div class="message-actions">
       <button class="copy-btn" onclick="copyToClipboard(this)" title="Copy">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 448 512">
