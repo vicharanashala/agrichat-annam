@@ -2,15 +2,33 @@ from langchain_community.vectorstores import Chroma
 import numpy as np
 from numpy.linalg import norm
 import re
+import os
 from typing import List, Dict, Optional, Tuple
 from context_manager import ConversationContext, MemoryStrategy
 from local_llm_interface import local_llm, local_embeddings, run_local_llm
 from datetime import datetime
 import pytz
-import argparse
 import hashlib
-from functools import lru_cache
-import string
+
+import builtins
+
+_original_print = builtins.print
+
+def _maybe_log(kind, msg):
+    """Controlled logger: only prints when 'kind' is in the allow-list.
+
+    Use this helper to emit only the small set of permitted log categories.
+    All direct calls to print() are suppressed below so the codebase must
+    use _maybe_log(...) for any visible logging.
+    """
+    allowed = ('relevant_doc', 'reranked_docs', 'final_answer')
+    try:
+        if kind in allowed:
+            _original_print(msg)
+    except Exception:
+        pass
+
+print = lambda *args, **kwargs: None
 
 class ContentQualityScorer:
     """
@@ -260,7 +278,6 @@ class ContentQualityScorer:
             Dict with is_relevant (bool), confidence (float), and reasoning (str)
         """
         try:
-            # Import the LLM interface
             from local_llm_interface import run_local_llm
             
             relevance_prompt = f"""You are a relevance checker for agricultural answers. Your task is to determine if the provided answer directly addresses the user's question.
@@ -294,7 +311,8 @@ REASONING: User asked about neem tree spacing and answer provides specific spaci
                 relevance_prompt,
                 temperature=0.1,
                 max_tokens=150,
-                use_fallback=False
+                use_fallback=False,
+                model=os.getenv('OLLAMA_MODEL_CLASSIFIER', 'qwen3:1.7b')
             )
             
             response_lines = llm_response.strip().split('\n')
@@ -314,11 +332,27 @@ REASONING: User asked about neem tree spacing and answer provides specific spaci
                 elif line.startswith('REASONING:'):
                     reasoning = line.split(':', 1)[1].strip()
             
+            # If parsing failed or the verifier returned unstructured output (e.g., includes '<think>'),
+            # fall back to semantic similarity between question and answer to decide relevance.
+            parsed_ok = (reasoning != "Failed to parse response") and (confidence and confidence > 0)
+            if (not parsed_ok) or ('<think>' in llm_response.lower()):
+                try:
+                    q_emb = self.embedding_function.embed_query(question)
+                    a_emb = self.embedding_function.embed_query(answer)
+                    sem_sim = self.cosine_similarity(q_emb, a_emb)
+                    # use semantic sim as a confidence proxy
+                    confidence = float(sem_sim)
+                    is_relevant = sem_sim >= 0.45
+                    reasoning = f"Fallback semantic-similarity used: {sem_sim:.3f}"
+                    print(f"[POPS RELEVANCE CHECK] Fallback semantic sim: {sem_sim:.3f}")
+                except Exception as e:
+                    print(f"[POPS RELEVANCE CHECK] Semantic fallback failed: {e}")
+
             print(f"[POPS RELEVANCE CHECK] Question: {question[:100]}...")
             print(f"[POPS RELEVANCE CHECK] Answer: {answer[:100]}...")
             print(f"[POPS RELEVANCE CHECK] Relevant: {is_relevant}, Confidence: {confidence:.2f}")
             print(f"[POPS RELEVANCE CHECK] Reasoning: {reasoning}")
-            
+
             return {
                 'is_relevant': is_relevant,
                 'confidence': confidence,
@@ -334,6 +368,7 @@ REASONING: User asked about neem tree spacing and answer provides specific spaci
                 'reasoning': f"Relevance check failed: {e}",
                 'raw_response': ""
             }
+
 
 class ChromaQueryHandler:
 
@@ -424,6 +459,36 @@ Respond with only one of these words: AGRICULTURE, GREETING, or NON_AGRI.
 {question}
 ### Category:
 """
+    def _extract_stored_question(self, doc) -> Optional[str]:
+        try:
+            for key in ['question', 'Question', 'title', 'Title', 'source_question']:
+                if doc.metadata and key in doc.metadata and doc.metadata.get(key):
+                    return str(doc.metadata.get(key))
+
+            if hasattr(doc, 'page_content') and isinstance(doc.page_content, str):
+                for line in doc.page_content.split('\n'):
+                    if line.strip().startswith('Question:'):
+                        return line.replace('Question:', '').strip()
+
+            return None
+        except Exception:
+            return None
+
+    def _is_exact_question_match(self, user_question: str, stored_question: Optional[str], threshold: float = 0.85) -> bool:
+        if not stored_question:
+            return False
+        try:
+            u = re.sub(r"\s+", " ", user_question.strip().lower())
+            s = re.sub(r"\s+", " ", stored_question.strip().lower())
+            if u == s:
+                return True
+
+            u_emb = self.embedding_function.embed_query(user_question)
+            s_emb = self.embedding_function.embed_query(stored_question)
+            sim = self.cosine_sim(u_emb, s_emb)
+            return sim >= threshold
+        except Exception:
+            return False
 
     GREETING_RESPONSE_PROMPT = """
 You are a friendly agricultural assistant. The user has greeted you with: "{question}"
@@ -529,6 +594,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
         self.quality_scorer = ContentQualityScorer()
         
         self.db = Chroma(
+            collection_name="langchain",
             persist_directory=chroma_path,
             embedding_function=self.embedding_function,
         )
@@ -584,7 +650,6 @@ IMPORTANT: Always respond in the same language in which the query has been asked
         if not metadata or not isinstance(metadata, dict):
             return None
 
-        # common keys that might contain links
         link_keys = ['link', 'Link', 'url', 'URL', 'video', 'video_link', 'youtube', 'youtube_url']
         for key in link_keys:
             val = metadata.get(key)
@@ -597,7 +662,6 @@ IMPORTANT: Always respond in the same language in which the query has been asked
             if 'youtu' in val.lower() or 'youtube' in val.lower():
                 return val.strip()
 
-        # sometimes link may be embedded in other metadata fields
         for k, v in metadata.items():
             if not v or not isinstance(v, str):
                 continue
@@ -1333,11 +1397,14 @@ IMPORTANT: Always respond in the same language in which the query has been asked
         current_month = datetime.now(IST).strftime('%B')
         prompt = self.CLASSIFIER_PROMPT.format(question=question, region_instruction=self.REGION_INSTRUCTION, current_month=current_month)
         try:
+            # Use qwen3:1.7b for classification to get crisp category and thinking trace
+            os.environ['OLLAMA_MODEL'] = os.getenv('OLLAMA_MODEL', 'qwen3:1.7b')
             response_text = run_local_llm(
                 prompt,
                 temperature=0,
                 max_tokens=20,
-                use_fallback=False
+                use_fallback=False,
+                model=os.getenv('OLLAMA_MODEL_CLASSIFIER', 'qwen3:1.7b')
             )
             category = response_text.strip().upper()
             if category in {"AGRICULTURE", "GREETING", "NON_AGRI"}:
@@ -1384,7 +1451,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 'answer': "__FALLBACK__",
                 'source': "Fallback LLM",
                 'cosine_similarity': 0.0,
-                'distance': 1.0,  # Maximum distance indicates no database available
+                'distance': 1.0,
                 'document_metadata': None
             }
         
@@ -1399,7 +1466,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                     'answer': "__FALLBACK__",
                     'source': "Fallback LLM",
                     'cosine_similarity': 0.0,
-                    'distance': 1.0,  # Maximum distance indicates no results
+                    'distance': 1.0,
                     'document_metadata': None
                 }
             
@@ -1412,13 +1479,10 @@ IMPORTANT: Always respond in the same language in which the query has been asked
             best_doc, best_score = pops_results[0]
             content = best_doc.page_content.strip()
 
-            # If the selected chunk looks like a summary or references tables/figures,
-            # try to pull other chunks from the same source file to surface details
             try:
                 metadata = getattr(best_doc, 'metadata', {}) or {}
                 file_path = metadata.get('file_path') or metadata.get('source_file')
                 total_chunks = int(metadata.get('total_chunks', 1)) if metadata.get('total_chunks') else 1
-                # Keywords indicating the chunk may be a summary pointing to a table/figure
                 summary_indicators = ['table', 'figure', 'list of', 'table 1', 'figure 1', 'see table', 'see figure']
                 if file_path and total_chunks > 1 and any(ind in content.lower() for ind in summary_indicators):
                     try:
@@ -1428,7 +1492,6 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                         variety_keywords = ['variety', 'varieties', 'cultivar', 'hybrid', 'pusa', 'samba', 'drr']
                         for doc_i, score_i in more_results:
                             doc_text = doc_i.page_content.strip()
-                            # collect lines that mention variety keywords or table entries
                             for ln in doc_text.split('\n'):
                                 lnl = ln.strip()
                                 if not lnl:
@@ -1436,7 +1499,6 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                                 if any(k in lnl.lower() for k in variety_keywords) or 'table' in lnl.lower():
                                     extra_lines.append(lnl)
                         if extra_lines:
-                            # append unique lines preserving order
                             seen = set()
                             unique_lines = []
                             for l in extra_lines:
@@ -1457,7 +1519,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                     'answer': "__FALLBACK__",
                     'source': "Fallback LLM",
                     'cosine_similarity': 0.0,
-                    'distance': best_score,  # Use actual ChromaDB distance
+                    'distance': best_score,
                     'document_metadata': None
                 }
             
@@ -1475,7 +1537,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                     'answer': "__FALLBACK__",
                     'source': "Fallback LLM",
                     'cosine_similarity': cosine_score,
-                    'distance': best_score,  # Use actual ChromaDB distance
+                    'distance': best_score,
                     'document_metadata': None
                 }
             
@@ -1485,7 +1547,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                     'answer': "__FALLBACK__",
                     'source': "Fallback LLM",
                     'cosine_similarity': cosine_score,
-                    'distance': best_score,  # Use actual ChromaDB distance
+                    'distance': best_score,
                     'document_metadata': None
                 }
             
@@ -1514,7 +1576,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                     'answer': "__FALLBACK__",
                     'source': "Fallback LLM",
                     'cosine_similarity': cosine_score,
-                    'distance': best_score,  # Use actual ChromaDB distance
+                    'distance': best_score,
                     'document_metadata': None
                 }
             
@@ -1526,9 +1588,10 @@ IMPORTANT: Always respond in the same language in which the query has been asked
             try:
                 generated_response = run_local_llm(
                     pops_prompt,
-                    temperature=0.1,  
-                    max_tokens=512,   
-                    use_fallback=False
+                    temperature=0.1,
+                    max_tokens=512,
+                    use_fallback=False,
+                    model=os.getenv('OLLAMA_MODEL_STRUCTURER', 'gemma3:4b')
                 )
                 
                 final_response = self.filter_response_thinking(generated_response.strip())
@@ -1549,7 +1612,6 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                     "doesn't contain information",
                     "cannot be answered"
                 ])
-                # Treat responses that explicitly say specifics are missing as insufficient
                 insufficient_phrases = [
                     'not provided', 'no specific', 'no specifics', 'does not include', "doesn't include",
                     'not included', 'not mentioned', 'no list', 'not listed', 'not available', 'no details',
@@ -1586,6 +1648,11 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 print(f"   Completeness Score: {quality_scores['completeness_score']:.3f}")
                 print(f"   Overall Score: {quality_scores['overall_score']:.3f}")
                 print(f"   Should Fallback: {quality_scores['should_fallback']}")
+                # DEBUG: expose decision variables
+                try:
+                    print(f"[POPS DEBUG] best_score={best_score:.3f}, cosine_score={cosine_score:.3f}, is_too_short={is_too_short}, is_refusal={is_refusal}, is_insufficient_info={is_insufficient_info}")
+                except Exception:
+                    pass
                 if cosine_score >= 0.75 and keyword_match:
                     print("[POPS FALLBACK] Strong PoPs match detected (cosine>=0.75 and keyword match). Running quick verification before accepting.")
                     try:
@@ -1594,10 +1661,11 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                         relevance_check = self.quality_scorer.check_pops_answer_relevance(question, final_response)
 
                         print(f"[POPS FALLBACK] Quick specificity: {quick_scores['specificity_score']:.3f}, relevance: {quick_scores['relevance_score']:.3f}, overall: {quick_scores['overall_score']:.3f}")
-                        print(f"[POPS FALLBACK] LLM relevance check - is_relevant: {relevance_check['is_relevant']}, confidence: {relevance_check['confidence']:.2f}")
+                        print(f"[POPS FALLBACK] LLM relevance check - is_relevant: {relevance_check.get('is_relevant')}, confidence: {relevance_check.get('confidence')}")
+                        print(f"[POPS DEBUG] relevance_check.raw_response: {relevance_check.get('raw_response')[:200] if relevance_check.get('raw_response') else ''}")
 
-                        # Acceptance rules for strong match: not a refusal, not too short, and both checks pass thresholds
                         accept_quick = (not is_refusal and not is_too_short and not is_insufficient_info and quick_scores['overall_score'] >= 0.35 and relevance_check['is_relevant'] and relevance_check['confidence'] >= 0.5)
+
                         if accept_quick:
                             source_text = "\n\n<small><i>Source: Fallback to Package of Practices Database (strong match)</i></small>"
                             final_response += source_text
@@ -1607,7 +1675,8 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                                 'source': "PoPs Database",
                                 'cosine_similarity': cosine_score,
                                 'distance': best_score,
-                                'document_metadata': best_doc.metadata
+                                'document_metadata': best_doc.metadata,
+                                'research_data': [{'source': 'PoPs', 'content': content}]
                             }
                         else:
                             print("[POPS FALLBACK] Strong match failed quick verification, proceeding to full validation/fallback")
@@ -1665,14 +1734,15 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 if is_valid_pops_response:
                     source_text = "\n\n<small><i>Source: Fallback to Package of Practices Database</i></small>"
                     final_response += source_text
-                    
+
                     print(f"[POPS FALLBACK] ✓ Successfully generated valid PoPs response")
                     return {
                         'answer': final_response,
                         'source': "PoPs Database",
                         'cosine_similarity': cosine_score,
-                        'distance': best_score,  # Use actual ChromaDB distance
-                        'document_metadata': best_doc.metadata
+                        'distance': best_score,
+                        'document_metadata': best_doc.metadata,
+                        'research_data': [{'source': 'PoPs', 'content': content}]
                     }
                 else:
                     print(f"[POPS FALLBACK] Response validation failed")
@@ -1705,26 +1775,6 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 'document_metadata': None
             }
 
-    def get_answer(self, question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None) -> str:
-        """
-        RAG-only approach - uses only database content, no fallback
-        
-        Strategy:
-        1. Check if greeting - handle with __NO_SOURCE__
-        2. Search database for relevant content
-        3. If good match found, generate response from database content
-        4. If no good match, return __FALLBACK__ for tools.py to handle
-        
-        Args:
-            question: Current user question
-            conversation_history: List of previous Q&A pairs for context
-            user_state: User's state/region for regional context
-            
-        Returns:
-            Generated response from RAG database or __FALLBACK__ indicator
-        """
-        result = self.get_answer_with_source(question, conversation_history, user_state)
-        return result['answer']
 
     def get_answer_with_source(self, question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None, db_filter: str = None, database_selection: Optional[List[str]] = None) -> Dict[str, any]:
         """
@@ -1756,7 +1806,6 @@ IMPORTANT: Always respond in the same language in which the query has been asked
             - reasoning_steps: List of processing steps for frontend display
             - research_data: List of retrieved documents with scores
         """
-        # Initialize tracking data for frontend display
         reasoning_steps = []
         research_data = []
         
@@ -1772,7 +1821,6 @@ IMPORTANT: Always respond in the same language in which the query has been asked
             reasoning_steps.append("Using default database combination: rag, pops, llm")
             result = self._handle_database_combination(question, conversation_history, user_state, ["rag", "pops", "llm"])
         
-        # Add basic research data if we have document metadata
         if 'document_metadata' in result and result['document_metadata'] and not research_data:
             research_doc = {
                 'content': result['answer'][:200] + "..." if len(result['answer']) > 200 else result['answer'],
@@ -1796,7 +1844,6 @@ IMPORTANT: Always respond in the same language in which the query has been asked
         
         reasoning_steps.append(f"Final result: {result['source']} (similarity: {result.get('cosine_similarity', 0):.3f})")
         
-        # Add the collected data to the result
         result['reasoning_steps'] = reasoning_steps
         result['research_data'] = research_data
         
@@ -1956,9 +2003,9 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 'collection_type': collection_type,
                 'content_preview': doc.page_content[:200] + "..." if len(doc.page_content) > 200 else doc.page_content,
                 'metadata': doc.metadata,
-                'selected': False  # Will be updated if this document is selected
+                'selected': False
             }
-            # Add YouTube URL if present in metadata
+            
             try:
                 youtube_url = self._extract_youtube_url(doc.metadata)
                 if youtube_url:
@@ -1970,14 +2017,12 @@ IMPORTANT: Always respond in the same language in which the query has been asked
         
         selected_doc_index = None
         for doc_idx, (doc, distance) in enumerate(results):
-            # Get document embedding and calculate proper cosine similarity
+            
             doc_embedding = self.embedding_function.embed_query(doc.page_content)
             cosine_score = self.cosine_sim(query_embedding, doc_embedding)
             
-            # Combined filtering using both distance and cosine similarity
-            # Distance should be low (< 0.35) AND cosine similarity should be high (>= 0.7)
-            distance_ok = distance < 0.35  # Low distance means high similarity in vector space
-            cosine_ok = cosine_score >= 0.6  # High cosine similarity means semantic relevance
+            distance_ok = distance < 0.35
+            cosine_ok = cosine_score >= 0.6
             
             reasoning_steps.append(f"Doc {i+1}: Distance={distance:.4f} ({'✓' if distance_ok else '❌'}), Similarity={cosine_score:.3f} ({'✓' if cosine_ok else '❌'})")
             print(f"[FILTER_DEBUG] Doc: Distance={distance:.4f} (ok: {distance_ok}), Cosine={cosine_score:.3f} (ok: {cosine_ok})")
@@ -2009,9 +2054,9 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 if is_crop_relevant:
                     collection_type = doc.metadata.get('collection', 'rag')
                     reasoning_steps.append(f"Doc {i+1}: SELECTED - {collection_type} document with score {cosine_score:.3f}")
-                    print(f"[DB_FILTER] ✓ RAG database match found (type: {collection_type}) with score: {cosine_score:.3f}")
-                    print(f"[DEBUG] Selected document content: {doc.page_content}")
-                    print(f"[DEBUG] Selected document metadata: {doc.metadata}")
+                    _maybe_log('relevant_doc', f"RAG database match found (type: {collection_type}) score: {cosine_score:.3f}")
+                    _maybe_log('relevant_doc', f"Selected document content: {doc.page_content}")
+                    _maybe_log('relevant_doc', f"Selected document metadata: {doc.metadata}")
                     
                     # Mark this document as selected in research data
                     selected_doc_index = doc_idx
@@ -2019,11 +2064,12 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                     research_data[doc_idx]['selection_reason'] = "Passed distance & cosine filters + crop validation"
                     
                     if cosine_score >= 0.6:
-                        print(f"[DEBUG] High similarity score ({cosine_score:.3f}) - extracting direct answer from database")
+                        # Attempt to extract a direct 'Answer:' block from the DB document
+                        print(f"[DEBUG] High similarity score ({cosine_score:.3f}) - attempting to extract direct answer from database")
                         content_lines = doc.page_content.split('\n')
                         answer_text = ""
                         capturing_answer = False
-                        
+
                         for line in content_lines:
                             if line.startswith('Answer:'):
                                 answer_text = line.replace('Answer:', '').strip()
@@ -2032,14 +2078,55 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                                 answer_text += " " + line.strip()
                             elif capturing_answer and not line.strip():
                                 break
-                        
-                        if answer_text:
-                            print(f"[DEBUG] Extracted direct answer: {answer_text[:100]}...")
+
+                        stored_question = self._extract_stored_question(doc)
+                        exact_match = False
+                        try:
+                            if stored_question:
+                                qnorm = re.sub(r"\s+", " ", question.strip().lower())
+                                snorm = re.sub(r"\s+", " ", stored_question.strip().lower())
+                                if qnorm == snorm:
+                                    exact_match = True
+                                else:
+                                    sq_emb = self.embedding_function.embed_query(stored_question)
+                                    q_emb = query_embedding
+                                    emb_sim = self.cosine_sim(q_emb, sq_emb)
+                                    if emb_sim >= 0.85:
+                                        exact_match = True
+                        except Exception:
+                            exact_match = False
+
+                        if answer_text and exact_match:
+                            _maybe_log('relevant_doc', f"Returning verbatim DB answer due to exact stored-question match")
                             source_info = f"\n\n**Source:** RAG Database (Golden)"
-                            
                             return {
                                 'answer': answer_text + source_info,
                                 'source': "RAG Database (Golden)",
+                                'cosine_similarity': cosine_score,
+                                'distance': distance,
+                                'document_metadata': doc.metadata,
+                                'research_data': research_data
+                            }
+                        elif answer_text and not exact_match:
+                            print(f"[DEBUG] DB answer present but not exact match - generating contextualized response using LLM")
+                            if collection_type == 'golden':
+                                llm_response = self.generate_answer_with_golden_context(processing_query, doc.page_content, user_state)
+                                determined_source = "Using Golden Database"
+                            else:
+                                context = f"Context: {doc.page_content}\n\nQuestion: {processing_query}"
+                                llm_response = run_local_llm(
+                                    f"{self.REGION_INSTRUCTION}\n{self.BASE_PROMPT}\n\n{context}",
+                                    temperature=0.1,
+                                    max_tokens=1024,
+                                    model=os.getenv('OLLAMA_MODEL_STRUCTURER', 'gemma3:4b')
+                                )
+                                determined_source = "Using RAG Database"
+
+                            source_text = f"\n\n<small><i>Source: {determined_source}</i></small>"
+                            final_response = llm_response + source_text
+                            return {
+                                'answer': final_response,
+                                'source': determined_source,
                                 'cosine_similarity': cosine_score,
                                 'distance': distance,
                                 'document_metadata': doc.metadata,
@@ -2056,7 +2143,8 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                         llm_response = run_local_llm(
                             f"{self.REGION_INSTRUCTION}\n{self.BASE_PROMPT}\n\n{context}",
                             temperature=0.1,
-                            max_tokens=1024
+                            max_tokens=1024,
+                            model=os.getenv('OLLAMA_MODEL_STRUCTURER', 'gemma3:4b')
                         )
                     
                     reasoning_steps.append(f"Generated response using selected document ({len(llm_response)} characters)")
@@ -2077,7 +2165,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
             'answer': "I don't have enough information to answer that from the RAG database.",
             'source': "RAG Database",
             'cosine_similarity': 0.0,
-            'distance': 1.0,  # Maximum distance indicates no match
+            'distance': 1.0,
             'document_metadata': {},
             'research_data': research_data,
             'reasoning_steps': reasoning_steps
@@ -2105,6 +2193,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
         
         if result['answer'] == "__FALLBACK__":
             reasoning_steps.append("o relevant content found in PoPs database")
+            
             return {
                 'answer': "I don't have enough information to answer that from the PoPs database.",
                 'source': "PoPs Database",
@@ -2112,17 +2201,15 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 'distance': 1.0,  # Maximum distance indicates no match
                 'document_metadata': {},
                 'research_data': [],
-                'reasoning_steps': reasoning_steps
+                'reasoning_steps': reasoning_steps,
             }
         
         reasoning_steps.append("Found relevant content in PoPs database")
-        # Add empty research_data to PoPs result if not present
         if 'research_data' not in result:
             result['research_data'] = []
         
-        # Add reasoning_steps to the result
         result['reasoning_steps'] = reasoning_steps
-        
+
         return result
 
     def _query_llm_only(self, question: str, conversation_history: Optional[List[Dict]], user_state: str) -> Dict[str, any]:
@@ -2141,7 +2228,6 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 reasoning_steps.append(f"Enhanced query with context: {processing_query}")
                 print(f"[DEBUG] LLM enhanced query: {processing_query}")
         
-        # Use the classification system to determine response type
         category = self.classify_query(processing_query, conversation_history)
         reasoning_steps.append(f"Query classified as: {category}")
         print(f"[DEBUG] Query classified as: {category}")
@@ -2200,7 +2286,8 @@ Provide a comprehensive answer focusing on Indian agricultural practices, variet
                     prompt,
                     temperature=0.3,
                     max_tokens=1024,
-                    use_fallback=False
+                    use_fallback=False,
+                    model=os.getenv('OLLAMA_MODEL_FALLBACK', 'gpt-oss:20b')
                 )
                 
                 reasoning_steps.append(f"LLM response generated ({len(llm_response)} characters)")
@@ -2476,7 +2563,8 @@ Provide a comprehensive answer focusing on Indian agricultural practices, variet
                     prompt,
                     temperature=0.3,
                     max_tokens=1024,
-                    use_fallback=False
+                    use_fallback=False,
+                    model=os.getenv('OLLAMA_MODEL_STRUCTURER', 'gemma:latest')
                 )
                 
                 print(f"[DEBUG] LLM raw response: {generated_response}")
@@ -2572,3 +2660,8 @@ Provide a comprehensive answer focusing on Indian agricultural practices, variet
         return None
 
 
+if __name__ == "__main__":
+    handler = ChromaQueryHandler(chroma_path="/home/ubuntu/agrichat-annam/agrichat-backend/chromaDb")
+    test_question = "What are the best practices for growing mangoes in Maharashtra?"
+    response = handler.get_answer_with_source(test_question, conversation_history=None, user_state="Maharashtra")
+    print(response)

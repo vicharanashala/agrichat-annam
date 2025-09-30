@@ -1,3 +1,166 @@
+// Authentication System
+class AuthManager {
+  constructor() {
+    this.user = null;
+    this.init();
+  }
+
+  init() {
+    // Check if user is already logged in
+    const savedUser = localStorage.getItem('agrichat_user');
+    if (savedUser) {
+      this.user = JSON.parse(savedUser);
+      this.hideLoginForm();
+      // Show welcome message on page load if user is already logged in
+      setTimeout(() => this.showWelcomeMessage(), 100);
+    } else {
+      this.showLoginForm();
+    }
+  }
+
+  async login(username, password) {
+    try {
+      const response = await apiCall(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password })
+      });
+
+      const result = await response.json();
+
+      if (result.authenticated) {
+        this.user = {
+          username: result.username,
+          role: result.role,
+          full_name: result.full_name
+        };
+        localStorage.setItem('agrichat_user', JSON.stringify(this.user));
+        this.hideLoginForm();
+        this.showWelcomeMessage();
+        return { success: true };
+      } else {
+        return { success: false, message: result.message };
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      return { success: false, message: 'Connection error. Please try again.' };
+    }
+  }
+
+  logout() {
+    this.user = null;
+    localStorage.removeItem('agrichat_user');
+
+    // Remove user info from header
+    const userInfo = document.querySelector('.user-info');
+    if (userInfo) {
+      userInfo.remove();
+    }
+
+    this.showLoginForm();
+  }
+
+  showLoginForm() {
+    const overlay = document.getElementById('loginOverlay');
+    if (overlay) {
+      overlay.style.display = 'flex';
+    }
+  }
+
+  hideLoginForm() {
+    const overlay = document.getElementById('loginOverlay');
+    if (overlay) {
+      overlay.style.display = 'none';
+    }
+  }
+
+  showWelcomeMessage() {
+    if (this.user) {
+      // Add user info to header
+      const header = document.querySelector('.header-left');
+      if (header) {
+        // Remove existing user info if it exists
+        const existingUserInfo = header.querySelector('.user-info');
+        if (existingUserInfo) {
+          existingUserInfo.remove();
+        }
+
+        const userInfo = document.createElement('div');
+        userInfo.className = 'user-info';
+        userInfo.innerHTML = `
+          <span style="color: #248241; font-weight: 600; margin-left: 1em;">
+            Welcome, ${this.user.full_name} (${this.user.role})
+          </span>
+          <button onclick="authManager.logout()" style="margin-left: 1em; padding: 0.3em 0.6em; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8em;">
+            Logout
+          </button>
+        `;
+        header.appendChild(userInfo);
+      }
+    }
+  }
+
+  isAuthenticated() {
+    return this.user !== null;
+  }
+
+  getUser() {
+    return this.user;
+  }
+
+  // Utility method to require authentication for actions
+  requireAuth(action) {
+    if (!this.isAuthenticated()) {
+      this.showLoginForm();
+      return false;
+    }
+    return true;
+  }
+}
+
+// Initialize auth manager
+const authManager = new AuthManager();
+
+// Handle login form submission
+document.addEventListener('DOMContentLoaded', function () {
+  const loginForm = document.getElementById('loginForm');
+  if (loginForm) {
+    loginForm.addEventListener('submit', async function (e) {
+      e.preventDefault();
+
+      const username = document.getElementById('loginUsername').value;
+      const password = document.getElementById('loginPassword').value;
+      const errorDiv = document.getElementById('loginError');
+
+      // Show loading state
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      const originalText = submitBtn.textContent;
+      submitBtn.textContent = 'Signing in...';
+      submitBtn.disabled = true;
+
+      try {
+        const result = await authManager.login(username, password);
+
+        if (result.success) {
+          errorDiv.style.display = 'none';
+        } else {
+          errorDiv.textContent = result.message;
+          errorDiv.style.display = 'block';
+        }
+      } catch (error) {
+        errorDiv.textContent = 'An error occurred. Please try again.';
+        errorDiv.style.display = 'block';
+      }
+
+      // Restore button state
+      submitBtn.textContent = originalText;
+      submitBtn.disabled = false;
+    });
+  }
+});
+
 async function apiCall(url, options = {}) {
   const headers = { ...(options.headers || {}) };
 
@@ -374,15 +537,37 @@ function copyToClipboard(button) {
 
 
 
-function appendMessage(sender, text, index = null, rating = null, researchData = null, reasoningSteps = null) {
+function appendMessage(sender, text, index = null, rating = null, researchData = null, reasoningSteps = null, source = null, confidence = null) {
   const div = document.createElement("div");
   div.className = `message ${sender}`;
 
   if (sender === "user") {
     div.innerHTML = ` ${text}`;
   } else {
-    // If researchData contains a youtube_url, inject a watch link right after the source attribution
     let botAnswerHtml = text || '';
+
+    if (typeof marked !== 'undefined') {
+      marked.setOptions({
+        breaks: true,
+        gfm: true,
+        sanitize: false,
+        smartLists: true,
+        highlight: function (code, lang) {
+          if (typeof hljs !== 'undefined' && lang) {
+            try {
+              return hljs.highlight(code, { language: lang }).value;
+            } catch (e) {
+              return hljs.highlightAuto(code).value;
+            }
+          }
+          return code;
+        }
+      });
+
+      // Render markdown to HTML
+      botAnswerHtml = marked.parse(botAnswerHtml);
+    }
+
     let youtubeUrl = null;
     try {
       if (researchData && Array.isArray(researchData)) {
@@ -394,41 +579,177 @@ function appendMessage(sender, text, index = null, rating = null, researchData =
       youtubeUrl = null;
     }
 
+    // Helper to get YouTube thumbnail URL from a YouTube link
+    function getYouTubeId(url) {
+      if (!url || typeof url !== 'string') return null;
+      // patterns: v=ID, /embed/ID, youtu.be/ID, /watch?v=ID
+      const idMatch = url.match(/(?:v=|\/embed\/|youtu\.be\/|\/v\/)([A-Za-z0-9_-]{6,})/);
+      if (idMatch && idMatch[1]) return idMatch[1];
+      // fallback: try to extract last path segment
+      try {
+        const u = new URL(url);
+        if (u.hostname && u.hostname.toLowerCase().includes('youtube')) {
+          const params = new URLSearchParams(u.search);
+          if (params.has('v')) return params.get('v');
+        }
+      } catch (e) {
+        // ignore
+      }
+      return null;
+    }
+
     if (youtubeUrl) {
-      const watchHtml = ` <a class="inline-video-link" href="${youtubeUrl}" target="_blank" rel="noopener noreferrer">▶ Watch video</a>`;
-      if (botAnswerHtml.indexOf('</small>') !== -1) {
-        // insert immediately after the first closing small tag (where Source is often placed)
-        botAnswerHtml = botAnswerHtml.replace('</small>', `</small>${watchHtml}`);
-      } else if (botAnswerHtml.toLowerCase().indexOf('source:') !== -1) {
-        // As a fallback, append next to the word Source:
-        botAnswerHtml = botAnswerHtml.replace(/(source:\s*[^<\n\r]*)/i, `$1${watchHtml}`);
-      } else {
-        // final fallback: append at the end inside a small tag
-        botAnswerHtml = botAnswerHtml + `<div class="bot-source-video"><small>${watchHtml}</small></div>`;
+      const vid = getYouTubeId(youtubeUrl);
+      const thumbUrl = vid ? `https://img.youtube.com/vi/${vid}/hqdefault.jpg` : null;
+      const thumbHtml = thumbUrl ?
+        `<div class="bot-source-video" style="margin-top:6px;"><div class="suggested-video-title" style="font-weight:600;margin-bottom:6px;">Suggested Video</div><a href="${youtubeUrl}" target="_blank" rel="noopener noreferrer"><img src="${thumbUrl}" alt="Watch video" style="max-width:360px; width:100%; height:auto; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.15);"></a></div>` :
+        `<div class="bot-source-video"><div class="suggested-video-title" style="font-weight:600;margin-bottom:4px;">Suggested Video</div><small><a class="inline-video-link" href="${youtubeUrl}" target="_blank" rel="noopener noreferrer">▶ Watch video</a></small></div>`;
+
+      // Prefer to insert under the explicit RAG/PoPs/Golden source label if present
+      try {
+        const ragRegex = /(RAG Database(?:\s*\([^)]*\))?|PoPs Database|Golden Database|Fallback LLM)/i;
+        if (ragRegex.test(botAnswerHtml)) {
+          botAnswerHtml = botAnswerHtml.replace(ragRegex, (match) => `${match}\n${thumbHtml}`);
+        } else if (botAnswerHtml.indexOf('</small>') !== -1) {
+          // insert immediately after the first closing small tag (where Source is often placed)
+          botAnswerHtml = botAnswerHtml.replace('</small>', `</small>${thumbHtml}`);
+        } else if (botAnswerHtml.toLowerCase().indexOf('source:') !== -1) {
+          // As a fallback, append next to the word Source:
+          botAnswerHtml = botAnswerHtml.replace(/(source:\s*[^<\n\r]*)/i, `$1${thumbHtml}`);
+        } else {
+          // final fallback: append at the end inside a small tag
+          botAnswerHtml = botAnswerHtml + thumbHtml;
+        }
+      } catch (e) {
+        // If anything goes wrong, append as a small block at the end
+        botAnswerHtml = botAnswerHtml + thumbHtml;
       }
     }
 
-    div.innerHTML = `
-    <div class="bot-answer">${botAnswerHtml}</div>
-    <div class="message-actions">
-      <button class="copy-btn" onclick="copyToClipboard(this)" title="Copy">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 448 512">
-          <path fill="currentColor" d="M320 448v40c0 13.255-10.745 24-24 24H24c-13.255 0-24-10.745-24-24V120c0-13.255 10.745-24 24-24h72v296c0 30.879 25.121 56 56 56h168zm0-344V0H152c-13.255 0-24 10.745-24 24v368c0 13.255 10.745 24 24 24h272c13.255 0 24-10.745 24-24V128H344c-13.2 0-24-10.8-24-24zm120.971-31.029L375.029 7.029A24 24 0 0 0 358.059 0H352v96h96v-6.059a24 24 0 0 0-7.029-16.97z"/>
-        </svg>
-      </button>
-      <button class="rate-btn thumbs-up ${rating === 'up' ? 'selected' : ''}" onclick="rateAnswer(${index}, 'up', this)" title="Thumbs up">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
-          <path fill="currentColor" fill-rule="evenodd" d="M15 9.7h4a2 2 0 0 1 1.6.9a2 2 0 0 1 .3 1.8l-2.4 7.2c-.3.9-.5 1.4-1.9 1.4c-2 0-4.2-.7-6.1-1.3L9 19.3V9.5A32 32 0 0 0 13.2 4c.1-.4.5-.7.9-.9h1.2c.4.1.7.4 1 .7l.2 1.3zM4.2 10H7v8a2 2 0 1 1-4 0v-6.8c0-.7.5-1.2 1.2-1.2" clip-rule="evenodd"/>
-        </svg>
-      </button>
-      <button class="rate-btn thumbs-down ${rating === 'down' ? 'selected' : ''}" onclick="rateAnswer(${index}, 'down', this)" title="Thumbs down">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
-          <path fill="currentColor" fill-rule="evenodd" d="M9 14.3H5a2 2 0 0 1-1.6-.9a2 2 0 0 1-.3-1.8l2.4-7.2C5.8 3.5 6 3 7.4 3c2 0 4.2.7 6.1 1.3l1.4.4v9.8a32 32 0 0 0-4.2 5.5c-.1.4-.5.7-.9.9a1.7 1.7 0 0 1-2.1-.7c-.2-.4-.3-.8-.3-1.3zm10.8-.3H17V6a2 2 0 1 1 4 0v6.8c0 .7-.5 1.2-1.2 1.2" clip-rule="evenodd"/>
-        </svg>
-      </button>
-    </div>
-    ${createResearchDropdown(researchData, reasoningSteps)}
-  `;
+    // If we have research data, reasoning steps, or explicit source/confidence, render a structured card
+    const shouldRenderStructured = (researchData && Array.isArray(researchData) && researchData.length > 0) ||
+      (reasoningSteps && Array.isArray(reasoningSteps) && reasoningSteps.length > 0) ||
+      (source && /rag|pops|golden|database/i.test(source));
+
+    if (shouldRenderStructured) {
+      try {
+        // Create a temp container to parse the HTML answer
+        const temp = document.createElement('div');
+        temp.innerHTML = botAnswerHtml;
+
+        // Title detection: prefer first heading, fallback to first sentence
+        let titleEl = temp.querySelector('h1, h2, h3');
+        let titleText = titleEl ? titleEl.textContent.trim() : null;
+
+        // Direct answer: first paragraph or first block of text
+        // Ignore any paragraph that contains a Source footer to avoid duplicates
+        let parasAll = Array.from(temp.querySelectorAll('p'));
+        let firstPara = parasAll.find(p => !/source:/i.test(p.textContent));
+        let directAnswer = firstPara ? firstPara.textContent.trim() : null;
+
+        // If no paragraph, take the first 300 chars of textContent
+        if (!directAnswer || directAnswer.length === 0) {
+          const txt = temp.textContent || '';
+          directAnswer = txt.split(/\n|\.|\!|\?/).filter(Boolean)[0] || txt.slice(0, 300);
+        }
+
+        // Clean directAnswer of any leading prefixes like 'Direct Answer:'
+        directAnswer = directAnswer.replace(/^(Direct Answer:|Answer:|Response:)\s*/i, '').trim();
+
+        // Additional details: remaining paragraphs (skip the first one)
+        // Exclude paragraphs that contain a Source footer
+        const paras = parasAll.map(p => p.textContent.trim()).filter(Boolean).filter(t => !/source:/i.test(t));
+        const additionalParas = paras.length > 1 ? paras.slice(1) : [];
+
+        // Also include any <ul>/<ol> items as details
+        const listItems = [];
+        const lists = Array.from(temp.querySelectorAll('ul, ol'));
+        lists.forEach(list => {
+          Array.from(list.querySelectorAll('li')).forEach(li => {
+            const t = li.textContent.trim();
+            if (t) listItems.push(t);
+          });
+        });
+
+        let details = additionalParas.concat(listItems);
+
+        // Detect backend-included source footer in the HTML: a '---' followed by italicized Source line
+        let backendSourceLabel = '';
+        let backendConfidence = '';
+        try {
+          const footerMatch = botAnswerHtml.match(/---\s*\n?\*Source:\s*([^\(\*]+)\s*(?:\(Confidence:\s*([^\)]+)\))?\*/i);
+          if (footerMatch) {
+            backendSourceLabel = footerMatch[1].trim();
+            if (footerMatch[2]) backendConfidence = footerMatch[2].trim();
+            // remove footer from displayed HTML to avoid duplication
+            botAnswerHtml = botAnswerHtml.replace(footerMatch[0], '').trim();
+            // refresh temp container since HTML changed
+            temp.innerHTML = botAnswerHtml;
+          }
+        } catch (e) {
+          // ignore
+        }
+
+        // Only show a separate source line if neither backend provided it nor we have explicit source
+        const sourceLine = (backendSourceLabel) ? `Source: ${backendSourceLabel}` : (source ? `Source: ${source}` : '');
+        const confidenceLine = (backendConfidence) ? `Confidence: ${backendConfidence}` : ((typeof confidence === 'number' && !isNaN(confidence)) ? `Confidence: ${(confidence * 100).toFixed(0)}%` : '');
+
+        // Build card HTML
+        const cardHtml = `
+          <div class="structured-card">
+            ${titleText ? `<div class="card-title">${titleText}</div>` : ''}
+            <div class="card-direct-answer">${directAnswer}</div>
+            ${details.length > 0 ? `<div class="card-additional"><ul>${details.map(d => `<li>${d}</li>`).join('')}</ul></div>` : ''}
+            <div class="card-meta" style="margin-top:8px; font-size:0.85em; color:#666;">
+              ${sourceLine} ${sourceLine && confidenceLine ? ' | ' : ''} ${confidenceLine}
+            </div>
+          </div>`;
+
+        div.innerHTML = `
+          ${cardHtml}
+          <div class="message-actions">
+            <button class="copy-btn" onclick="copyToClipboard(this)" title="Copy"> ... </button>
+            <button class="rate-btn thumbs-up ${rating === 'up' ? 'selected' : ''}" onclick="rateAnswer(${index}, 'up', this)" title="Thumbs up"> </button>
+            <button class="rate-btn thumbs-down ${rating === 'down' ? 'selected' : ''}" onclick="rateAnswer(${index}, 'down', this)" title="Thumbs down"> </button>
+          </div>
+          ${createResearchDropdown(researchData, reasoningSteps)}
+        `;
+      } catch (e) {
+        // Fallback to original rendering on any error
+        div.innerHTML = `
+          <div class="bot-answer">${botAnswerHtml}</div>
+          <div class="message-actions">
+            <button class="copy-btn" onclick="copyToClipboard(this)" title="Copy"> ... </button>
+            <button class="rate-btn thumbs-up ${rating === 'up' ? 'selected' : ''}" onclick="rateAnswer(${index}, 'up', this)" title="Thumbs up"> </button>
+            <button class="rate-btn thumbs-down ${rating === 'down' ? 'selected' : ''}" onclick="rateAnswer(${index}, 'down', this)" title="Thumbs down"> </button>
+          </div>
+          ${createResearchDropdown(researchData, reasoningSteps)}
+        `;
+      }
+    } else {
+      // Default rendering when no structured data
+      div.innerHTML = `
+      <div class="bot-answer">${botAnswerHtml}</div>
+      <div class="message-actions">
+        <button class="copy-btn" onclick="copyToClipboard(this)" title="Copy">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 448 512">
+            <path fill="currentColor" d="M320 448v40c0 13.255-10.745 24-24 24H24c-13.255 0-24-10.745-24-24V120c0-13.255 10.745-24 24-24h72v296c0 30.879 25.121 56 56 56h168zm0-344V0H152c-13.255 0-24 10.745-24 24v368c0 13.255 10.745 24 24 24h272c13.255 0 24-10.745 24-24V128H344c-13.2 0-24-10.8-24-24zm120.971-31.029L375.029 7.029A24 24 0 0 0 358.059 0H352v96h96v-6.059a24 24 0 0 0-7.029-16.97z"/>
+          </svg>
+        </button>
+        <button class="rate-btn thumbs-up ${rating === 'up' ? 'selected' : ''}" onclick="rateAnswer(${index}, 'up', this)" title="Thumbs up">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+            <path fill="currentColor" fill-rule="evenodd" d="M15 9.7h4a2 2 0 0 1 1.6.9a2 2 0 0 1 .3 1.8l-2.4 7.2c-.3.9-.5 1.4-1.9 1.4c-2 0-4.2-.7-6.1-1.3L9 19.3V9.5A32 32 0 0 0 13.2 4c.1-.4.5-.7.9-.9h1.2c.4.1.7.4 1 .7l.2 1.3zM4.2 10H7v8a2 2 0 1 1-4 0v-6.8c0-.7.5-1.2 1.2-1.2" clip-rule="evenodd"/>
+          </svg>
+        </button>
+        <button class="rate-btn thumbs-down ${rating === 'down' ? 'selected' : ''}" onclick="rateAnswer(${index}, 'down', this)" title="Thumbs down">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+            <path fill="currentColor" fill-rule="evenodd" d="M9 14.3H5a2 2 0 0 1-1.6-.9a2 2 0 0 1-.3-1.8l2.4-7.2C5.8 3.5 6 3 7.4 3c2 0 4.2.7 6.1 1.3l1.4.4v9.8a32 32 0 0 0-4.2 5.5c-.1.4-.5.7-.9.9a1.7 1.7 0 0 1-2.1-.7c-.2-.4-.3-.8-.3-1.3zm10.8-.3H17V6a2 2 0 1 1 4 0v6.8c0 .7-.5 1.2-1.2 1.2" clip-rule="evenodd"/>
+          </svg>
+        </button>
+      </div>
+      ${createResearchDropdown(researchData, reasoningSteps)}
+    `;
+    }
   }
 
   document.getElementById("chatWindow").appendChild(div);
@@ -439,10 +760,8 @@ function createResearchDropdown(researchData, reasoningSteps) {
   console.log('researchData received:', researchData);
   console.log('reasoningSteps received:', reasoningSteps);
 
-  // Only use hardcoded data if we have NO reasoning steps from backend at all
   const hasRealReasoningSteps = reasoningSteps && Array.isArray(reasoningSteps) && reasoningSteps.length > 0;
 
-  // Only add fallback data if we have absolutely no reasoning steps from backend
   if (!hasRealReasoningSteps) {
     console.log('No reasoning steps from backend, using fallback data');
     reasoningSteps = [
@@ -587,11 +906,35 @@ function createDocumentsSection(researchData) {
       ${doc.content_preview || 'No content preview available'}
     </div>
     ${doc.selection_reason ? `<div class="doc-selection-reason">✓ ${doc.selection_reason}</div>` : ''}
-    ${doc.youtube_url ? `
-      <div class="doc-video-link">
-        <a href="${doc.youtube_url}" target="_blank" rel="noopener noreferrer">▶ Watch related video</a>
-      </div>
-    ` : ''}
+    ${doc.youtube_url ? (() => {
+      // Extract youtube id and render thumbnail if possible
+      const url = doc.youtube_url;
+      let vid = null;
+      try {
+        const m = url.match(/(?:v=|\/embed\/|youtu\.be\/|\/v\/)([A-Za-z0-9_-]{6,})/);
+        if (m && m[1]) vid = m[1];
+        else {
+          const u = new URL(url);
+          const params = new URLSearchParams(u.search);
+          if (params.has('v')) vid = params.get('v');
+        }
+      } catch (e) { vid = null; }
+
+      const thumb = vid ? `https://img.youtube.com/vi/${vid}/hqdefault.jpg` : null;
+      return thumb ? `
+        <div class="doc-video-thumb">
+          <div class="suggested-video-title" style="font-weight:800;margin-bottom:6px;">Suggested Video: </div>
+          <a href="${url}" target="_blank" rel="noopener noreferrer">
+            <img src="${thumb}" alt="Watch video" style="max-width:240px; width:100%; height:auto; border-radius:6px;">
+          </a>
+        </div>
+      ` : `
+        <div class="doc-video-link">
+          <div class="suggested-video-title" style="font-weight:800;margin-bottom:4px;">Suggested Video: </div>
+          <a href="${url}" target="_blank" rel="noopener noreferrer">▶ Watch related video</a>
+        </div>
+      `;
+    })() : ''}
   </div>`;
 }
 
@@ -679,7 +1022,7 @@ function loadChat(session) {
 
   session.messages.forEach((msg, idx) => {
     appendMessage("user", msg.question);
-    appendMessage("bot", msg.answer, idx, msg.rating || null, msg.research_data || null, msg.reasoning_steps || null);
+    appendMessage("bot", msg.answer, idx, msg.rating || null, msg.research_data || null, msg.reasoning_steps || null, msg.source || null, msg.confidence || null);
   });
 
   if (session.recommendations && session.recommendations.length > 0) {
@@ -694,6 +1037,11 @@ function loadChat(session) {
 window.addEventListener("DOMContentLoaded", async () => {
   populateStateDropdowns();
   detectLocationAndLanguage();
+
+  // Ensure user info is displayed if logged in
+  if (authManager && authManager.isAuthenticated()) {
+    authManager.showWelcomeMessage();
+  }
 
   // Initialize database toggles
   loadDatabasePreferences();
@@ -730,6 +1078,12 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   document.getElementById("start-form").addEventListener("submit", async (e) => {
     e.preventDefault();
+
+    // Check authentication
+    if (!authManager.isAuthenticated()) {
+      authManager.showLoginForm();
+      return;
+    }
 
     //     const textarea = document.getElementById("start-input");
     //     // const textarea = e.target.querySelector("textarea");
@@ -824,6 +1178,13 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   document.getElementById("chat-form").addEventListener("submit", async (e) => {
     e.preventDefault();
+
+    // Check authentication
+    if (!authManager.isAuthenticated()) {
+      authManager.showLoginForm();
+      return;
+    }
+
     const input = document.getElementById("user-input");
     const question = input.value.trim();
     if (!question || !currentSession) return;
@@ -853,7 +1214,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     const data = await res.json();
     const last = data.session.messages.at(-1);
     hideLoader();
-    appendMessage("bot", last.answer, null, null, last.research_data || null, last.reasoning_steps || null);
+    appendMessage("bot", last.answer, null, null, last.research_data || null, last.reasoning_steps || null, last.source || null, last.confidence || null);
 
     currentSession = data.session;
 
@@ -861,6 +1222,9 @@ window.addEventListener("DOMContentLoaded", async () => {
       displayRecommendations(currentSession.recommendations);
     }
   });
+
+
+  // ...existing code... (streaming functionality removed by user request)
 
   document.getElementById("restoreBtn").addEventListener("click", async () => {
     if (currentSession) {
@@ -950,10 +1314,10 @@ function updateLocationUI(state, language) {
   document.getElementById("locationLanguage").textContent = language;
 
   const manualStateSelect = document.getElementById("manualStateSelect");
-  const manualLangSelect = document.getElementById("manualLanguageSelect");
+  // const manualLangSelect = document.getElementById("manualLanguageSelect");
 
   if (manualStateSelect) manualStateSelect.value = state;
-  if (manualLangSelect) manualLangSelect.value = language;
+  // if (manualLangSelect) manualLangSelect.value = language;
 }
 
 
@@ -985,7 +1349,9 @@ async function updateLanguageInBackend(state, language) {
 document.getElementById("manualStateSelect").addEventListener("change", async (e) => {
   const selectedState = e.target.value;
   const defaultLang = stateLanguageMap[selectedState] || "Hindi";
-  const selectedLang = document.getElementById("manualLanguageSelect").value || defaultLang;
+  const selectedLang = localStorage.getItem("agrichat_user_language") || defaultLang;
+
+  // const selectedLang = document.getElementById("manualLanguageSelect").value || defaultLang;
 
   localStorage.setItem("agrichat_user_state", selectedState);
   localStorage.setItem("agrichat_user_language", selectedLang);

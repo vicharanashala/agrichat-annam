@@ -17,6 +17,76 @@ class OllamaLLMInterface:
         self.fallback_model = fallback_model or os.getenv('OLLAMA_FALLBACK_MODEL', 'llama3.1:8b')
         self.session = requests.Session()
 
+    def stream_generate(self, prompt: str, model: str = None, temperature: float = 0.3):
+        """Stream generation from Ollama (line/chunk-level). Yields dict events.
+
+        Events format examples:
+        - {'type': 'token', 'text': '...'}
+        - {'type': 'done'}
+        - {'type': 'error', 'message': '...'}
+        - {'type': 'raw', 'data': <raw chunk>}  # raw model thoughts for research
+        """
+        selected_model = model or self.model_name
+        # Derive a short source name from the model (e.g., 'qwen3' from 'qwen3:1.7b')
+        source = str(selected_model).split(':')[0] if selected_model else ''
+        # Emit a model metadata event at the start of the stream so callers
+        # can display which model is being used.
+        yield {'type': 'model', 'model': selected_model, 'source': source}
+        try:
+            payload = {
+                "model": selected_model,
+                "prompt": prompt,
+                "stream": True,
+                "options": {"temperature": temperature}
+            }
+
+            with self.session.post(f"{self.ollama_endpoint}/api/generate", json=payload, stream=True, timeout=300) as resp:
+                if resp.status_code != 200:
+                    yield {'type': 'error', 'message': f'Ollama returned status {resp.status_code}'}
+                    return
+
+                buffer = ''
+                for chunk in resp.iter_lines(decode_unicode=True):
+                    if chunk is None:
+                        continue
+                    chunk = chunk.strip()
+                    if not chunk:
+                        continue
+                    try:
+                        parsed = json.loads(chunk)
+                        # include model/source metadata with raw events
+                        yield {'type': 'raw', 'data': parsed, 'model': selected_model, 'source': source}
+                        if isinstance(parsed, dict):
+                            # Some Ollama streams emit fine-grained tokens inside a 'token' key
+                            if 'token' in parsed:
+                                buffer += parsed.get('token', '')
+                            # Other responses put a full 'response' block; break into lines
+                            if 'response' in parsed and parsed.get('response'):
+                                buffer += parsed.get('response', '')
+
+                            # Flush buffer when it grows to a reasonable size or contains newline
+                            if '\n' in buffer or len(buffer) > 60:
+                                out = buffer
+                                buffer = ''
+                                yield {'type': 'token', 'text': out, 'model': selected_model, 'source': source}
+                    except Exception:
+                        # Non-JSON chunk, treat as raw text
+                        buffer += chunk + '\n'
+                        if '\n' in buffer or len(buffer) > 60:
+                            out = buffer
+                            buffer = ''
+                            yield {'type': 'token', 'text': out, 'model': selected_model, 'source': source}
+
+                # flush remaining buffer
+                if buffer:
+                    yield {'type': 'token', 'text': buffer, 'model': selected_model, 'source': source}
+                yield {'type': 'done'}
+
+        except requests.exceptions.RequestException as e:
+            yield {'type': 'error', 'message': f'Connection error: {e}'}
+        except Exception as e:
+            yield {'type': 'error', 'message': f'Unexpected error: {e}'}
+
     def generate_content(self, prompt: str, temperature: float = 0.3, max_tokens: int = 2048, use_fallback: bool = False) -> str:
         """
         Generate content using Ollama with dual-model support
@@ -127,10 +197,16 @@ class OllamaEmbeddings:
             return [0.0] * 768
 
 
-local_llm = OllamaLLMInterface(model_name="llama3.1:latest")
-local_embeddings = OllamaEmbeddings(embedding_model="nomic-embed-text")
+# Create named interfaces for multi-model pipelines
+reasoner_llm = OllamaLLMInterface(model_name=os.getenv('OLLAMA_MODEL_REASONER', 'qwen3:1.7b'))
+structurer_llm = OllamaLLMInterface(model_name=os.getenv('OLLAMA_MODEL_STRUCTURER', 'gemma:latest'))
+fallback_llm = OllamaLLMInterface(model_name=os.getenv('OLLAMA_MODEL_FALLBACK', 'llama3.1:8b'))
 
-def run_local_llm(prompt: str, temperature: float = 0.1, max_tokens: int = 1024, use_fallback: bool = False) -> str:
+# Backwards compatible default
+local_llm = OllamaLLMInterface(model_name=os.getenv('OLLAMA_MODEL', 'llama3.1:latest'))
+local_embeddings = OllamaEmbeddings(embedding_model=os.getenv('OLLAMA_EMBEDDING_MODEL', 'nomic-embed-text'))
+
+def run_local_llm(prompt: str, temperature: float = 0.1, max_tokens: int = 1024, use_fallback: bool = False, model: str = None) -> str:
     """
     Convenience function for LLM inference with dual-model support
     - use_fallback=False: Uses fast Llama 3.1 8B for RAG pipeline
@@ -143,7 +219,25 @@ def run_local_llm(prompt: str, temperature: float = 0.1, max_tokens: int = 1024,
     print(f"[RUN_LLM_DEBUG] - max_tokens: {max_tokens}")
     print(f"[RUN_LLM_DEBUG] ==========================================")
     
-    result = local_llm.generate_content(prompt, temperature, max_tokens, use_fallback)
+    if model is None:
+        if use_fallback:
+            model = os.getenv('OLLAMA_MODEL_FALLBACK', os.getenv('OLLAMA_FALLBACK_MODEL', 'gpt-oss:20b'))
+        else:
+            model = os.getenv('OLLAMA_MODEL', 'llama3.1:latest')
+
+    # Route to named instances if requested
+    selected_model_short = str(model).split(':')[0]
+    try:
+        if selected_model_short == str(reasoner_llm.model_name).split(':')[0]:
+            return reasoner_llm.generate_content(prompt, temperature, max_tokens, use_fallback=False)
+        if selected_model_short == str(structurer_llm.model_name).split(':')[0]:
+            return structurer_llm.generate_content(prompt, temperature, max_tokens, use_fallback=False)
+        if selected_model_short == str(fallback_llm.model_name).split(':')[0] or use_fallback:
+            return fallback_llm.generate_content(prompt, temperature, max_tokens, use_fallback=True)
+
+        # default
+        return local_llm.generate_content(prompt, temperature, max_tokens, use_fallback=(model != os.getenv('OLLAMA_MODEL', 'llama3.1:latest')))
+    except Exception as e:
+        print(f"[RUN_LLM_ERROR] {e}")
+        return "I apologize, I'm unable to generate a response right now."
     
-    print(f"[RUN_LLM_DEBUG] Final result length: {len(result)} characters")
-    return result

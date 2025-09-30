@@ -6,8 +6,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AgriChat - Your Farming Assistant</title>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300..700&family=Rufina:wght@400;700&display=swap" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="./style.css" />
+  <!-- Markdown rendering library -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@9.1.2/marked.min.js"></script>
+  <!-- Syntax highlighting for code blocks (optional) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+  <link rel="stylesheet" href="./style.css?v=2.0" />
 </head>
 
 <body class="sidebar-collapsed">
@@ -33,84 +39,59 @@
       <div id="activeSessions"></div>
       <div id="archivedSessions" style="display: none;"></div>
       <div class="no-sessions" id="noSessions" style="display: none;">
-        <div class="icon"><i class="fas fa-inbox"></i></div>
-        <p>No sessions found</p>
+        <div class="icon"><i class="fas fa-inbox" style="color: #2e564d"></i></div>
+        <p style="color: #0f3d16; font-size: 16px; font-family: 'Nunito', sans-serif;">No sessions found</p>
       </div>
     </div>
   </aside>
 
-  <!-- Start of Login/Register Form -->
-
-  <!-- LOGIN/REGISTER DOUBLE SECTIONED POPUP -->
-  <!-- <div id="loginOverlay" style="
-  position: fixed; inset: 0; background: rgba(255, 255, 255, 0.664);
-  display: flex; align-items: center; justify-content: center; z-index: 9999;">
-  
-  <div style="
-    background: white; border-radius: 12px; box-shadow: 0 8px 36px rgba(0,0,0,0.2);
-    width: 700px; max-width: 90vw; height: 400px;
-    display: flex;"> -->
-
-  <!-- Login Panel -->
-  <!-- <div style="
-      flex: 1; padding: 2em; border-right: 1px solid #eee; display: flex; flex-direction: column; justify-content: center;">
-      <h2 style="color: #248241; padding-bottom: 1rem;">Login</h2>
-      <small style="margin-bottom:10px; color:#666;">For existing members</small>
-      <form id="loginForm" style="display: flex; flex-direction: column; gap: 1em;">
-        <input type="text" placeholder="Username" required style="padding: 0.7em; border: 1px solid #ccc; border-radius: 6px;">
-        <input type="password" placeholder="Password" required style="padding: 0.7em; border: 1px solid #ccc; border-radius: 6px;">
-        <button type="submit" style="background: #118650; color: white; padding: 0.7em; border:none; border-radius: 6px; cursor: pointer;">Login</button>
-      </form>
-    </div> -->
-
-  <!-- Register Panel -->
-  <!-- <div style="
-      flex: 1; padding: 2em; display: flex; flex-direction: column; justify-content: center; background: rgb(55, 148, 51); border-top-right-radius: 6px; border-bottom-right-radius: 6px;">
-      <h2 style="color: #f1f7f3; padding-bottom: 1rem; margin-top: 1.4rem;">Register</h2>
-      <small style="margin-bottom:10px; color:#ffffff;">For new members</small>
-      <form id="registerForm" style="display: flex; flex-direction: column; gap:1em;">
-        
-      <input type="text" id="aadharInput" maxlength="14" placeholder="12-digit Aadhar ID"
-        style="padding: 0.7em; border: 1px solid #ccc; border-radius: 6px; letter-spacing:2px;" oninput="formatAadhaar(this)" autocomplete="off" required>
-
-        <div style="display: flex; gap: 0.5em; align-items: center;">
-        <span style="font-size:1em; padding: 0.3em 1em; border: 1px solid #ccc; border-radius:6px; background:#e9ecef;">🇮🇳 +91</span>
-        
-        <input
-          type="tel"
-          id="phoneInput"
-          maxlength="13"
-          placeholder="12345 67890"
-          autocomplete="off"
-          style="flex:1; padding:0.7em; border:1px solid #ccc; border-radius:6px; letter-spacing:1.5px;"
-          required
-          oninput="formatIndianPhone(this)"
-        >
-      </div>
-
-        <button type="submit" style="background: #15570c; color: white; padding: 0.7em; border:none; border-radius: 6px; cursor: pointer;">Sign Up</button>
-      </form> -->
-
-  <!-- For Guests -->
-  <!-- <button 
-      id="guestBtnRegister" 
-      type="button"
-      style="
-        margin-top: 1em; 
-        background: none; 
-        color: #fff;
-        text-decoration: underline;
-        cursor: pointer; 
-        border: none; 
-        font-size: 0.9em;
-        padding: 0;">
-      Or continue as guest with 5 messages
-      </button>
+  <!-- Login Form -->
+  <div id="loginOverlay" style="
+    position: fixed; inset: 0; background: rgba(0, 0, 0, 0.8);
+    display: none; align-items: center; justify-content: center; z-index: 9999;">
     
+    <div style="
+      background: white; border-radius: 12px; box-shadow: 0 8px 36px rgba(0,0,0,0.3);
+      width: 400px; max-width: 90vw; padding: 2em;">
+      
+      <div style="text-align: center; margin-bottom: 2em;">
+        <h2 style="color: #248241; margin-bottom: 0.5em;">🌾 AgriChat Login</h2>
+        <p style="color: #666; margin: 0;">Enter your credentials to access AgriChat</p>
+      </div>
+      
+      <form id="loginForm" style="display: flex; flex-direction: column; gap: 1em;">
+        <div>
+          <label style="display: block; margin-bottom: 0.5em; color: #333; font-weight: 600;">Username</label>
+          <input 
+            type="text" 
+            id="loginUsername"
+            placeholder="Enter your username" 
+            required 
+            style="width: 100%; padding: 0.8em; border: 2px solid #ddd; border-radius: 6px; font-size: 1em;"
+            autocomplete="username">
+        </div>
+        
+        <div>
+          <label style="display: block; margin-bottom: 0.5em; color: #333; font-weight: 600;">Password</label>
+          <input 
+            type="password" 
+            id="loginPassword"
+            placeholder="Enter your password" 
+            required 
+            style="width: 100%; padding: 0.8em; border: 2px solid #ddd; border-radius: 6px; font-size: 1em;"
+            autocomplete="current-password">
+        </div>
+        
+        <button 
+          type="submit" 
+          style="background: #248241; color: white; padding: 0.8em; border: none; border-radius: 6px; cursor: pointer; font-size: 1em; font-weight: 600; margin-top: 0.5em;">
+          Sign In
+        </button>
+      </form>
+      
+      <div id="loginError" style="color: #dc3545; text-align: center; margin-top: 1em; display: none;"></div>
     </div>
   </div>
-</div>   -->
-  <!-- End of Login/Register Form -->
 
   <main class="main-container">
     <header class="main-header">
@@ -136,7 +117,7 @@
               <input type="checkbox" id="ragToggle" checked>
               <span class="toggle-slider"></span>
             </label>
-            <span class="toggle-label">RAG Database</span>
+            <span class="toggle-label">Golden FAQs</span>
           </div>
           <div class="toggle-item">
             <label class="toggle-switch">
@@ -152,14 +133,21 @@
             </label>
             <span class="toggle-label">LLM Fallback</span>
           </div>
+          <div class="toggle-item">
+            <label class="toggle-switch">
+              <input type="checkbox" id="llmToggle" checked>
+              <span class="toggle-slider"></span>
+            </label>
+            <span class="toggle-label">Premium</span>
+          </div>
         </div>
       </div>
 
       <div class="location-info-bar">
         <div class="location-info" id="locationInfo">
           <i class="fas fa-map-marker-alt"></i>
-          <span id="locationState">Detecting...</span>,
-          <span id="locationLanguage">Detecting...</span>
+          <span id="locationState">Detecting...</span>
+          <!-- <span id="locationLanguage">Detecting...</span> -->
           <button id="editLocationBtn" class="edit-icon-btn" title="Edit">
             <i class="fas fa-pencil-alt"></i>
           </button>
@@ -170,10 +158,10 @@
             <label for="manualStateSelect">State</label>
             <select id="manualStateSelect"></select>
           </div>
-          <div class="dropdown-group">
+          <!-- <div class="dropdown-group">
             <label for="manualLanguageSelect">Language</label>
             <select id="manualLanguageSelect"></select>
-          </div>
+          </div> -->
 
           <!-- <select id="stateSelect" required style="margin-bottom: 10px; padding: 10px; border-radius: 8px; border: 1px solid #ccc;">
     <option value="">-- Select your State / UT --</option>
@@ -274,7 +262,7 @@
             <!-- Mic -->
             <div class="tooltip-container">
               <button type="button" class="feature-button" aria-label="Start voice input">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
                   <g>
                     <path d="M5 3a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0V3z" />
                     <path
@@ -299,7 +287,7 @@
 
         <!-- Welcome Screen chat-form floating in page-->
         <form id="start-form" class="chat-form" style="max-width: 600px; margin: 0 auto;">
-          <textarea id="start-input" name="question"
+          <textarea id="start-input" name="question"  
             placeholder="Ask me anything about farming, crops, soil, weather, or agricultural practices..." required
             rows="3"></textarea>
 
@@ -354,6 +342,16 @@
     const backdrop = document.getElementById('backdrop');
     const locationInfo = document.querySelector('.location-info');
     const body = document.body;
+
+    const textarea = document.getElementById('start-input');
+    const style = document.createElement('style');
+    style.innerHTML = `
+      #start-input::placeholder {
+        color: #f4f5f5 !important;
+        opacity: 1 !important;
+      }
+    `;
+    document.head.appendChild(style);
 
     // LOGIN-REGISTER FUNCTIONS:
 
