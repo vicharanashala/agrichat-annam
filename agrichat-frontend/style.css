@@ -37,7 +37,8 @@ body {
   font-family: 'Nunito', sans-serif;
   /* font-family: 'Rufina', serif; */
   /* font-family: 'Palatino Linotype', Palatino, serif; */
-  background-color: #2e564d;  /* #e0fde0; */
+  background-color: #2e564d;
+  /* #e0fde0; */
   display: grid;
   grid-template-columns: var(--sidebar-width) 1fr;
   height: 100vh;
@@ -858,6 +859,16 @@ input:checked+.toggle-slider:before {
   opacity: 1;
 }
 
+.dropdown-menu {
+  top: -140px !important;
+  right: -125px !important;
+}
+
+.tooltip-container:hover .dropdown-menu {
+  display: block !important;
+  /* show dropdown on hover */
+}
+
 .chat-form .feature-button.inactive:hover {
   color: #888888;
   cursor: not-allowed;
@@ -1094,7 +1105,89 @@ input:checked+.toggle-slider:before {
 }
 
 .location-info-bar {
+  /* position: relative; */
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.account-icon {
   position: relative;
+  cursor: pointer;
+}
+
+.account-icon svg {
+  width: 46px;
+  /* adjust size as needed */
+  height: 46px;
+  display: block;
+}
+
+.account-dropdown-menu {
+  background: var(--dark-green-bg) !important;
+  border: var(--dark-green-bg) !important;
+}
+
+/* Hidden logout button initially */
+.account-icon .account-dropdown-menu {
+  display: none;
+  position: absolute;
+  top: 60%;
+  /* position below the icon */
+  left: -50%;
+  transform: translateX(-50%);
+  margin-top: 8px;
+  padding: 6px 12px;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  font-size: 14px;
+  z-index: 100;
+}
+
+/* Show logout button on hover */
+.account-icon:hover .account-dropdown-menu {
+  display: block;
+}
+
+.account-icon:hover .account-dropdown-menu {
+  display: block;
+}
+
+.account-dropdown-menu .username {
+  color: var(--beige) !important;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.account-dropdown-menu .logout-btn {
+  display: block;
+  width: 100%;
+  padding: 6px 0;
+  border: none;
+  background-color: #e53e3e;
+  color: white;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.logout-btn {
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  background: #a64646 !important;
+  border-color: #a64646 !important;
+  border-radius: 5% !important;
+  color: #fac7c7 !important;
+}
+
+.location-info-bar {
+  /* position: relative; */
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 .location-dropdown {
@@ -2576,5 +2669,54 @@ select option:checked {
 
   #start-form.chat-form {
     margin-top: 0px !important;
+  }
+}
+
+/* Thinking stream animations */
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes blink {
+
+  0%,
+  50% {
+    opacity: 1;
+  }
+
+  51%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.thinking-cursor {
+  color: #007bff;
+  font-weight: bold;
+}
+
+.thinking-section {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+.answer-section {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

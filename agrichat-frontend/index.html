@@ -6,7 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AgriChat - Your Farming Assistant</title>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300..700&family=Rufina:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300..700&family=Rufina:wght@400;700&display=swap"
+    rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
   <!-- Markdown rendering library -->
   <script src="https://cdn.jsdelivr.net/npm/marked@9.1.2/marked.min.js"></script>
@@ -49,46 +50,37 @@
   <div id="loginOverlay" style="
     position: fixed; inset: 0; background: rgba(0, 0, 0, 0.8);
     display: none; align-items: center; justify-content: center; z-index: 9999;">
-    
+
     <div style="
       background: white; border-radius: 12px; box-shadow: 0 8px 36px rgba(0,0,0,0.3);
       width: 400px; max-width: 90vw; padding: 2em;">
-      
+
       <div style="text-align: center; margin-bottom: 2em;">
         <h2 style="color: #248241; margin-bottom: 0.5em;">🌾 AgriChat Login</h2>
         <p style="color: #666; margin: 0;">Enter your credentials to access AgriChat</p>
       </div>
-      
+
       <form id="loginForm" style="display: flex; flex-direction: column; gap: 1em;">
         <div>
           <label style="display: block; margin-bottom: 0.5em; color: #333; font-weight: 600;">Username</label>
-          <input 
-            type="text" 
-            id="loginUsername"
-            placeholder="Enter your username" 
-            required 
+          <input type="text" id="loginUsername" placeholder="Enter your username" required
             style="width: 100%; padding: 0.8em; border: 2px solid #ddd; border-radius: 6px; font-size: 1em;"
             autocomplete="username">
         </div>
-        
+
         <div>
           <label style="display: block; margin-bottom: 0.5em; color: #333; font-weight: 600;">Password</label>
-          <input 
-            type="password" 
-            id="loginPassword"
-            placeholder="Enter your password" 
-            required 
+          <input type="password" id="loginPassword" placeholder="Enter your password" required
             style="width: 100%; padding: 0.8em; border: 2px solid #ddd; border-radius: 6px; font-size: 1em;"
             autocomplete="current-password">
         </div>
-        
-        <button 
-          type="submit" 
+
+        <button type="submit"
           style="background: #248241; color: white; padding: 0.8em; border: none; border-radius: 6px; cursor: pointer; font-size: 1em; font-weight: 600; margin-top: 0.5em;">
           Sign In
         </button>
       </form>
-      
+
       <div id="loginError" style="color: #dc3545; text-align: center; margin-top: 1em; display: none;"></div>
     </div>
   </div>
@@ -106,7 +98,7 @@
       </div>
 
       <!-- Database Selection Toggles -->
-      <div class="database-toggles" id="databaseToggles">
+      <!-- <div class="database-toggles" id="databaseToggles">
         <div class="toggles-header">
           <i class="fas fa-database"></i>
           <span>Database Sources</span>
@@ -141,7 +133,7 @@
             <span class="toggle-label">Premium</span>
           </div>
         </div>
-      </div>
+      </div> -->
 
       <div class="location-info-bar">
         <div class="location-info" id="locationInfo">
@@ -153,7 +145,8 @@
           </button>
         </div>
 
-        <div class="location-dropdown" id="locationEdit" style="display: none; justify-content: center; align-items: center;">
+        <div class="location-dropdown" id="locationEdit"
+          style="display: none; justify-content: center; align-items: center;">
           <div class="dropdown-group">
             <label for="manualStateSelect">State</label>
             <select id="manualStateSelect"></select>
@@ -206,6 +199,23 @@
         </div>
       </div>
 
+      <div class="account-icon" id="accountIcon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="#000000">
+          <path
+            d="M5.85 17.1q1.275-.975 2.85-1.538T12 15q1.725 0 3.3.563t2.85 1.537q.875-1.025 1.363-2.325T20 12q0-3.325-2.337-5.663T12 4Q8.675 4 6.337 6.337T4 12q0 1.475.488 2.775T5.85 17.1ZM12 13q-1.475 0-2.488-1.012T8.5 9.5q0-1.475 1.012-2.488T12 6q1.475 0 2.488 1.012T15.5 9.5q0 1.475-1.012 2.488T12 13Zm0 9q-2.075 0-3.9-.788t-3.175-2.137q-1.35-1.35-2.137-3.175T2 12q0-2.075.788-3.9t2.137-3.175q1.35-1.35 3.175-2.137T12 2q2.075 0 3.9.788t3.175 2.137q1.35 1.35 2.138 3.175T22 12q0 2.075-.788 3.9t-2.137 3.175q-1.35 1.35-3.175 2.138T12 22Z" />
+        </svg>
+
+        <div class="account-dropdown-menu">
+        <div class="username" id="usernameDisplay" style="font-family: 'Nunito', sans-serif;">Hello, Username!</div>
+        <button class="logout-btn"
+                style="font-family: 'Nunito', sans-serif;"
+                type="button"
+                id="logoutDropdownBtn">
+          Logout
+        </button>
+      </div>
+      </div>
+
       <a class="export-button" id="exportBtn" style="display: none;">
         <i class="fas fa-download"></i>
         Export CSV
@@ -248,18 +258,55 @@
           <div class="button-row">
 
             <!-- Plus (with Database Toggles)-->
-            <div class="tooltip-container">
-              <button type="button" class="feature-button" aria-label="Attach file or image">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-                  <path fill="#000000" fill-rule="evenodd" d="M7.5 14a6.5 6.5 0 1 0 0-13a6.5 6.5 0 0 0 0 13m0 1c4.14 0 7.5-3.36 7.5-7.5S11.64 0 7.5 0S0 3.36 0 7.5S3.36 15 7.5 15" clip-rule="evenodd"/>
-                  <path fill="#000000" d="M8 4.5a.5.5 0 0 0-1 0V7H4.5a.5.5 0 0 0 0 1H7v2.5a.5.5 0 0 0 1 0V8h2.5a.5.5 0 0 0 0-1H8z"/>
+
+            <div class="tooltip-container" style="position: relative; display: inline-block;">
+              <button type="button" class="feature-button" aria-label="Toggle database options"
+                id="databaseToggleButtonChat">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                  <path fill-rule="evenodd" clip-rule="evenodd"
+                    d="M7.5 14a6.5 6.5 0 1 0 0-13a6.5 6.5 0 0 0 0 13m0 1c4.14 0 7.5-3.36 7.5-7.5S11.64 0 7.5 0S0 3.36 0 7.5S3.36 15 7.5 15" />
+                  <path d="M8 4.5a.5.5 0 0 0-1 0V7H4.5a.5.5 0 0 0 0 1H7v2.5a.5.5 0 0 0 1 0V8h2.5a.5.5 0 0 0 0-1H8z" />
                 </svg>
-                <!-- <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                  <path fill-rule="evenodd" clip-rule="evenodd" d="M7.5 14a6.5 6.5 0 1 0 0-13a6.5 6.5 0 0 0 0 13m0 1c4.14 0 7.5-3.36 7.5-7.5S11.64 0 7.5 0S0 3.36 0 7.5S3.36 15 7.5 15"/>
-                  <path d="M8 4.5a.5.5 0 0 0-1 0V7H4.5a.5.5 0 0 0 0 1H7v2.5a.5.5 0 0 0 1 0V8h2.5a.5.5 0 0 0 0-1H8z"/>
-                </svg> -->
               </button>
-              <span class="tooltip-text">Beta feature</span>
+
+              <div class="database-toggles dropdown-menu"
+                style="display: none; position: absolute; bottom: 100%; right: 0; margin-bottom: 8px; min-width: 220px; background: #fff; border-radius: 6px; box-shadow: 0 2px 8px rgba(44,62,80,0.1); z-index: 100;">
+                <div class="toggles-header"
+                  style="display: flex; align-items: center; font-weight: bold; gap: 8px; padding: 10px;">
+                  <i class="fas fa-database"></i>
+                  <span>Database Sources</span>
+                </div>
+                <div class="toggles-container" style="padding: 0 12px 12px;">
+                  <div class="toggle-item" style="margin-bottom: 8px;">
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="ragToggleChat" checked>
+                      <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label">Golden FAQs</span>
+                  </div>
+                  <div class="toggle-item" style="margin-bottom: 8px;">
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="popsToggleChat" checked>
+                      <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label">Package of Practices</span>
+                  </div>
+                  <div class="toggle-item" style="margin-bottom: 8px;">
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="llmToggleChat" checked>
+                      <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label">LLM Fallback</span>
+                  </div>
+                  <div class="toggle-item">
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="premiumToggleChat" checked>
+                      <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label">Premium</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <!-- Attachment -->
@@ -302,11 +349,63 @@
 
         <!-- Welcome Screen chat-form floating in page-->
         <form id="start-form" class="chat-form" style="max-width: 600px; margin: 0 auto;">
-          <textarea id="start-input" name="question"  
+          <textarea id="start-input" name="question"
             placeholder="Ask me anything about farming, crops, soil, weather, or agricultural practices..." required
             rows="3"></textarea>
 
           <div class="button-row">
+
+            <!-- Plus (with Database Toggles)-->
+
+            <div class="tooltip-container" style="position: relative; display: inline-block;">
+              <button type="button" class="feature-button" aria-label="Toggle database options"
+                id="databaseToggleButtonStart">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                  <path fill-rule="evenodd" clip-rule="evenodd"
+                    d="M7.5 14a6.5 6.5 0 1 0 0-13a6.5 6.5 0 0 0 0 13m0 1c4.14 0 7.5-3.36 7.5-7.5S11.64 0 7.5 0S0 3.36 0 7.5S3.36 15 7.5 15" />
+                  <path d="M8 4.5a.5.5 0 0 0-1 0V7H4.5a.5.5 0 0 0 0 1H7v2.5a.5.5 0 0 0 1 0V8h2.5a.5.5 0 0 0 0-1H8z" />
+                </svg>
+              </button>
+
+              <div class="database-toggles dropdown-menu"
+                style="display: none; position: absolute; bottom: 100%; right: 0; margin-bottom: 8px; min-width: 220px; background: #fff; border-radius: 6px; box-shadow: 0 2px 8px rgba(44,62,80,0.1); z-index: 100;">
+                <div class="toggles-header"
+                  style="display: flex; align-items: center; font-weight: bold; gap: 8px; padding: 10px;">
+                  <i class="fas fa-database"></i>
+                  <span>Database Sources</span>
+                </div>
+                <div class="toggles-container" style="padding: 0 12px 12px;">
+                  <div class="toggle-item" style="margin-bottom: 8px;">
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="ragToggleStart" checked>
+                      <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label">Golden FAQs</span>
+                  </div>
+                  <div class="toggle-item" style="margin-bottom: 8px;">
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="popsToggleStart" checked>
+                      <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label">Package of Practices</span>
+                  </div>
+                  <div class="toggle-item" style="margin-bottom: 8px;">
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="llmToggleStart" checked>
+                      <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label">LLM Fallback</span>
+                  </div>
+                  <div class="toggle-item">
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="premiumToggleStart" checked>
+                      <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label">Premium</span>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             <div class="tooltip-container">
               <button type="button" class="feature-button inactive" aria-label="Attach file or image">
@@ -356,8 +455,11 @@
     const closeBtn = document.getElementById('sidebarCloseBtn');
     const backdrop = document.getElementById('backdrop');
     const locationInfo = document.querySelector('.location-info');
+    const dbToggleButton = document.getElementById('databaseToggleButton');
+    const dbDropdownMenu = document.getElementById('databaseDropdown');
     const body = document.body;
 
+    // Chat-form placeholder text color
     const textarea = document.getElementById('start-input');
     const style = document.createElement('style');
     style.innerHTML = `
@@ -367,6 +469,32 @@
       }
     `;
     document.head.appendChild(style);
+
+    // Close database-toggle dropdown by clicking outside
+    document.addEventListener('click', (event) => {
+      if (!dbToggleButton.contains(event.target) && !dbDropdownMenu.contains(event.target)) {
+        dbDropdownMenu.style.display = 'none';
+      }
+    });
+
+    // Close location-edit dropdown by clicking outside
+    const locationToggleButton = document.getElementById('editLocationBtn');
+    const locationDropdown = document.getElementById('locationEdit');
+
+    locationToggleButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (locationDropdown.style.display === 'none' || locationDropdown.style.display === '') {
+        locationDropdown.style.display = 'flex';
+      } else {
+        locationDropdown.style.display = 'none';
+      }
+    });
+
+    document.addEventListener('click', (event) => {
+      if (!locationToggleButton.contains(event.target) && !locationDropdown.contains(event.target)) {
+        locationDropdown.style.display = 'none';
+      }
+    });
 
     // LOGIN-REGISTER FUNCTIONS:
 
@@ -516,6 +644,41 @@
     // And update on window resize
     window.addEventListener('resize', updateChatFormPadding);
 
+    function setupDatabaseToggleForForm(formId, ariaLabel) {
+      const form = document.getElementById(formId);
+      if (!form) return;
+
+      // Find the plus button inside this form by aria-label
+      const plusButton = form.querySelector(`button[aria-label="${ariaLabel}"]`);
+      if (!plusButton) return;
+
+      // Assume the dropdown menu container exists inside the same form container
+      const dropdownMenu = form.querySelector('.database-dropdown');
+      if (!dropdownMenu) return;
+
+      // Hide initially
+      dropdownMenu.style.display = 'none';
+
+      plusButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (dropdownMenu.style.display === 'block') {
+          dropdownMenu.style.display = 'none';
+        } else {
+          dropdownMenu.style.display = 'block';
+        }
+      });
+
+      // Global document click listener to close menu when clicking outside
+      document.addEventListener('click', (e) => {
+        if (!plusButton.contains(e.target) && !dropdownMenu.contains(e.target)) {
+          dropdownMenu.style.display = 'none';
+        }
+      });
+    }
+
+    // Initialize handlers for both forms & plus buttons
+    setupDatabaseToggleForForm('start-form', 'Toggle database options');
+    setupDatabaseToggleForForm('chat-form', 'Toggle database options');
 
   </script>
 

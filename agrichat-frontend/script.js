@@ -12,7 +12,9 @@ class AuthManager {
       this.user = JSON.parse(savedUser);
       this.hideLoginForm();
       // Show welcome message on page load if user is already logged in
-      setTimeout(() => this.showWelcomeMessage(), 100);
+      setTimeout(() => this.showAccountDropdown(this.user), 100);
+
+      // setTimeout(() => this.showWelcomeMessage(), 100);
     } else {
       this.showLoginForm();
     }
@@ -38,7 +40,8 @@ class AuthManager {
         };
         localStorage.setItem('agrichat_user', JSON.stringify(this.user));
         this.hideLoginForm();
-        this.showWelcomeMessage();
+        this.showAccountDropdown(this.user);
+        // this.showWelcomeMessage();
         return { success: true };
       } else {
         return { success: false, message: result.message };
@@ -76,31 +79,45 @@ class AuthManager {
     }
   }
 
-  showWelcomeMessage() {
-    if (this.user) {
-      // Add user info to header
-      const header = document.querySelector('.header-left');
-      if (header) {
-        // Remove existing user info if it exists
-        const existingUserInfo = header.querySelector('.user-info');
-        if (existingUserInfo) {
-          existingUserInfo.remove();
-        }
+  showAccountDropdown(user) {
+    const usernameElem = document.getElementById('usernameDisplay');
+    if (user && usernameElem) {
+      usernameElem.textContent = `Hello, ${user.full_name}`;
+    }
 
-        const userInfo = document.createElement('div');
-        userInfo.className = 'user-info';
-        userInfo.innerHTML = `
-          <span style="color: #033220; font-weight: 600; margin-left: 1em;">
-            Welcome, ${this.user.full_name} (${this.user.role})
-          </span>
-          <button onclick="authManager.logout()" style="margin-left: 1em; padding: 0.3em 0.6em; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8em;">
-            Logout
-          </button>
-        `;
-        header.appendChild(userInfo);
-      }
+    // Attach Logout action if not already present
+    const logoutBtn = document.getElementById('logoutDropdownBtn');
+    if (logoutBtn && typeof authManager !== "undefined" && typeof authManager.logout === "function") {
+      logoutBtn.onclick = authManager.logout.bind(authManager);
+      // logoutBtn.onclick = authManager.logout;
     }
   }
+
+  // showWelcomeMessage() {
+  //   if (this.user) {
+  //     // Add user info to header
+  //     const header = document.querySelector('.header-left');
+  //     if (header) {
+  //       // Remove existing user info if it exists
+  //       const existingUserInfo = header.querySelector('.user-info');
+  //       if (existingUserInfo) {
+  //         existingUserInfo.remove();
+  //       }
+
+  //       const userInfo = document.createElement('div');
+  //       userInfo.className = 'user-info';
+  //       userInfo.innerHTML = `
+  //         <span style="color: #033220; font-weight: 600; margin-left: 1em;">
+  //           Hello, ${this.user.full_name}!
+  //         </span>
+  //         <button onclick="authManager.logout()" style="margin-left: 1em; padding: 0.3em 0.6em; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8em;">
+  //           Logout
+  //         </button>
+  //       `;
+  //       header.appendChild(userInfo);
+  //     }
+  //   }
+  // }
 
   isAuthenticated() {
     return this.user !== null;
@@ -273,11 +290,32 @@ function loadDatabasePreferences() {
     }
   }
 
-  // Update UI toggles
-  document.getElementById("ragToggle").checked = databaseToggles.rag;
-  document.getElementById("popsToggle").checked = databaseToggles.pops;
-  document.getElementById("llmToggle").checked = databaseToggles.llm;
+  // Update UI toggles for BOTH forms
+  ['Start', 'Chat'].forEach(function (suffix) {
+    const rag = document.getElementById(`ragToggle${suffix}`);
+    if (rag) rag.checked = databaseToggles.rag;
+    const pops = document.getElementById(`popsToggle${suffix}`);
+    if (pops) pops.checked = databaseToggles.pops;
+    const llm = document.getElementById(`llmToggle${suffix}`);
+    if (llm) llm.checked = databaseToggles.llm;
+  });
 }
+
+// function loadDatabasePreferences() {
+//   const saved = localStorage.getItem("agrichat_database_preferences");
+//   if (saved) {
+//     try {
+//       databaseToggles = { ...databaseToggles, ...JSON.parse(saved) };
+//     } catch (e) {
+//       console.warn("Failed to parse saved database preferences");
+//     }
+//   }
+
+//   // Update UI toggles
+//   document.getElementById("ragToggle").checked = databaseToggles.rag;
+//   document.getElementById("popsToggle").checked = databaseToggles.pops;
+//   document.getElementById("llmToggle").checked = databaseToggles.llm;
+// }
 
 // Save database toggle preferences to localStorage
 function saveDatabasePreferences() {
@@ -304,25 +342,52 @@ function getDatabaseSelection() {
 
 // Initialize database toggle event listeners
 function initializeDatabaseToggles() {
-  const ragToggle = document.getElementById("ragToggle");
-  const popsToggle = document.getElementById("popsToggle");
-  const llmToggle = document.getElementById("llmToggle");
+  ['Start', 'Chat'].forEach(function (suffix) {
+    const ragToggle = document.getElementById(`ragToggle${suffix}`);
+    const popsToggle = document.getElementById(`popsToggle${suffix}`);
+    const llmToggle = document.getElementById(`llmToggle${suffix}`);
 
-  ragToggle.addEventListener("change", () => {
-    databaseToggles.rag = ragToggle.checked;
-    saveDatabasePreferences();
-  });
-
-  popsToggle.addEventListener("change", () => {
-    databaseToggles.pops = popsToggle.checked;
-    saveDatabasePreferences();
-  });
-
-  llmToggle.addEventListener("change", () => {
-    databaseToggles.llm = llmToggle.checked;
-    saveDatabasePreferences();
+    if (ragToggle) {
+      ragToggle.addEventListener("change", () => {
+        databaseToggles.rag = ragToggle.checked;
+        saveDatabasePreferences();
+      });
+    }
+    if (popsToggle) {
+      popsToggle.addEventListener("change", () => {
+        databaseToggles.pops = popsToggle.checked;
+        saveDatabasePreferences();
+      });
+    }
+    if (llmToggle) {
+      llmToggle.addEventListener("change", () => {
+        databaseToggles.llm = llmToggle.checked;
+        saveDatabasePreferences();
+      });
+    }
   });
 }
+
+// function initializeDatabaseToggles() {
+//   const ragToggle = document.getElementById("ragToggle");
+//   const popsToggle = document.getElementById("popsToggle");
+//   const llmToggle = document.getElementById("llmToggle");
+
+//   ragToggle.addEventListener("change", () => {
+//     databaseToggles.rag = ragToggle.checked;
+//     saveDatabasePreferences();
+//   });
+
+//   popsToggle.addEventListener("change", () => {
+//     databaseToggles.pops = popsToggle.checked;
+//     saveDatabasePreferences();
+//   });
+
+//   llmToggle.addEventListener("change", () => {
+//     databaseToggles.llm = llmToggle.checked;
+//     saveDatabasePreferences();
+//   });
+// }
 
 async function loadSessions() {
   try {
@@ -631,14 +696,14 @@ function appendMessage(sender, text, index = null, rating = null, thinking = nul
 
     if (hasThinking) {
       const thinkingHtml = `
-        <div class="thinking-section" style="margin-bottom: 15px; padding: 12px; background: #f8f9fa; border-left: 4px solid #28a745; border-radius: 6px;">
-          <div class="thinking-header" style="font-weight: 600; color: #495057; margin-bottom: 8px; display: flex; align-items: center;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="margin-right: 6px;">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" fill="#28a745"/>
+        <div class="thinking-section" style="margin-bottom: 15px; padding: 12px; background: #e8f5e8; border-left: 4px solid #28a745; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+          <div class="thinking-header" style="font-weight: 600; color: #2d5a2d; margin-bottom: 8px; display: flex; align-items: center; font-size: 0.95em;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="margin-right: 8px;">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="#28a745"/>
             </svg>
-            Thinking Process
+            🧠 Thinking Process
           </div>
-          <div class="thinking-content" style="color: #6c757d; font-size: 0.9em; line-height: 1.4;">
+          <div class="thinking-content" style="color: #4a6a4a; font-size: 0.9em; line-height: 1.5; font-style: italic;">
             ${thinking.replace(/\n/g, '<br>')}
           </div>
         </div>
@@ -783,7 +848,8 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   // Ensure user info is displayed if logged in
   if (authManager && authManager.isAuthenticated()) {
-    authManager.showWelcomeMessage();
+    authManager.showAccountDropdown(authManager.user);
+    // authManager.showWelcomeMessage();
   }
 
   // Initialize database toggles
@@ -930,11 +996,16 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     const input = document.getElementById("user-input");
     const question = input.value.trim();
-    if (!question || !currentSession) return;
+    if (!question) return;
 
     appendMessage("user", question);
     input.value = "";
 
+    // Always use thinking stream for better UX
+    await handleThinkingStreamQuery(question);
+  });
+
+  async function handleSessionQuery(question) {
     const requestData = {
       question: question,
       device_id: deviceId,
@@ -964,7 +1035,200 @@ window.addEventListener("DOMContentLoaded", async () => {
     if (currentSession.recommendations && currentSession.recommendations.length > 0) {
       displayRecommendations(currentSession.recommendations);
     }
-  });
+  }
+
+  async function handleThinkingStreamQuery(question) {
+    const requestData = {
+      question: question,
+      device_id: deviceId,
+      state: localStorage.getItem("agrichat_user_state") || "",
+      language: selectedLanguage,
+      database_config: {
+        rag_enabled: databaseToggles.rag,
+        pops_enabled: databaseToggles.pops,
+        llm_enabled: databaseToggles.llm
+      }
+    };
+
+    // Create thinking display containers
+    let thinkingContainer = null;
+    let answerContainer = null;
+    let currentThinkingText = '';
+
+    try {
+      const response = await apiCall(`${API_BASE}/query/thinking-stream`, {
+        method: "POST",
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestData),
+      });
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+
+              switch (data.type) {
+                case 'thinking_start':
+                  // Create thinking section
+                  thinkingContainer = createThinkingContainer();
+                  break;
+
+                case 'thinking_token':
+                  // Update thinking display in real-time with new token
+                  if (thinkingContainer) {
+                    currentThinkingText = data.text; // This is the cumulative text
+                    updateThinkingDisplay(thinkingContainer, currentThinkingText);
+                  }
+                  break;
+
+                case 'thinking_complete':
+                  // Mark thinking as complete
+                  if (thinkingContainer) {
+                    finalizeThinkingDisplay(thinkingContainer);
+                  }
+                  break;
+
+                case 'answer_start':
+                  // Create answer section
+                  answerContainer = createAnswerContainer();
+                  break;
+
+                case 'answer':
+                  // Display final answer
+                  if (answerContainer) {
+                    displayFinalAnswer(answerContainer, data.answer, data.source, data.confidence);
+                  }
+                  break;
+
+                case 'session_complete':
+                  // Update session info
+                  currentSession = data.session;
+                  if (currentSession.recommendations && currentSession.recommendations.length > 0) {
+                    displayRecommendations(currentSession.recommendations);
+                  }
+                  break;
+
+                case 'error':
+                  console.error('Stream error:', data.message);
+                  hideLoader();
+                  appendMessage("bot", "Sorry, I encountered an error processing your question.", null, null, null, null, null);
+                  break;
+              }
+            } catch (e) {
+              console.error('Error parsing stream data:', e);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Stream error:', error);
+      hideLoader();
+      appendMessage("bot", "Sorry, I encountered an error processing your question.", null, null, null, null, null);
+    }
+  }
+
+  function createThinkingContainer() {
+    const messagesDiv = document.getElementById("messages");
+    const thinkingDiv = document.createElement("div");
+    thinkingDiv.className = "message bot-message";
+    thinkingDiv.innerHTML = `
+      <div class="thinking-section" style="margin-bottom: 15px; padding: 12px; background: #f8f9fa; border-left: 4px solid #007bff; border-radius: 6px;">
+        <div class="thinking-header" style="font-weight: 600; color: #495057; margin-bottom: 8px; display: flex; align-items: center;">
+          <div class="thinking-spinner" style="margin-right: 8px; width: 16px; height: 16px; border: 2px solid #e9ecef; border-top: 2px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+          Thinking...
+        </div>
+        <div class="thinking-content" style="color: #6c757d; font-size: 0.9em; line-height: 1.4; min-height: 20px; font-family: monospace;">
+          <span class="thinking-cursor">|</span>
+        </div>
+      </div>
+    `;
+    messagesDiv.appendChild(thinkingDiv);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    return thinkingDiv.querySelector('.thinking-content');
+  }
+
+  function updateThinkingDisplay(container, text) {
+    if (container) {
+      container.innerHTML = `${text.replace(/\n/g, '<br>')}<span class="thinking-cursor" style="animation: blink 1s infinite;">|</span>`;
+      container.closest('#messages').scrollTop = container.closest('#messages').scrollHeight;
+    }
+  }
+
+  function finalizeThinkingDisplay(container) {
+    if (container) {
+      const cursor = container.querySelector('.thinking-cursor');
+      if (cursor) cursor.remove();
+
+      const header = container.closest('.thinking-section').querySelector('.thinking-header');
+      header.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="#28a745" style="margin-right: 6px;">
+          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+        </svg>
+        Thinking Complete
+      `;
+      header.closest('.thinking-section').style.borderLeftColor = '#28a745';
+    }
+  }
+
+  function createAnswerContainer() {
+    const messagesDiv = document.getElementById("messages");
+    const answerDiv = document.createElement("div");
+    answerDiv.className = "message bot-message";
+    answerDiv.innerHTML = `
+      <div class="answer-section" style="padding: 12px; background: #fff; border-radius: 6px; border: 1px solid #e9ecef;">
+        <div class="answer-header" style="font-weight: 600; color: #495057; margin-bottom: 8px; display: flex; align-items: center;">
+          <div class="answer-spinner" style="margin-right: 8px; width: 16px; height: 16px; border: 2px solid #e9ecef; border-top: 2px solid #28a745; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+          Generating Answer...
+        </div>
+        <div class="answer-content" style="min-height: 20px;">
+          <!-- Answer will be populated here -->
+        </div>
+      </div>
+    `;
+    messagesDiv.appendChild(answerDiv);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    return answerDiv.querySelector('.answer-content');
+  }
+
+  function displayFinalAnswer(container, answer, source, confidence) {
+    if (container) {
+      const header = container.closest('.answer-section').querySelector('.answer-header');
+      header.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="#28a745" style="margin-right: 6px;">
+          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+        </svg>
+        Answer
+      `;
+
+      container.innerHTML = `
+        <div class="bot-answer">${answer}</div>
+        ${source ? `<div class="message-source" style="margin-top: 10px; font-size: 0.8em; color: #6c757d;">Source: ${source}</div>` : ''}
+        <div class="message-actions" style="margin-top: 10px;">
+          <button class="action-btn copy-btn" onclick="copyToClipboard(this)" title="Copy answer">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+            </svg>
+          </button>
+          <button class="action-btn rate-btn" onclick="rateMessage(this, 1)" title="Good answer">👍</button>
+          <button class="action-btn rate-btn" onclick="rateMessage(this, -1)" title="Bad answer">👎</button>
+        </div>
+      `;
+
+      container.closest('#messages').scrollTop = container.closest('#messages').scrollHeight;
+    }
+  }
 
 
   // ...existing code... (streaming functionality removed by user request)

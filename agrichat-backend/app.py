@@ -1250,6 +1250,120 @@ async def continue_session(session_id: str, request: SessionQueryRequest):
     
     return {"session": updated}
 
+@app.post("/api/query/thinking-stream")
+async def thinking_stream_query(request: QueryRequest):
+    """
+    Streaming endpoint that shows real-time thinking process followed by answer
+    """
+    async def generate_stream():
+        import json
+        import asyncio
+        
+        session_id = str(uuid4())
+        try:
+            yield f"data: {json.dumps({'type': 'session_start', 'session_id': session_id})}\n\n"
+            
+            if USE_FAST_MODE and fast_handler:
+                # Start thinking phase
+                yield f"data: {json.dumps({'type': 'thinking_start'})}\n\n"
+                
+                # Stream thinking tokens in real-time
+                thinking_content = ''
+                if fast_handler.reasoner_llm:
+                    try:
+                        reasoner_prompt = (
+                            f"Think step-by-step about this agricultural question. Consider what information would be needed "
+                            f"from the database and what factors are important. Keep your thinking concise and focused.\n\nQuestion: {request.question}\n"
+                        )
+                        
+                        # Stream thinking directly from LLM
+                        current_text = ''
+                        for ev in fast_handler.reasoner_llm.stream_generate(reasoner_prompt, model=fast_handler.reasoner_llm.model_name, temperature=0.1):
+                            if ev.get('type') == 'token':
+                                token = ev.get('text', '')
+                                current_text += token
+                                yield f"data: {json.dumps({'type': 'thinking_token', 'token': token, 'text': current_text})}\n\n"
+                        
+                        thinking_content = current_text.strip()
+                        
+                    except Exception as e:
+                        logger.debug(f"[STREAM] Reasoner streaming failed: {e}")
+                        thinking_content = ''
+                
+                # Mark thinking complete
+                yield f"data: {json.dumps({'type': 'thinking_complete', 'thinking': thinking_content})}\n\n"
+                
+                # Now get the actual answer
+                yield f"data: {json.dumps({'type': 'answer_start'})}\n\n"
+                
+                loop = asyncio.get_event_loop()
+                result = await loop.run_in_executor(
+                    None,
+                    lambda: rag_main.get_answer(request.question, [], request.state)
+                )
+                
+                if isinstance(result, dict):
+                    answer_text = result.get('answer', '')
+                    clean_answer = answer_text  # Don't extract thinking since we already streamed it
+                    
+                    # Send final answer
+                    yield f"data: {json.dumps({'type': 'answer', 'answer': clean_answer, 'source': result.get('source', ''), 'confidence': result.get('confidence', 0.0)})}\n\n"
+                    
+                    # Create session record
+                    html_answer = markdown.markdown(clean_answer, extensions=["extra", "nl2br"])
+                    
+                    message = {
+                        "question": request.question,
+                        "thinking": thinking_content,
+                        "final_answer": html_answer,
+                        "answer": html_answer,
+                        "rating": None
+                    }
+                    
+                    if 'research_data' in result:
+                        message['research_data'] = result['research_data']
+                    if 'source' in result:
+                        message['source'] = result['source']
+                    
+                    session = {
+                        "session_id": session_id,
+                        "timestamp": datetime.now(IST).isoformat(),
+                        "messages": [message],
+                        "crop": "unknown",
+                        "state": request.state,
+                        "status": "active",
+                        "language": request.language,
+                        "has_unread": True,
+                        "device_id": request.device_id
+                    }
+                    
+                    sessions_collection.insert_one(session)
+                    session.pop("_id", None)
+                    
+                    # Send session info
+                    yield f"data: {json.dumps({'type': 'session_complete', 'session': session})}\n\n"
+                else:
+                    yield f"data: {json.dumps({'type': 'error', 'message': 'Failed to get response'})}\n\n"
+            else:
+                yield f"data: {json.dumps({'type': 'error', 'message': 'Fast mode not available'})}\n\n"
+                
+        except Exception as e:
+            logger.error(f"[STREAM] Error in thinking stream: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'message': 'Processing failed'})}\n\n"
+        
+        yield f"data: {json.dumps({'type': 'stream_end'})}\n\n"
+    
+    return StreamingResponse(
+        generate_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )
+
 @app.post("/api/query/stream")
 async def stream_query(question: str = Form(...), device_id: str = Form(...), state: str = Form(...), language: str = Form(...)):
     """

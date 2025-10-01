@@ -129,12 +129,8 @@ class FastResponseHandler:
                 except Exception:
                     structured_text = rag_result.get('answer')
 
-            final_answer = structured_text
-            if chain_of_thought:
-                final_answer = f"<think>{chain_of_thought}</think>{structured_text}"
-
             return {
-                'answer': final_answer,
+                'answer': structured_text,
                 'source': rag_result.get('source', 'rag'),
                 'similarity': rag_result.get('similarity_score') or rag_result.get('cosine_similarity') or 1.0,
                 'metadata': rag_result.get('metadata') or rag_result.get('document_metadata') or {}
@@ -165,12 +161,8 @@ class FastResponseHandler:
                 except Exception:
                     structured_text = pops_result.get('answer')
 
-            final_answer = structured_text
-            if chain_of_thought:
-                final_answer = f"<think>{chain_of_thought}</think>{structured_text}"
-
             return {
-                'answer': final_answer,
+                'answer': structured_text,
                 'source': pops_result.get('source', 'pops'),
                 'similarity': pops_result.get('cosine_similarity') or pops_result.get('similarity') or 0.0,
                 'metadata': pops_result.get('document_metadata') or pops_result.get('metadata') or {}
@@ -186,30 +178,120 @@ class FastResponseHandler:
                         print(t, end='', flush=True)
                         full.append(t)
                 print('\n')
-                llm_answer = ''.join(full).strip()
-                
-                final_answer = llm_answer
-                if chain_of_thought:
-                    final_answer = f"<think>{chain_of_thought}</think>{llm_answer}"
-                
-                return {'answer': final_answer, 'source': 'llm_fallback', 'similarity': 0.0, 'metadata': {'model': self.fallback_llm.model_name}}
+                return {'answer': ''.join(full).strip(), 'source': 'llm_fallback', 'similarity': 0.0, 'metadata': {'model': self.fallback_llm.model_name}}
         except Exception as e:
             logger.debug(f"[FAST] Fallback LLM failed: {e}")
 
+        # Final fallback to tool
         try:
             fb = self.fallback_tool._run(question, conversation_history)
-            
-            final_answer = fb
-            if chain_of_thought:
-                final_answer = f"<think>{chain_of_thought}</think>{fb}"
-                
-            return {'answer': final_answer, 'source': 'fallback_tool', 'similarity': 0.0, 'metadata': {}}
+            return {'answer': fb, 'source': 'fallback_tool', 'similarity': 0.0, 'metadata': {}}
         except Exception:
-            error_answer = "I'm having trouble right now. Please try again."
-            if chain_of_thought:
-                error_answer = f"<think>{chain_of_thought}</think>{error_answer}"
+            return {'answer': "I'm having trouble right now. Please try again.", 'source': 'error', 'similarity': 0.0, 'metadata': {}}
+
+    def get_answer_with_thinking_stream(self, question: str, conversation_history: Optional[List[Dict]] = None,
+                    user_state: Optional[str] = None, db_config: Optional[DatabaseConfig] = None) -> Dict:
+        """Return answer with thinking process collected for streaming."""
+        # Quick greeting shortcut
+        if self._is_simple_greeting(question):
+            return {'answer': self._greeting_text(user_state), 'source': 'greeting', 'similarity': 1.0, 'metadata': {}, 'thinking': ''}
+
+        # Collect thinking process without printing to stdout
+        chain_of_thought = ''
+        if self.reasoner_llm:
+            try:
+                reasoner_prompt = (
+                    f"Think step-by-step about this agricultural question. Consider what information would be needed "
+                    f"from the database and what factors are important. Keep your thinking concise and focused.\n\nQuestion: {question}\n"
+                )
+                thought_tokens = []
+                for ev in self.reasoner_llm.stream_generate(reasoner_prompt, model=self.reasoner_llm.model_name, temperature=0.1):
+                    if ev.get('type') == 'token':
+                        t = ev.get('text')
+                        thought_tokens.append(t)
+                chain_of_thought = ''.join(thought_tokens).strip()
+            except Exception as e:
+                logger.debug(f"[FAST] Reasoner streaming failed: {e}")
+                chain_of_thought = ''
+
+        # Try RAG first (same logic as get_answer)
+        try:
+            rag_result = self.rag_tool._handler.get_answer_with_source(question, conversation_history, user_state)
+        except Exception as e:
+            logger.debug(f"[FAST] RAG lookup failed: {e}")
+            rag_result = None
+
+        def _is_no_info_answer(text: Optional[str]) -> bool:
+            if not text:
+                return True
+            t = text.strip().lower()
+            return t.startswith("i don't have enough information") or t.startswith("i don't have enough information to answer")
+
+        use_rag = False
+        if rag_result and rag_result.get('answer') and rag_result.get('answer') != "__FALLBACK__":
+            ans_text = rag_result.get('answer')
+            cosine = rag_result.get('cosine_similarity') or rag_result.get('similarity') or rag_result.get('similarity_score') or 0.0
+            if (not _is_no_info_answer(ans_text)) and cosine >= 0.6:
+                use_rag = True
+
+        if use_rag:
+            structured_text = rag_result.get('answer')
+            if self.structurer_llm:
+                try:
+                    struct_prompt = (
+                        f"You are a content structurer. Present this agricultural information in a clear, farmer-friendly way.\n\n"
+                        f"Question: {question}\n\nContent:\n{rag_result.get('answer')}\n"
+                    )
+                    structured_text = self.structurer_llm.generate_content(struct_prompt, temperature=0.2)
+                except Exception:
+                    structured_text = rag_result.get('answer')
+
+            return {
+                'answer': structured_text,
+                'thinking': chain_of_thought,
+                'source': rag_result.get('source', 'rag'),
+                'similarity': rag_result.get('similarity_score') or rag_result.get('cosine_similarity') or 1.0,
+                'metadata': rag_result.get('metadata') or rag_result.get('document_metadata') or {}
+            }
+
+        # Fallback to LLM if RAG fails
+        try:
+            if self.fallback_llm:
+                prompt = self.fallback_tool.SYSTEM_PROMPT.format(question=question)
+                full = []
+                for ev in self.fallback_llm.stream_generate(prompt, model=self.fallback_llm.model_name, temperature=0.1):
+                    if ev.get('type') == 'token':
+                        full.append(ev.get('text'))
+                llm_answer = ''.join(full).strip()
                 
-            return {'answer': error_answer, 'source': 'error', 'similarity': 0.0, 'metadata': {}}
+                return {
+                    'answer': llm_answer, 
+                    'thinking': chain_of_thought,
+                    'source': 'llm_fallback', 
+                    'similarity': 0.0, 
+                    'metadata': {'model': self.fallback_llm.model_name}
+                }
+        except Exception as e:
+            logger.debug(f"[FAST] Fallback LLM failed: {e}")
+
+        # Final fallback
+        try:
+            fb = self.fallback_tool._run(question, conversation_history)
+            return {
+                'answer': fb, 
+                'thinking': chain_of_thought,
+                'source': 'fallback_tool', 
+                'similarity': 0.0, 
+                'metadata': {}
+            }
+        except Exception:
+            return {
+                'answer': "I'm having trouble right now. Please try again.", 
+                'thinking': chain_of_thought,
+                'source': 'error', 
+                'similarity': 0.0, 
+                'metadata': {}
+            }
 
 
 fast_handler = FastResponseHandler()
