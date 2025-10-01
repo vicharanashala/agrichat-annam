@@ -1032,7 +1032,7 @@ async def new_session(request: QueryRequest):
     
     message = {
         "question": request.question,
-        "thinking": answer_result.get('reasoning_steps') if isinstance(answer_result, dict) else [],
+        "thinking": answer_result.get('thinking', '') if isinstance(answer_result, dict) else '',
         "final_answer": html_answer,
         "answer": html_answer,
         "rating": None
@@ -1184,7 +1184,7 @@ async def continue_session(session_id: str, request: SessionQueryRequest):
 
     new_message = {
         "question": request.question,
-        "thinking": answer_result.get('reasoning_steps') if isinstance(answer_result, dict) else [],
+        "thinking": answer_result.get('thinking', '') if isinstance(answer_result, dict) else '',
         "final_answer": html_answer,
         "answer": html_answer,
         "rating": None

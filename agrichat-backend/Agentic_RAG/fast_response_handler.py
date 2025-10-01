@@ -129,8 +129,12 @@ class FastResponseHandler:
                 except Exception:
                     structured_text = rag_result.get('answer')
 
+            final_answer = structured_text
+            if chain_of_thought:
+                final_answer = f"<think>{chain_of_thought}</think>{structured_text}"
+
             return {
-                'answer': structured_text,
+                'answer': final_answer,
                 'source': rag_result.get('source', 'rag'),
                 'similarity': rag_result.get('similarity_score') or rag_result.get('cosine_similarity') or 1.0,
                 'metadata': rag_result.get('metadata') or rag_result.get('document_metadata') or {}
@@ -161,8 +165,12 @@ class FastResponseHandler:
                 except Exception:
                     structured_text = pops_result.get('answer')
 
+            final_answer = structured_text
+            if chain_of_thought:
+                final_answer = f"<think>{chain_of_thought}</think>{structured_text}"
+
             return {
-                'answer': structured_text,
+                'answer': final_answer,
                 'source': pops_result.get('source', 'pops'),
                 'similarity': pops_result.get('cosine_similarity') or pops_result.get('similarity') or 0.0,
                 'metadata': pops_result.get('document_metadata') or pops_result.get('metadata') or {}
@@ -178,16 +186,30 @@ class FastResponseHandler:
                         print(t, end='', flush=True)
                         full.append(t)
                 print('\n')
-                return {'answer': ''.join(full).strip(), 'source': 'llm_fallback', 'similarity': 0.0, 'metadata': {'model': self.fallback_llm.model_name}}
+                llm_answer = ''.join(full).strip()
+                
+                final_answer = llm_answer
+                if chain_of_thought:
+                    final_answer = f"<think>{chain_of_thought}</think>{llm_answer}"
+                
+                return {'answer': final_answer, 'source': 'llm_fallback', 'similarity': 0.0, 'metadata': {'model': self.fallback_llm.model_name}}
         except Exception as e:
             logger.debug(f"[FAST] Fallback LLM failed: {e}")
 
-        # Final fallback to tool
         try:
             fb = self.fallback_tool._run(question, conversation_history)
-            return {'answer': fb, 'source': 'fallback_tool', 'similarity': 0.0, 'metadata': {}}
+            
+            final_answer = fb
+            if chain_of_thought:
+                final_answer = f"<think>{chain_of_thought}</think>{fb}"
+                
+            return {'answer': final_answer, 'source': 'fallback_tool', 'similarity': 0.0, 'metadata': {}}
         except Exception:
-            return {'answer': "I'm having trouble right now. Please try again.", 'source': 'error', 'similarity': 0.0, 'metadata': {}}
+            error_answer = "I'm having trouble right now. Please try again."
+            if chain_of_thought:
+                error_answer = f"<think>{chain_of_thought}</think>{error_answer}"
+                
+            return {'answer': error_answer, 'source': 'error', 'similarity': 0.0, 'metadata': {}}
 
 
 fast_handler = FastResponseHandler()
