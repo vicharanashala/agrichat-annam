@@ -399,7 +399,8 @@ CRITICAL - For High Similarity Matches (Comprehensive Database Response):
             response = run_local_llm(
                 prompt, 
                 temperature=temperature, 
-                max_tokens=max_tokens
+                max_tokens=max_tokens,
+                model=os.getenv('OLLAMA_MODEL_STRUCTURER', 'gemma:latest')
             )
             
             if not response or response.strip() == "":

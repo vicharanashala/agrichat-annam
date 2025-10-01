@@ -90,7 +90,7 @@ class AuthManager {
         const userInfo = document.createElement('div');
         userInfo.className = 'user-info';
         userInfo.innerHTML = `
-          <span style="color: #248241; font-weight: 600; margin-left: 1em;">
+          <span style="color: #033220; font-weight: 600; margin-left: 1em;">
             Welcome, ${this.user.full_name} (${this.user.role})
           </span>
           <button onclick="authManager.logout()" style="margin-left: 1em; padding: 0.3em 0.6em; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8em;">
@@ -537,7 +537,7 @@ function copyToClipboard(button) {
 
 
 
-function appendMessage(sender, text, index = null, rating = null, researchData = null, reasoningSteps = null, source = null, confidence = null) {
+function appendMessage(sender, text, index = null, rating = null, thinking = null, source = null, confidence = null) {
   const div = document.createElement("div");
   div.className = `message ${sender}`;
 
@@ -626,106 +626,46 @@ function appendMessage(sender, text, index = null, rating = null, researchData =
       }
     }
 
-    // If we have research data, reasoning steps, or explicit source/confidence, render a structured card
-    const shouldRenderStructured = (researchData && Array.isArray(researchData) && researchData.length > 0) ||
-      (reasoningSteps && Array.isArray(reasoningSteps) && reasoningSteps.length > 0) ||
-      (source && /rag|pops|golden|database/i.test(source));
+    // Show thinking process if available
+    const hasThinking = thinking && thinking.trim().length > 0;
 
-    if (shouldRenderStructured) {
-      try {
-        // Create a temp container to parse the HTML answer
-        const temp = document.createElement('div');
-        temp.innerHTML = botAnswerHtml;
-
-        // Title detection: prefer first heading, fallback to first sentence
-        let titleEl = temp.querySelector('h1, h2, h3');
-        let titleText = titleEl ? titleEl.textContent.trim() : null;
-
-        // Direct answer: first paragraph or first block of text
-        // Ignore any paragraph that contains a Source footer to avoid duplicates
-        let parasAll = Array.from(temp.querySelectorAll('p'));
-        let firstPara = parasAll.find(p => !/source:/i.test(p.textContent));
-        let directAnswer = firstPara ? firstPara.textContent.trim() : null;
-
-        // If no paragraph, take the first 300 chars of textContent
-        if (!directAnswer || directAnswer.length === 0) {
-          const txt = temp.textContent || '';
-          directAnswer = txt.split(/\n|\.|\!|\?/).filter(Boolean)[0] || txt.slice(0, 300);
-        }
-
-        // Clean directAnswer of any leading prefixes like 'Direct Answer:'
-        directAnswer = directAnswer.replace(/^(Direct Answer:|Answer:|Response:)\s*/i, '').trim();
-
-        // Additional details: remaining paragraphs (skip the first one)
-        // Exclude paragraphs that contain a Source footer
-        const paras = parasAll.map(p => p.textContent.trim()).filter(Boolean).filter(t => !/source:/i.test(t));
-        const additionalParas = paras.length > 1 ? paras.slice(1) : [];
-
-        // Also include any <ul>/<ol> items as details
-        const listItems = [];
-        const lists = Array.from(temp.querySelectorAll('ul, ol'));
-        lists.forEach(list => {
-          Array.from(list.querySelectorAll('li')).forEach(li => {
-            const t = li.textContent.trim();
-            if (t) listItems.push(t);
-          });
-        });
-
-        let details = additionalParas.concat(listItems);
-
-        // Detect backend-included source footer in the HTML: a '---' followed by italicized Source line
-        let backendSourceLabel = '';
-        let backendConfidence = '';
-        try {
-          const footerMatch = botAnswerHtml.match(/---\s*\n?\*Source:\s*([^\(\*]+)\s*(?:\(Confidence:\s*([^\)]+)\))?\*/i);
-          if (footerMatch) {
-            backendSourceLabel = footerMatch[1].trim();
-            if (footerMatch[2]) backendConfidence = footerMatch[2].trim();
-            // remove footer from displayed HTML to avoid duplication
-            botAnswerHtml = botAnswerHtml.replace(footerMatch[0], '').trim();
-            // refresh temp container since HTML changed
-            temp.innerHTML = botAnswerHtml;
-          }
-        } catch (e) {
-          // ignore
-        }
-
-        // Only show a separate source line if neither backend provided it nor we have explicit source
-        const sourceLine = (backendSourceLabel) ? `Source: ${backendSourceLabel}` : (source ? `Source: ${source}` : '');
-        const confidenceLine = (backendConfidence) ? `Confidence: ${backendConfidence}` : ((typeof confidence === 'number' && !isNaN(confidence)) ? `Confidence: ${(confidence * 100).toFixed(0)}%` : '');
-
-        // Build card HTML
-        const cardHtml = `
-          <div class="structured-card">
-            ${titleText ? `<div class="card-title">${titleText}</div>` : ''}
-            <div class="card-direct-answer">${directAnswer}</div>
-            ${details.length > 0 ? `<div class="card-additional"><ul>${details.map(d => `<li>${d}</li>`).join('')}</ul></div>` : ''}
-            <div class="card-meta" style="margin-top:8px; font-size:0.85em; color:#666;">
-              ${sourceLine} ${sourceLine && confidenceLine ? ' | ' : ''} ${confidenceLine}
-            </div>
-          </div>`;
-
-        div.innerHTML = `
-          ${cardHtml}
-          <div class="message-actions">
-            <button class="copy-btn" onclick="copyToClipboard(this)" title="Copy"> ... </button>
-            <button class="rate-btn thumbs-up ${rating === 'up' ? 'selected' : ''}" onclick="rateAnswer(${index}, 'up', this)" title="Thumbs up"> </button>
-            <button class="rate-btn thumbs-down ${rating === 'down' ? 'selected' : ''}" onclick="rateAnswer(${index}, 'down', this)" title="Thumbs down"> </button>
+    if (hasThinking) {
+      const thinkingHtml = `
+        <div class="thinking-section" style="margin-bottom: 15px; padding: 12px; background: #f8f9fa; border-left: 4px solid #28a745; border-radius: 6px;">
+          <div class="thinking-header" style="font-weight: 600; color: #495057; margin-bottom: 8px; display: flex; align-items: center;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="margin-right: 6px;">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" fill="#28a745"/>
+            </svg>
+            Thinking Process
           </div>
-          ${createResearchDropdown(researchData, reasoningSteps)}
-        `;
-      } catch (e) {
-        // Fallback to original rendering on any error
-        div.innerHTML = `
-          <div class="bot-answer">${botAnswerHtml}</div>
-          <div class="message-actions">
-            <button class="copy-btn" onclick="copyToClipboard(this)" title="Copy"> ... </button>
-            <button class="rate-btn thumbs-up ${rating === 'up' ? 'selected' : ''}" onclick="rateAnswer(${index}, 'up', this)" title="Thumbs up"> </button>
-            <button class="rate-btn thumbs-down ${rating === 'down' ? 'selected' : ''}" onclick="rateAnswer(${index}, 'down', this)" title="Thumbs down"> </button>
+          <div class="thinking-content" style="color: #6c757d; font-size: 0.9em; line-height: 1.4;">
+            ${thinking.replace(/\n/g, '<br>')}
           </div>
-          ${createResearchDropdown(researchData, reasoningSteps)}
-        `;
-      }
+        </div>
+      `;
+
+      div.innerHTML = `
+        ${thinkingHtml}
+        <div class="bot-answer">${botAnswerHtml}</div>
+        <div class="message-actions">
+          <button class="copy-btn" onclick="copyToClipboard(this)" title="Copy">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 448 512">
+              <path fill="currentColor" d="M320 448v40c0 13.255-10.745 24-24 24H24c-13.255 0-24-10.745-24-24V120c0-13.255 10.745-24 24-24h72v296c0 30.879 25.121 56 56 56h168zm0-344V0H152c-13.255 0-24 10.745-24 24v368c0 13.255 10.745 24 24 24h272c13.255 0 24-10.745 24-24V128H344c-13.2 0-24-10.8-24zm120.971-31.029L375.029 7.029A24 24 0 0 0 358.059 0H352v96h96v-6.059a24 24 0 0 0-7.029-16.97z"/>
+            </svg>
+          </button>
+          <button class="rate-btn thumbs-up ${rating === 'up' ? 'selected' : ''}" onclick="rateAnswer(${index}, 'up', this)" title="Thumbs up">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+              <path fill="currentColor" fill-rule="evenodd" d="M15 9.7h4a2 2 0 0 1 1.6.9a2 2 0 0 1 .3 1.8l-2.4 7.2c-.3.9-.5 1.4-1.9 1.4c-2 0-4.2-.7-6.1-1.3L9 19.3V9.5A32 32 0 0 0 13.2 4c.1-.4.5-.7.9-.9h1.2c.4.1.7.4 1 .7l.2 1.3zM4.2 10H7v8a2 2 0 1 1-4 0v-6.8c0-.7.5-1.2 1.2-1.2" clip-rule="evenodd"/>
+            </svg>
+          </button>
+          <button class="rate-btn thumbs-down ${rating === 'down' ? 'selected' : ''}" onclick="rateAnswer(${index}, 'down', this)" title="Thumbs down">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+              <path fill="currentColor" fill-rule="evenodd" d="M9 14.3H5a2 2 0 0 1-1.6-.9a2 2 0 0 1-.3-1.8l2.4-7.2C5.8 3.5 6 3 7.4 3c2 0 4.2.7 6.1 1.3l1.4.4v9.8a32 32 0 0 0-4.2 5.5c-.1.4-.5.7-.9.9a1.7 1.7 0 0 1-2.1-.7c-.2-.4-.3-.8-.3-1.3zm10.8-.3H17V6a2 2 0 1 1 4 0v6.8c0 .7-.5 1.2-1.2 1.2" clip-rule="evenodd"/>
+            </svg>
+          </button>
+        </div>
+        ${source ? `<div style="margin-top: 8px; font-size: 0.85em; color: #666;">Source: ${source}${confidence ? ` | Confidence: ${(confidence * 100).toFixed(0)}%` : ''}</div>` : ''}
+      `;
     } else {
       // Default rendering when no structured data
       div.innerHTML = `
@@ -747,7 +687,7 @@ function appendMessage(sender, text, index = null, rating = null, researchData =
           </svg>
         </button>
       </div>
-      ${createResearchDropdown(researchData, reasoningSteps)}
+      ${source ? `<div style="margin-top: 8px; font-size: 0.85em; color: #666;">Source: ${source}${confidence ? ` | Confidence: ${(confidence * 100).toFixed(0)}%` : ''}</div>` : ''}
     `;
     }
   }
@@ -755,204 +695,7 @@ function appendMessage(sender, text, index = null, rating = null, researchData =
   document.getElementById("chatWindow").appendChild(div);
 }
 
-function createResearchDropdown(researchData, reasoningSteps) {
-  console.log('=== Research Dropdown Debug ===');
-  console.log('researchData received:', researchData);
-  console.log('reasoningSteps received:', reasoningSteps);
 
-  const hasRealReasoningSteps = reasoningSteps && Array.isArray(reasoningSteps) && reasoningSteps.length > 0;
-
-  if (!hasRealReasoningSteps) {
-    console.log('No reasoning steps from backend, using fallback data');
-    reasoningSteps = [
-      "Using LLM only (no database search)",
-      "Original question received and processed",
-      "Query classified as: AGRICULTURE",
-      "Effective location determined: Punjab",
-      "Using primary model: llama3.1:latest",
-      "LLM parameters: temperature=0.3, max_tokens=1024",
-      "Calling LLM with primary model",
-      "LLM response generated (2264 characters)"
-    ];
-  } else {
-    console.log('Using real reasoning steps from backend:', reasoningSteps.length, 'steps');
-  }
-
-  const hasResearchData = researchData && Array.isArray(researchData) && researchData.length > 0;
-  const hasReasoningSteps = reasoningSteps && Array.isArray(reasoningSteps) && reasoningSteps.length > 0;
-
-  if (!hasResearchData && !hasReasoningSteps) {
-    return `
-    <div class="research-dropdown">
-      <div class="research-header" onclick="toggleResearchDropdown(this)">
-        <div class="research-header-left">
-          <i class="fas fa-cog"></i>
-          <span class="research-title">Research</span>
-          <span class="research-subtitle">(No processing details available)</span>
-        </div>
-        <span class="research-toggle">▼</span>
-      </div>
-      <div class="research-content">
-        <div class="no-research-data">
-          <i class="fas fa-info-circle"></i>
-          <div>No reasoning information available for this response</div>
-        </div>
-      </div>
-    </div>`;
-  }
-
-  const selectedDocs = hasResearchData ? researchData.filter(doc => doc.selected) : [];
-  const totalDocs = hasResearchData ? researchData.length : 0;
-
-  let subtitle = '';
-  if (hasResearchData) {
-    subtitle = `(${selectedDocs.length}/${totalDocs} documents selected)`;
-  } else if (hasReasoningSteps) {
-    subtitle = `(${reasoningSteps.length} processing steps)`;
-  }
-
-  const summaryStats = hasResearchData ? {
-    total: totalDocs,
-    selected: selectedDocs.length,
-    avgDistance: totalDocs > 0 ? (researchData.reduce((sum, doc) => sum + (doc.distance || 0), 0) / totalDocs).toFixed(3) : 'N/A'
-  } : null;
-
-  return `
-  <div class="research-dropdown">
-    <div class="research-header" onclick="toggleResearchDropdown(this)">
-      <div class="research-header-left">
-        <i class="fas fa-cog"></i>
-        <span class="research-title">Research</span>
-        <span class="research-subtitle">${subtitle}</span>
-      </div>
-      <span class="research-toggle">▼</span>
-    </div>
-    <div class="research-content">
-      ${hasReasoningSteps ? createReasoningStepsSection(reasoningSteps) : ''}
-      ${hasResearchData ? createResearchSummarySection(summaryStats) : ''}
-      ${hasResearchData ? createDocumentsSection(researchData) : ''}
-    </div>
-  </div>`;
-}
-
-function createReasoningStepsSection(reasoningSteps) {
-  return `
-  <div class="reasoning-steps">
-    <div class="reasoning-header">
-      <i class="fas fa-brain"></i>
-      <span>Processing Steps</span>
-    </div>
-    <div class="reasoning-list">
-      ${reasoningSteps.map((step, index) => `
-        <div class="reasoning-step">
-          <span class="step-number">${index + 1}</span>
-          <span class="step-text">${step}</span>
-        </div>
-      `).join('')}
-    </div>
-  </div>`;
-}
-
-function createResearchSummarySection(summaryStats) {
-  if (!summaryStats) return '';
-
-  return `
-  <div class="research-summary">
-    <div class="research-summary-item">
-      <span class="research-summary-label">Documents Analyzed:</span>
-      <span class="research-summary-value">${summaryStats.total}</span>
-    </div>
-    <div class="research-summary-item">
-      <span class="research-summary-label">Documents Selected:</span>
-      <span class="research-summary-value">${summaryStats.selected}</span>
-    </div>
-    <div class="research-summary-item">
-      <span class="research-summary-label">Average Distance:</span>
-      <span class="research-summary-value">${summaryStats.avgDistance}</span>
-    </div>
-  </div>`;
-}
-
-function createDocumentsSection(researchData) {
-  return `
-  <div class="research-documents">
-    ${researchData.map(doc => createDocumentItem(doc)).join('')}
-  </div>`;
-} function createDocumentItem(doc) {
-  const isSelected = doc.selected;
-  const distance = parseFloat(doc.distance || 0);
-  const similarity = parseFloat(doc.similarity_score || 0);
-
-  // Score classifications
-  const distanceClass = distance < 0.3 ? 'high' : distance < 0.5 ? 'medium' : 'low';
-  const similarityClass = similarity > 0.7 ? 'high' : similarity > 0.5 ? 'medium' : 'low';
-
-  return `
-  <div class="research-doc ${isSelected ? 'selected' : ''}">
-    <div class="doc-header">
-      <div class="doc-rank">Rank ${doc.rank || 'N/A'}</div>
-      <div class="doc-scores">
-        <span class="doc-score ${distanceClass}">Dist: ${distance.toFixed(3)}</span>
-        <span class="doc-score ${similarityClass}">Sim: ${(similarity * 100).toFixed(1)}%</span>
-      </div>
-    </div>
-    <div class="doc-metadata">
-      <span class="doc-metadata-item">${doc.collection_type || 'Unknown'}</span>
-      ${doc.metadata && doc.metadata.crop ? `<span class="doc-metadata-item">Crop: ${doc.metadata.crop}</span>` : ''}
-      ${doc.metadata && doc.metadata.state ? `<span class="doc-metadata-item">State: ${doc.metadata.state}</span>` : ''}
-      ${doc.metadata && doc.metadata.category ? `<span class="doc-metadata-item">Category: ${doc.metadata.category}</span>` : ''}
-    </div>
-    <div class="doc-content">
-      ${doc.content_preview || 'No content preview available'}
-    </div>
-    ${doc.selection_reason ? `<div class="doc-selection-reason">✓ ${doc.selection_reason}</div>` : ''}
-    ${doc.youtube_url ? (() => {
-      // Extract youtube id and render thumbnail if possible
-      const url = doc.youtube_url;
-      let vid = null;
-      try {
-        const m = url.match(/(?:v=|\/embed\/|youtu\.be\/|\/v\/)([A-Za-z0-9_-]{6,})/);
-        if (m && m[1]) vid = m[1];
-        else {
-          const u = new URL(url);
-          const params = new URLSearchParams(u.search);
-          if (params.has('v')) vid = params.get('v');
-        }
-      } catch (e) { vid = null; }
-
-      const thumb = vid ? `https://img.youtube.com/vi/${vid}/hqdefault.jpg` : null;
-      return thumb ? `
-        <div class="doc-video-thumb">
-          <div class="suggested-video-title" style="font-weight:800;margin-bottom:6px;">Suggested Video: </div>
-          <a href="${url}" target="_blank" rel="noopener noreferrer">
-            <img src="${thumb}" alt="Watch video" style="max-width:240px; width:100%; height:auto; border-radius:6px;">
-          </a>
-        </div>
-      ` : `
-        <div class="doc-video-link">
-          <div class="suggested-video-title" style="font-weight:800;margin-bottom:4px;">Suggested Video: </div>
-          <a href="${url}" target="_blank" rel="noopener noreferrer">▶ Watch related video</a>
-        </div>
-      `;
-    })() : ''}
-  </div>`;
-}
-
-function toggleResearchDropdown(headerElement) {
-  const dropdown = headerElement.parentElement;
-  const content = dropdown.querySelector('.research-content');
-  const toggle = headerElement.querySelector('.research-toggle');
-
-  const isExpanded = content.classList.contains('expanded');
-
-  if (isExpanded) {
-    content.classList.remove('expanded');
-    toggle.classList.remove('expanded');
-  } else {
-    content.classList.add('expanded');
-    toggle.classList.add('expanded');
-  }
-}
 
 function displayRecommendations(recommendations) {
   const existingRecs = document.querySelectorAll('.inline-recommendations');
@@ -1022,7 +765,7 @@ function loadChat(session) {
 
   session.messages.forEach((msg, idx) => {
     appendMessage("user", msg.question);
-    appendMessage("bot", msg.answer, idx, msg.rating || null, msg.research_data || null, msg.reasoning_steps || null, msg.source || null, msg.confidence || null);
+    appendMessage("bot", msg.answer, idx, msg.rating || null, msg.thinking || null, msg.source || null, msg.confidence || null);
   });
 
   if (session.recommendations && session.recommendations.length > 0) {
@@ -1214,7 +957,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     const data = await res.json();
     const last = data.session.messages.at(-1);
     hideLoader();
-    appendMessage("bot", last.answer, null, null, last.research_data || null, last.reasoning_steps || null, last.source || null, last.confidence || null);
+    appendMessage("bot", last.answer, null, null, last.thinking || null, last.source || null, last.confidence || null);
 
     currentSession = data.session;
 
@@ -1309,17 +1052,26 @@ async function detectLocationAndLanguage(updateBackend = false) {
   });
 }
 
+// function updateLocationUI(state, language) {
+//   document.getElementById("locationState").textContent = state;
+//   document.getElementById("locationLanguage").textContent = language;
+
+//   const manualStateSelect = document.getElementById("manualStateSelect");
+//   // const manualLangSelect = document.getElementById("manualLanguageSelect");
+
+//   if (manualStateSelect) manualStateSelect.value = state;
+//   // if (manualLangSelect) manualLangSelect.value = language;
+// }
+
 function updateLocationUI(state, language) {
-  document.getElementById("locationState").textContent = state;
-  document.getElementById("locationLanguage").textContent = language;
-
+  const stateElem = document.getElementById("locationState");
+  const langElem = document.getElementById("locationLanguage");
   const manualStateSelect = document.getElementById("manualStateSelect");
-  // const manualLangSelect = document.getElementById("manualLanguageSelect");
 
+  if (stateElem) stateElem.textContent = state;
+  if (langElem) langElem.textContent = language;
   if (manualStateSelect) manualStateSelect.value = state;
-  // if (manualLangSelect) manualLangSelect.value = language;
 }
-
 
 async function updateLanguageInBackend(state, language) {
   try {
@@ -1360,16 +1112,30 @@ document.getElementById("manualStateSelect").addEventListener("change", async (e
   await updateLanguageInBackend(selectedState, selectedLang);
 });
 
-document.getElementById("manualLanguageSelect").addEventListener("change", async (e) => {
-  const selectedLang = e.target.value;
-  const selectedState = document.getElementById("manualStateSelect").value;
+// document.getElementById("manualLanguageSelect").addEventListener("change", async (e) => {
+//   const selectedLang = e.target.value;
+//   const selectedState = document.getElementById("manualStateSelect").value;
 
-  localStorage.setItem("agrichat_user_language", selectedLang);
-  if (selectedState) localStorage.setItem("agrichat_user_state", selectedState);
+//   localStorage.setItem("agrichat_user_language", selectedLang);
+//   if (selectedState) localStorage.setItem("agrichat_user_state", selectedState);
 
-  updateLocationUI(selectedState, selectedLang);
-  if (selectedState) await updateLanguageInBackend(selectedState, selectedLang);
-});
+//   updateLocationUI(selectedState, selectedLang);
+//   if (selectedState) await updateLanguageInBackend(selectedState, selectedLang);
+// });
+
+const languageSelect = document.getElementById("manualLanguageSelect");
+if (languageSelect) {
+  languageSelect.addEventListener("change", async (e) => {
+    const selectedLang = e.target.value;
+    const selectedState = document.getElementById("manualStateSelect").value;
+
+    localStorage.setItem("agrichat_user_language", selectedLang);
+    if (selectedState) localStorage.setItem("agrichat_user_state", selectedState);
+
+    updateLocationUI(selectedState, selectedLang);
+    if (selectedState) await updateLanguageInBackend(selectedState, selectedLang);
+  });
+}
 
 document.getElementById("resetLocationBtn").addEventListener("click", async () => {
   await detectLocationAndLanguage(true);

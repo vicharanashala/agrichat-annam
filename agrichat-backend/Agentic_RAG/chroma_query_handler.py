@@ -474,21 +474,41 @@ Respond with only one of these words: AGRICULTURE, GREETING, or NON_AGRI.
         except Exception:
             return None
 
-    def _is_exact_question_match(self, user_question: str, stored_question: Optional[str], threshold: float = 0.85) -> bool:
+    def _is_exact_question_match(self, user_question: str, stored_question: Optional[str], threshold: float = 0.7) -> bool:
+        """Backward-compatible wrapper kept for callers that expect a boolean exact-match.
+
+        NOTE: new logic prefers `_question_similarity_level` (exact/related/none).
+        """
+        level = self._question_similarity_level(user_question, stored_question)
+        return level == 'exact'
+
+    def _question_similarity_level(self, user_question: str, stored_question: Optional[str], exact_threshold: float = 0.7, related_threshold: float = 0.45) -> str:
+        """
+        Determine similarity level between user question and stored question using embeddings.
+        Returns one of: 'exact' (embedding sim >= exact_threshold),
+                        'related' (embedding sim >= related_threshold),
+                        'none' otherwise.
+
+        Defaults chosen per your request: exact >= 0.7, related >= 0.45.
+        """
         if not stored_question:
-            return False
+            return 'none'
         try:
             u = re.sub(r"\s+", " ", user_question.strip().lower())
             s = re.sub(r"\s+", " ", stored_question.strip().lower())
             if u == s:
-                return True
+                return 'exact'
 
             u_emb = self.embedding_function.embed_query(user_question)
             s_emb = self.embedding_function.embed_query(stored_question)
             sim = self.cosine_sim(u_emb, s_emb)
-            return sim >= threshold
+            if sim >= exact_threshold:
+                return 'exact'
+            if sim >= related_threshold:
+                return 'related'
+            return 'none'
         except Exception:
-            return False
+            return 'none'
 
     GREETING_RESPONSE_PROMPT = """
 You are a friendly agricultural assistant. The user has greeted you with: "{question}"
@@ -1591,7 +1611,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                     temperature=0.1,
                     max_tokens=512,
                     use_fallback=False,
-                    model=os.getenv('OLLAMA_MODEL_STRUCTURER', 'gemma3:4b')
+                    model=os.getenv('OLLAMA_MODEL_STRUCTURER', 'gemma:latest')
                 )
                 
                 final_response = self.filter_response_thinking(generated_response.strip())
@@ -2080,23 +2100,19 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                                 break
 
                         stored_question = self._extract_stored_question(doc)
-                        exact_match = False
+                        match_level = 'none'
                         try:
                             if stored_question:
                                 qnorm = re.sub(r"\s+", " ", question.strip().lower())
                                 snorm = re.sub(r"\s+", " ", stored_question.strip().lower())
                                 if qnorm == snorm:
-                                    exact_match = True
+                                    match_level = 'exact'
                                 else:
-                                    sq_emb = self.embedding_function.embed_query(stored_question)
-                                    q_emb = query_embedding
-                                    emb_sim = self.cosine_sim(q_emb, sq_emb)
-                                    if emb_sim >= 0.85:
-                                        exact_match = True
+                                    match_level = self._question_similarity_level(question, stored_question)
                         except Exception:
-                            exact_match = False
+                            match_level = 'none'
 
-                        if answer_text and exact_match:
+                        if answer_text and match_level == 'exact':
                             _maybe_log('relevant_doc', f"Returning verbatim DB answer due to exact stored-question match")
                             source_info = f"\n\n**Source:** RAG Database (Golden)"
                             return {
@@ -2107,7 +2123,38 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                                 'document_metadata': doc.metadata,
                                 'research_data': research_data
                             }
-                        elif answer_text and not exact_match:
+                        elif answer_text and match_level == 'related':
+                            # Related match: the stored question is semantically related to user's question.
+                            # Use LLM contextualization but accept the outcome as RAG-derived to reduce fallbacks.
+                            print(f"[DEBUG] Related stored-question match (semantic). Using contextualized generation and accepting as RAG-related answer.")
+                            try:
+                                if collection_type == 'golden':
+                                    llm_response = self.generate_answer_with_golden_context(processing_query, doc.page_content, user_state)
+                                    determined_source = "RAG Database (Golden - related)"
+                                else:
+                                    context = f"Context: {doc.page_content}\n\nQuestion: {processing_query}"
+                                    llm_response = run_local_llm(
+                                        f"{self.REGION_INSTRUCTION}\n{self.BASE_PROMPT}\n\n{context}",
+                                        temperature=0.1,
+                                        max_tokens=1024,
+                                        model=os.getenv('OLLAMA_MODEL_STRUCTURER', 'gemma:latest')
+                                    )
+                                    determined_source = "RAG Database (Related)"
+
+                                source_text = f"\n\n<small><i>Source: {determined_source}</i></small>"
+                                final_response = llm_response + source_text
+                                return {
+                                    'answer': final_response,
+                                    'source': determined_source,
+                                    'cosine_similarity': cosine_score,
+                                    'distance': distance,
+                                    'document_metadata': doc.metadata,
+                                    'research_data': research_data
+                                }
+                            except Exception as e:
+                                print(f"[DEBUG] Related-match contextualization failed: {e}")
+                                # Fall through to normal generation below
+                        elif answer_text and match_level == 'none':
                             print(f"[DEBUG] DB answer present but not exact match - generating contextualized response using LLM")
                             if collection_type == 'golden':
                                 llm_response = self.generate_answer_with_golden_context(processing_query, doc.page_content, user_state)
@@ -2118,7 +2165,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                                     f"{self.REGION_INSTRUCTION}\n{self.BASE_PROMPT}\n\n{context}",
                                     temperature=0.1,
                                     max_tokens=1024,
-                                    model=os.getenv('OLLAMA_MODEL_STRUCTURER', 'gemma3:4b')
+                                    model=os.getenv('OLLAMA_MODEL_STRUCTURER', 'gemma:latest')
                                 )
                                 determined_source = "Using RAG Database"
 
@@ -2144,7 +2191,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                             f"{self.REGION_INSTRUCTION}\n{self.BASE_PROMPT}\n\n{context}",
                             temperature=0.1,
                             max_tokens=1024,
-                            model=os.getenv('OLLAMA_MODEL_STRUCTURER', 'gemma3:4b')
+                            model=os.getenv('OLLAMA_MODEL_STRUCTURER', 'gemma:latest')
                         )
                     
                     reasoning_steps.append(f"Generated response using selected document ({len(llm_response)} characters)")

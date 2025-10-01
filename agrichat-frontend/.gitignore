@@ -6,3 +6,4 @@ node_modules/
 .env.local
 .env.production
 Thumbs.db
+

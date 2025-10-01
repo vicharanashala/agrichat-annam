@@ -2,16 +2,7 @@ import os
 from typing import List, Dict, Optional
 
 from fast_response_handler import FastResponseHandler
-
-from crewai import Crew
-from crew_agents import (
-    Retriever_Agent, Grader_agent,
-    hallucination_grader, answer_grader
-)
-from crew_tasks import (
-    retriever_task, grader_task,
-    hallucination_task, answer_task
-)
+from tools import FallbackAgriTool
 
 USE_FAST_MODE = os.getenv("USE_FAST_MODE", "true").lower() == "true"
 
@@ -37,8 +28,8 @@ if USE_FAST_MODE:
         print(f"[CONFIG] Fast Mode initialization failed: {e}")
         print(f"[CONFIG] Falling back to CrewAI Mode")
         USE_FAST_MODE = False
-else:
-    print(f"[CONFIG] CrewAI Mode ENABLED - Using multi-agent workflow")
+    else:
+        print(f"[CONFIG] Fallback Tool Mode ENABLED - Using single-tool fallback pipeline")
 
 def get_answer(question: str, conversation_history_param: Optional[List[Dict]] = None, user_state: str = None) -> str:
     """
@@ -60,17 +51,13 @@ def get_answer(question: str, conversation_history_param: Optional[List[Dict]] =
     if USE_FAST_MODE and fast_handler:
         result = fast_handler.get_answer(question, conversation_history_param, user_state or "India")
     else:
-        rag_crew = Crew(
-            agents=[Retriever_Agent],
-            tasks=[retriever_task],
-            verbose=True,
-        )
-        
-        inputs = {
-            "question": question,
-            "conversation_history": conversation_history_param
-        }
-        result = rag_crew.kickoff(inputs=inputs)
+        try:
+            fallback_tool = FallbackAgriTool()
+            tool_result = fallback_tool.run({'question': question})
+            result = tool_result.get('answer', '__FALLBACK__')
+        except Exception as e:
+            print(f"[MAIN] Fallback tool failed: {e}")
+            result = "__FALLBACK__"
     
     conversation_history.append({
         "question": question,
@@ -106,6 +93,49 @@ if __name__ == "__main__":
             break
         
         print(f"\n[Processing with {mode_name}...]")
-        answer = get_answer(question)
-        print(f"\n{answer}")
+        result = get_answer(question)
+        if isinstance(result, dict):
+            answer_text = result.get('answer', '')
+            print("\n--- Full Response Preview ---")
+            print(answer_text)
+
+            research = result.get('research_data') or []
+            if research:
+                print("\n--- Research Data ---")
+                for i, doc in enumerate(research, start=1):
+                    content = doc.get('content') or doc.get('content_preview') or ''
+                    if not content:
+                        content = (doc.get('full_content') or doc.get('page_content') or '')
+                    print(f"[{i}] Source: {doc.get('source', doc.get('collection_type', 'unknown'))}")
+                    print(f"Content: {content}\n")
+                    if doc.get('metadata'):
+                        meta_preview = ', '.join([f"{k}={v}" for k, v in list(doc.get('metadata').items())[:10]])
+                        print(f"Metadata: {meta_preview}")
+                    print('-' * 40)
+
+            # If reasoning steps are present, show them for transparency
+            reasoning = result.get('reasoning_steps') or []
+            if reasoning:
+                print("\n--- Reasoning Steps ---")
+                for step in reasoning:
+                    print(f"- {step}")
+
+            # Print sources footer when present
+            src = result.get('source')
+            sim = result.get('similarity') or result.get('confidence') or 0.0
+            meta = result.get('metadata') or {}
+            footer_lines = []
+            if src:
+                footer_lines.append(f"Source: {src}")
+            footer_lines.append(f"Confidence/Similarity: {sim:.2f}")
+            if meta:
+                # show a compact metadata preview
+                meta_preview = ', '.join([f"{k}={v}" for k, v in list(meta.items())[:5]])
+                footer_lines.append(f"Metadata: {meta_preview}")
+
+            print("\n--- Sources ---")
+            for line in footer_lines:
+                print(line)
+        else:
+            print(f"\n{result}")
         print(f"\n[Conversation history length: {len(conversation_history)}]")

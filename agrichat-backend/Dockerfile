@@ -10,12 +10,12 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-COPY backendRequirements.txt .
+COPY agrichat-backend/backendRequirements.txt .
 
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir -r backendRequirements.txt
 
-COPY . .
+COPY agrichat-backend/ .
 
 RUN mkdir -p ssl logs chromaDb .cache/whisper && \
     chmod 755 ssl logs chromaDb .cache/whisper

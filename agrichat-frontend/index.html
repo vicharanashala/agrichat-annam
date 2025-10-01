@@ -99,7 +99,7 @@
         <button class="sidebar-toggle" id="sidebarToggle">
           <i class="fas fa-bars" id="sidebarIcon"></i>
         </button>
-        <h1 class="main-title">
+        <h1 class="main-title" style="font-family: 'Rufina', serif;">
           <i class="fas fa-seedling"></i>
           AgriChat
         </h1>
@@ -153,7 +153,7 @@
           </button>
         </div>
 
-        <div class="location-dropdown" id="locationEdit" style="display: none;">
+        <div class="location-dropdown" id="locationEdit" style="display: none; justify-content: center; align-items: center;">
           <div class="dropdown-group">
             <label for="manualStateSelect">State</label>
             <select id="manualStateSelect"></select>
@@ -247,6 +247,21 @@
           </button>
           <div class="button-row">
 
+            <!-- Plus (with Database Toggles)-->
+            <div class="tooltip-container">
+              <button type="button" class="feature-button" aria-label="Attach file or image">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+                  <path fill="#000000" fill-rule="evenodd" d="M7.5 14a6.5 6.5 0 1 0 0-13a6.5 6.5 0 0 0 0 13m0 1c4.14 0 7.5-3.36 7.5-7.5S11.64 0 7.5 0S0 3.36 0 7.5S3.36 15 7.5 15" clip-rule="evenodd"/>
+                  <path fill="#000000" d="M8 4.5a.5.5 0 0 0-1 0V7H4.5a.5.5 0 0 0 0 1H7v2.5a.5.5 0 0 0 1 0V8h2.5a.5.5 0 0 0 0-1H8z"/>
+                </svg>
+                <!-- <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                  <path fill-rule="evenodd" clip-rule="evenodd" d="M7.5 14a6.5 6.5 0 1 0 0-13a6.5 6.5 0 0 0 0 13m0 1c4.14 0 7.5-3.36 7.5-7.5S11.64 0 7.5 0S0 3.36 0 7.5S3.36 15 7.5 15"/>
+                  <path d="M8 4.5a.5.5 0 0 0-1 0V7H4.5a.5.5 0 0 0 0 1H7v2.5a.5.5 0 0 0 1 0V8h2.5a.5.5 0 0 0 0-1H8z"/>
+                </svg> -->
+              </button>
+              <span class="tooltip-text">Beta feature</span>
+            </div>
+
             <!-- Attachment -->
             <div class="tooltip-container">
               <button type="button" class="feature-button inactive" aria-label="Attach file or image">
@@ -278,7 +293,7 @@
 
       <div class="start-screen" id="startScreen">
         <div class="icon"><i class="fas fa-seedling"></i></div>
-        <h2>Welcome to AgriChat</h2>
+        <h2 style="font-family: 'Rufina', serif;">Welcome to AgriChat</h2>
 
         <div class="subheading-container">
           <p>Your intelligent farming assistant is here to help you with <br> agricultural queries, crop management, and

@@ -17,5 +17,4 @@ scikit-learn
 certifi
 pytz
 python-dateutil
-crewai
 openai-whisper

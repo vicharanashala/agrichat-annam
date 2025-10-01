@@ -18,8 +18,8 @@ services:
 
   backend:
     build:
-      context: ./agrichat-backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./agrichat-backend/Dockerfile
     container_name: agrichat-backend
     network_mode: host
     env_file:
@@ -51,6 +51,8 @@ services:
     volumes:
       - ./agrichat-backend/logs:/app/logs
       - ./agrichat-backend/chromaDb:/app/chromaDb
+      # Bind-mount fallback_queries.csv so container writes are visible on host
+      - ./fallback_queries.csv:/app/fallback_queries.csv
       - ./agrichat-backend/ssl:/app/ssl
       - whisper_cache:/app/.cache/whisper
     restart: unless-stopped

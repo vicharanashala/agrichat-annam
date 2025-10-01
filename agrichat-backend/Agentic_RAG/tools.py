@@ -1,5 +1,8 @@
 from pydantic import PrivateAttr, BaseModel, Field
-from crewai.tools import BaseTool
+from typing import ClassVar
+class BaseTool:
+    def __init__(self, *args, **kwargs):
+        pass
 from chroma_query_handler import ChromaQueryHandler
 from typing import ClassVar, List, Dict, Optional
 from local_llm_interface import run_local_llm
@@ -26,9 +29,10 @@ def is_agricultural_query(question: str) -> bool:
     """Detect if a query is agriculture-related using keywords and patterns"""
     question_lower = question.lower()
     
+    # Treat greetings as NOT agricultural here so higher-level handlers can respond with a greeting template.
     greetings = ['hi', 'hello', 'hey', 'namaste', 'good morning', 'good afternoon', 'good evening', 'how are you']
     if any(greeting in question_lower for greeting in greetings):
-        return True
+        return False
     
     agri_keywords = [
         'crop', 'crops', 'farming', 'farm', 'agriculture', 'agricultural', 'plant', 'plants', 'seed', 'seeds',
@@ -232,16 +236,21 @@ Current question: {question}
 {self.SYSTEM_PROMPT.format(question=question)}"""
         else:
             prompt = self.SYSTEM_PROMPT.format(question=question)
-        
-        response_text = run_local_llm(prompt, use_fallback=True, temperature=0.1)
-        
+        # Call the local LLM (explicitly using the configured fallback model)
+        response_text = run_local_llm(
+            prompt,
+            use_fallback=True,
+            temperature=0.1,
+            model=os.getenv('OLLAMA_MODEL_FALLBACK', 'gpt-oss:20b')
+        )
+
         print(f"[SOURCE] Local LLM used for agricultural question: {question}")
         log_fallback_to_csv(question, response_text)
-        
+
         final_response = response_text.strip()
         if not any(greeting in question.lower() for greeting in greetings):
             final_response += "\n\n<small><i>Source: Fallback to LLM</i></small>"
-        
+
         return final_response
 
 

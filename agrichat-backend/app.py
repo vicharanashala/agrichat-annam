@@ -1,38 +1,37 @@
 from fastapi import FastAPI, Request, Form, Body, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from pymongo import MongoClient
 from uuid import uuid4
 from datetime import datetime
-from bs4 import BeautifulSoup
 import sys
 import os
-import markdown
 import csv
 from io import StringIO
 import certifi
 import pytz
-from dateutil import parser
 from contextlib import asynccontextmanager
 import logging
 from typing import Optional, List, Dict
 import time
-from response_formatter import AgriculturalResponseFormatter
 import asyncio
 import hashlib
 from functools import lru_cache
 from local_whisper_interface import get_whisper_instance
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-import numpy as np
-from Agentic_RAG.local_llm_interface import local_embeddings, local_llm, run_local_llm
 import re
-from langchain.memory import ConversationBufferWindowMemory
 from Agentic_RAG.fast_response_handler import FastResponseHandler
-from Agentic_RAG.context_manager import ConversationContext
 from Agentic_RAG.database_config import DatabaseConfig
 from Agentic_RAG import main as rag_main
+import json
+import markdown
+import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from langchain.memory import ConversationBufferWindowMemory
+from fastapi.responses import StreamingResponse
+from bs4 import BeautifulSoup
+from dateutil import parser
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -47,10 +46,6 @@ sys.path.insert(0, project_root)
 USE_FAST_MODE = os.getenv("USE_FAST_MODE", "true").lower() == "true"
 DISABLE_RECOMMENDATIONS = os.getenv("DISABLE_RECOMMENDATIONS", "false").lower() == "true"
 PARALLEL_RECOMMENDATIONS = os.getenv("PARALLEL_RECOMMENDATIONS", "true").lower() == "true"
-logger.info(f"[CONFIG] USE_FAST_MODE environment variable: {os.getenv('USE_FAST_MODE', 'not set')}")
-logger.info(f"[CONFIG] Fast Mode Enabled: {USE_FAST_MODE}")
-logger.info(f"[CONFIG] Recommendations Disabled: {DISABLE_RECOMMENDATIONS}")
-logger.info(f"[CONFIG] Parallel Recommendations Enabled: {PARALLEL_RECOMMENDATIONS}")
 
 class QueryRequest(BaseModel):
     question: str
@@ -76,21 +71,12 @@ class AuthResponse(BaseModel):
     full_name: Optional[str] = None
     message: str = ""
 
-response_formatter = None
-try:
-    response_formatter = AgriculturalResponseFormatter()
-    logger.info("[CONFIG] Response formatter initialized successfully")
-except Exception as e:
-    logger.warning(f"[CONFIG] Response formatter initialization failed: {e}")
-
 fast_handler = None
 if USE_FAST_MODE:
     try:
         fast_handler = FastResponseHandler()
-        logger.info("[CONFIG] Fast response handler loaded successfully - 50% performance improvement enabled")
     except Exception as e:
         logger.warning(f"[CONFIG] Fast response handler initialization failed: {e}")
-        logger.info("[CONFIG] Falling back to full pipeline mode")
         USE_FAST_MODE = False
 from Agentic_RAG.chroma_query_handler import ChromaQueryHandler
 from Agentic_RAG.tools import is_agricultural_query
@@ -111,6 +97,23 @@ logger.info(f"[CONFIG] ChromaDB exists: {os.path.exists(chroma_db_path)}")
 query_handler = ChromaQueryHandler(chroma_path=chroma_db_path)
 
 pipeline = None
+
+local_llm = None
+local_embeddings = None
+response_formatter = None
+try:
+    from Agentic_RAG.local_llm_interface import LocalLLMInterface
+    from Agentic_RAG.local_llm_interface import LocalEmbeddings
+    local_llm = LocalLLMInterface()
+    local_embeddings = LocalEmbeddings()
+except Exception as e:
+    logger.warning(f"[CONFIG] Local LLM/embeddings initialization failed: {e}")
+
+try:
+    from response_formatter import AgriculturalResponseFormatter
+    response_formatter = AgriculturalResponseFormatter()
+except Exception as e:
+    logger.warning(f"[CONFIG] Response formatter initialization failed: {e}")
 
 MONGO_URI = os.getenv("MONGO_URI")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
@@ -242,7 +245,8 @@ app = FastAPI(lifespan=lifespan)
 
 origins = [
     "https://agri-annam.vercel.app",
-    "https://0e374d97ac3f.ngrok-free.app",
+    "https://agrichat.annam.ai",
+    "https://c455816e214e.ngrok-free.app", 
     "https://localhost:3000",
     "https://127.0.0.1:3000",
     "http://localhost:3000",
@@ -251,21 +255,31 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
     expose_headers=["*"]
 )
 
+def extract_thinking_process(text: str) -> tuple:
+    """Extract thinking process from <think> tags and return (thinking, clean_answer)"""
+    if not text:
+        return "", text
+    
+    think_pattern = r'<think>(.*?)</think>'
+    matches = re.findall(think_pattern, text, re.DOTALL | re.IGNORECASE)
+    thinking = ""
+    if matches:
+        thinking = matches[0].strip()
+        clean_answer = re.sub(think_pattern, '', text, flags=re.DOTALL | re.IGNORECASE).strip()
+    else:
+        clean_answer = text
+    
+    return thinking, clean_answer
+
 async def get_answer(question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None, session_id: str = None, db_config: DatabaseConfig = None) -> Dict:
-    """
-    Main answer function: route every frontend interaction through the test_multi_model_pipeline.MultiModelPipeline
-    so the staged multi-model pipeline (reasoner -> direct RAG -> structurer -> evaluator -> fallback) is used.
-    Falls back to existing query_handler when pipeline is not available.
-    Returns a dict with keys similar to older handler: 'answer', 'source', 'reasoning_steps', 'research_data', 'ragas_score'
-    """
-    # Quick handling for greetings and non-agricultural questions to avoid unnecessary clarifications
+    """Get answer using rag_main.get_answer to match main.py structure"""
     try:
         question_lower = question.lower().strip()
         greetings = ['hi', 'hello', 'hey', 'namaste', 'good morning', 'good afternoon', 'good evening', 'how are you']
@@ -274,48 +288,63 @@ async def get_answer(question: str, conversation_history: Optional[List[Dict]] =
                 'answer': ("Hello! I'm your agricultural assistant specializing in Indian farming. "
                            "I can help you with crop management, soil health, pest control, fertilizers, "
                            "irrigation, farming techniques, and agricultural practices. What would you like to know?"),
-                'source': 'fallback_agri_tool',
-                'confidence': 1.0
+                'source': 'Greeting',
+                'confidence': 1.0,
+                'thinking': ''
             }
 
         if not is_agricultural_query(question):
             return {
                 'answer': ("I'm an agricultural assistant focused on Indian farming. I can only help with agriculture-related questions. "
                            "Please ask about crops, farming practices, soil management, pest control, or other agricultural topics."),
-                'source': 'fallback_agri_tool',
-                'confidence': 1.0
+                'source': 'Non-Agricultural',
+                'confidence': 1.0,
+                'thinking': ''
             }
     except Exception:
         pass
 
-    # Route frontend queries directly through the validated RAG pipeline in Agentic_RAG.main
     try:
-        # rag_main.get_answer is synchronous in main.py; call it in threadpool to avoid blocking the event loop
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(None, lambda: rag_main.get_answer(question, conversation_history or [], user_state))
 
-        # Expected string or dict result from rag_main.get_answer; normalize
         if isinstance(result, dict):
-            mapped = {
-                'answer': result.get('answer', result.get('response', '')),
-                'source': result.get('source', 'rag'),
-                'confidence': result.get('confidence', 0.0),
-                'query_analysis': result.get('query_analysis'),
-                'quality_assessment': result.get('quality_assessment'),
-                'models_used': result.get('models_used'),
-                'processing_time': result.get('processing_time')
+            answer_text = result.get('answer', '')
+            thinking, clean_answer = extract_thinking_process(answer_text)
+            
+            response = {
+                'answer': clean_answer,
+                'thinking': thinking,
+                'source': result.get('source', 'Unknown'),
+                'confidence': result.get('confidence', result.get('similarity', 0.0)),
+                'research_data': result.get('research_data', []),
+                'reasoning_steps': result.get('reasoning_steps', []),
+                'metadata': result.get('metadata', {})
             }
         else:
-            mapped = {
-                'answer': str(result),
-                'source': 'rag',
-                'confidence': 0.0
+            thinking, clean_answer = extract_thinking_process(str(result))
+            response = {
+                'answer': clean_answer,
+                'thinking': thinking,
+                'source': 'Unknown',
+                'confidence': 0.0,
+                'research_data': [],
+                'reasoning_steps': [],
+                'metadata': {}
             }
 
-        return mapped
+        return response
     except Exception as e:
         logger.error(f"[RAG] rag_main.get_answer failed: {e}")
-        return {'answer': "Service temporarily unavailable: internal error.", 'source': 'error'}
+        return {
+            'answer': "Service temporarily unavailable: internal error.",
+            'thinking': '',
+            'source': 'Error',
+            'confidence': 0.0,
+            'research_data': [],
+            'reasoning_steps': [],
+            'metadata': {}
+        }
 
 def resolve_context_question(question: str, context: str) -> str:
     """
@@ -857,12 +886,16 @@ async def health():
 
 @app.options("/{full_path:path}")
 async def options_handler(request: Request):
+    origin = request.headers.get("origin")
+    allowed_origin = origin if origin in origins else origins[0]
+    
     return JSONResponse(
         content={},
         headers={
-            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Origin": allowed_origin,
             "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
             "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
             "Access-Control-Max-Age": "86400"
         }
     )
@@ -928,12 +961,8 @@ async def new_session(request: QueryRequest):
             memory = get_session_memory(session_id)
             logger.info(f"[LANGCHAIN] Initialized new memory for session {session_id}")
 
-            # Add user message to LangChain memory
             memory.chat_memory.add_user_message(request.question)
 
-            # The project pipeline implemented in Agentic_RAG/main.py exposes a
-            # synchronous get_answer(...) function; run it in the default
-            # executor to avoid blocking the event loop.
             loop = asyncio.get_event_loop()
             try:
                 raw_answer = await loop.run_in_executor(
@@ -947,8 +976,6 @@ async def new_session(request: QueryRequest):
                 logger.error(f"[PIPELINE] rag_main.get_answer failed: {e}")
                 raise
             
-            # rag_main.get_answer returns either a string or a dict-like result.
-            # When dict-like, prefer the 'answer' field; otherwise coerce to string.
             if isinstance(raw_answer, dict) and raw_answer.get('answer'):
                 memory.chat_memory.add_ai_message(raw_answer['answer'])
                 logger.info(f"[LANGCHAIN] Added AI response to new session memory {session_id}")
@@ -994,7 +1021,6 @@ async def new_session(request: QueryRequest):
         logger.error(f"[DEBUG] Error in parallel processing: {e}")
         return JSONResponse(status_code=500, content={"error": "LLM processing failed."})
 
-    # Build final answer pieces: thinking (reasoning), final_answer (HTML) and sources
     answer_only = answer_result.get('answer', '') if isinstance(answer_result, dict) else str(answer_result)
 
     markdown_processing_start = time.time()
@@ -1004,14 +1030,10 @@ async def new_session(request: QueryRequest):
 
     session_creation_start = time.time()
     
-    # Compose message with explicit thinking -> final_answer -> sources fields
     message = {
         "question": request.question,
-        # 'thinking' contains reasoning steps or chain-of-thought if available
         "thinking": answer_result.get('reasoning_steps') if isinstance(answer_result, dict) else [],
-        # 'final_answer' is HTML-rendered markdown intended as the final preview
         "final_answer": html_answer,
-        # legacy 'answer' kept for backward compatibility
         "answer": html_answer,
         "rating": None
     }
@@ -1023,7 +1045,6 @@ async def new_session(request: QueryRequest):
             message['source'] = answer_result['source']
         if 'ragas_score' in answer_result:
             message['ragas_score'] = answer_result['ragas_score']
-        # expose an explicit 'sources' list for frontend convenience
         sources = []
         if answer_result.get('research_data'):
             for d in answer_result.get('research_data'):
@@ -1113,7 +1134,6 @@ async def continue_session(session_id: str, request: SessionQueryRequest):
             memory.chat_memory.add_user_message(request.question)
             loop = asyncio.get_event_loop()
             try:
-                # Use the same synchronous pipeline from Agentic_RAG/main.py
                 raw_answer = await loop.run_in_executor(None, rag_main.get_answer, request.question, conversation_history, current_state)
             except Exception as e:
                 logger.error(f"[PIPELINE] rag_main.get_answer failed for session: {e}")
@@ -1177,7 +1197,7 @@ async def continue_session(session_id: str, request: SessionQueryRequest):
             new_message['source'] = answer_result['source']
         if 'ragas_score' in answer_result:
             new_message['ragas_score'] = answer_result['ragas_score']
-        # Build sources convenience list
+
         sources = []
         if answer_result.get('research_data'):
             for d in answer_result.get('research_data'):
@@ -1256,8 +1276,7 @@ async def stream_query(question: str = Form(...), device_id: str = Form(...), st
             memory.chat_memory.add_user_message(question)
             logger.info(f"[STREAM] Streaming session {session_id} started for question: {question[:80]}")
 
-            # Stage 1: Reasoner analysis (qwen3) - stream thinking traces
-            # Use the same completeness analysis as test_multi_model_pipeline
+
             classifier_prompt = f"""You are an agricultural expert assistant. Analyze this farmer's question for completeness and classify it.
 
 Current Question: "{question}"
@@ -1308,11 +1327,11 @@ REASONING: [brief explanation]"""
             classifier_text = ''.join(classifier_output).strip()
             logger.info(f"[STREAM] Classifier output length={len(classifier_text)}")
 
-            # Parse completeness status - same logic as test_multi_model_pipeline
+
             is_incomplete = False
             completeness_status = "COMPLETE"  # Default to complete for lenient approach
             
-            # Extract completeness status from the response
+
             for line in classifier_text.split('\n'):
                 if 'COMPLETENESS:' in line.upper():
                     if 'INCOMPLETE' in line.upper():
@@ -1320,12 +1339,10 @@ REASONING: [brief explanation]"""
                         is_incomplete = True
                     break
             
-            # Also check for any clear incomplete indicators
+
             if 'MISSING_INFO' in classifier_text.upper() and completeness_status == "INCOMPLETE":
                 is_incomplete = True
-            # Early check: if the RAG DB contains an exact stored-question match (golden answer)
-            # and the document's State metadata matches the provided user state (if any),
-            # prefer returning the verbatim DB answer and skip clarification.
+
             try:
                 try_enhanced_query = question
                 try:
@@ -1343,9 +1360,7 @@ REASONING: [brief explanation]"""
                     early_docs = []
 
                 for d, dist in early_docs:
-                    # Attempt a robust exact-match + state-aware check for golden FAQ behavior
                     try:
-                        # normalize helper
                         def _norm_text(t: str) -> str:
                             return re.sub(r"\s+", " ", (t or '').strip().lower())
 
@@ -1358,26 +1373,21 @@ REASONING: [brief explanation]"""
                         stored_q_norm = _norm_text(stored_q) if stored_q else None
                         question_norm = _norm_text(question)
 
-                        # compute a simple similarity/confidence proxy from distance if available
                         similarity = None
                         try:
                             if dist is not None:
-                                # some backends return distance, some return score; map to similarity
                                 similarity = max(0.0, 1.0 - float(dist)) if float(dist) <= 1.0 else float(dist)
                         except Exception:
                             similarity = None
 
-                        # exact (or near-exact) stored question match OR very high similarity -> treat as golden
                         is_stored_exact = False
                         if stored_q_norm and question_norm:
-                            # allow exact equality or high fuzzy match via handler helper
                             if stored_q_norm == question_norm or query_handler._is_exact_question_match(question, stored_q, threshold=0.95):
                                 is_stored_exact = True
 
                         high_conf_similarity = (similarity is not None and similarity >= 0.85)
 
                         if is_stored_exact or high_conf_similarity:
-                            # ensure state matches if user provided one
                             doc_state = ''
                             try:
                                 doc_state = (d.metadata.get('State') or d.metadata.get('state') or '').strip().lower()
@@ -1386,7 +1396,6 @@ REASONING: [brief explanation]"""
 
                             user_state_norm = (state or '').strip().lower() if state is not None else ''
                             if (not user_state_norm) or (doc_state and user_state_norm and doc_state == user_state_norm) or (not doc_state and not user_state_norm):
-                                # Extract a clean answer -- prefer an 'Answer:' block if present
                                 answer_text = ''
                                 try:
                                     content_lines = d.page_content.split('\n') if hasattr(d, 'page_content') else []
@@ -1404,35 +1413,26 @@ REASONING: [brief explanation]"""
 
                                 final_text = answer_text or getattr(d, 'page_content', '')
 
-                                # determine source label
                                 source_name = 'Golden FAQ' if stored_q_norm else 'RAG Database'
-                                # map similarity to confidence
                                 conf_val = None
                                 if similarity is not None:
                                     conf_val = similarity
                                 else:
-                                    # fallback: high if stored exact, medium otherwise
                                     conf_val = 0.95 if is_stored_exact else (0.8 if high_conf_similarity else 0.7)
 
                                 confidence = 'High' if conf_val >= 0.8 else 'Medium' if conf_val >= 0.6 else 'Low'
 
-                                # Use response_formatter to build a consistent output if available
                                 try:
                                     formatted = response_formatter.format_simple_answer(final_text, source=source_name, similarity=conf_val)
                                 except Exception:
-                                    # fallback simple markdown
                                     formatted = f"{final_text}\n\n---\n*Source: {source_name} (Confidence: {confidence})*"
 
-                                # Stream only the formatted answer (no extra research chunks)
 
-                                # Ensure the formatted text does not contain any unwanted title prefixes like 'Direct Answer:' anywhere
                                 try:
                                     formatted_clean = re.sub(r"(Direct Answer:|Answer:|Response:)\s*", "", formatted, flags=re.IGNORECASE).strip()
                                 except Exception:
-                                    # fallback to original formatted
                                     formatted_clean = formatted.strip()
 
-                                # stream the full answer as a single answer chunk
                                 yield f"data: {json.dumps({'type': 'answer', 'chunk': formatted_clean})}\n\n"
 
                                 html_answer = markdown.markdown(formatted, extensions=["extra", "nl2br"])
@@ -1448,16 +1448,12 @@ REASONING: [brief explanation]"""
                                 yield f"data: {json.dumps({'type': 'complete', 'session': session})}\n\n"
                                 return
                     except Exception:
-                        # If anything goes wrong here, continue to normal handling
                         logger.debug("[STREAM] Early golden-match check failed for a doc, continuing")
                         continue
             except Exception:
-                # On any failure, continue to normal incomplete handling
                 pass
 
             if is_incomplete:
-                # Generate dynamic clarification like in test_multi_model_pipeline
-                # Extract crop/topic from the original query
                 query_lower = question.lower()
                 crop_mentioned = None
                 crops = ['rice', 'wheat', 'cotton', 'tomato', 'potato', 'maize', 'corn', 'sugarcane', 'onion', 'soybean']
@@ -1466,7 +1462,6 @@ REASONING: [brief explanation]"""
                         crop_mentioned = crop
                         break
                 
-                # Parse missing info from classifier output (basic parsing)
                 missing_info = []
                 if 'location' in classifier_text.lower() or 'state' in classifier_text.lower():
                     missing_info.append('location')
@@ -1477,7 +1472,6 @@ REASONING: [brief explanation]"""
                 if 'space' in classifier_text.lower() or 'size' in classifier_text.lower():
                     missing_info.append('space')
                 
-                # Generate dynamic recommendations
                 recommendations = []
                 if 'location' in missing_info:
                     recommendations.append("• **Location**: Which state/region are you in?")
@@ -1509,7 +1503,6 @@ REASONING: [brief explanation]"""
 **Why this helps:**
 Agricultural recommendations vary based on your location, available space, and growing conditions. With these details, I can provide specific advice for your situation."""
                 
-                # Stream clarification in chunks
                 chunk_size = 100
                 for i in range(0, len(clarification), chunk_size):
                     chunk = clarification[i:i+chunk_size]
@@ -1529,10 +1522,8 @@ Agricultural recommendations vary based on your location, available space, and g
                 yield f"data: {json.dumps({'type': 'complete', 'session': session})}\n\n"
                 return
 
-            # Stage 2: Direct RAG query using Chroma (bypass any internal LLMs)
             try:
                 enhanced_query = question
-                # naive context enhancement from memory
                 try:
                     recent = memory.chat_memory.messages[-4:]
                     recent_text = ' '.join([m.content if hasattr(m, 'content') else str(m) for m in recent])
@@ -1550,7 +1541,6 @@ Agricultural recommendations vary based on your location, available space, and g
                 best_doc = None
                 best_score = 0.0
                 if docs:
-                    # docs is list of (doc, distance)
                     for d, dist in docs:
                         score = 1.0 - dist if dist is not None else 0.0
                         if score > best_score:
@@ -1558,17 +1548,14 @@ Agricultural recommendations vary based on your location, available space, and g
                             best_doc = (d, dist)
 
                 if best_doc and best_score > 0.6:
-                    # Stream some research metadata
                     doc, distance = best_doc
                     meta = doc.metadata if hasattr(doc, 'metadata') else {}
                     yield f"data: {json.dumps({'type': 'research', 'source': 'rag_direct', 'metadata': meta, 'similarity': best_score})}\n\n"
-                    # Also stream truncated raw content as research_raw
                     raw_snippet = (doc.page_content[:1000] + '...') if hasattr(doc, 'page_content') else ''
                     yield f"data: {json.dumps({'type': 'research_raw', 'source': 'rag_direct', 'data': raw_snippet})}\n\n"
 
                     struct_prompt = query_handler.STRUCTURED_PROMPT.format(context=doc.page_content, question=question, region_instruction=query_handler.REGION_INSTRUCTION, current_month=datetime.now(IST).strftime('%B'))
 
-                    # Stage 3: Structurer (gemma)
                     answer_chunks = []
                     for event in local_llm.stream_generate(struct_prompt, model=os.getenv('OLLAMA_MODEL_STRUCTURER', 'gemma:latest'), temperature=0.2):
                         etype = event.get('type')
@@ -1584,7 +1571,6 @@ Agricultural recommendations vary based on your location, available space, and g
 
                     final_text = ''.join(answer_chunks)
 
-                    # Stage 4: Quality evaluation (reasoner)
                     eval_prompt = f"Evaluate this response for the question: {question}\nResponse: {final_text}\nProvide QUALITY_SCORE: [1-10] and SATISFACTORY: [YES/NO]"
                     eval_stream = []
                     for e in local_llm.stream_generate(eval_prompt, model=os.getenv('OLLAMA_MODEL_CLASSIFIER', 'qwen3:1.7b'), temperature=0.1):
@@ -1612,7 +1598,6 @@ Agricultural recommendations vary based on your location, available space, and g
                     if 'SATISFACTORY' in eval_text.upper() and 'NO' in eval_text.upper():
                         satisfactory = False
 
-                    # If not satisfactory, Stage 5: Fallback LLM
                     if not satisfactory or quality_score < 0.6:
                         fallback_prompt = f"The previous structured response didn't fully satisfy the question: {question}\nPrevious response: {final_text}\nPlease provide a complete, accurate, and actionable agricultural response."
                         for ev in local_llm.stream_generate(fallback_prompt, model=os.getenv('OLLAMA_MODEL_FALLBACK', 'gpt-oss:20b'), temperature=0.3):
@@ -1625,7 +1610,6 @@ Agricultural recommendations vary based on your location, available space, and g
                             elif etype == 'raw':
                                 yield f"data: {json.dumps({'type': 'research_raw', 'source': ev.get('source'), 'model': ev.get('model'), 'data': ev.get('data')})}\n\n"
 
-                        # For simplicity, don't overwrite final_text here; let streamed fallback be the final answer
                         persisted_text = final_text
                     else:
                         persisted_text = final_text
@@ -1643,7 +1627,6 @@ Agricultural recommendations vary based on your location, available space, and g
                     return
 
                 else:
-                    # No good RAG match - fallback to LLM directly
                     fallback_prompt = f"No direct database match was found. Answer this agricultural question comprehensively: {question}"
                     for ev in local_llm.stream_generate(fallback_prompt, model=os.getenv('OLLAMA_MODEL_FALLBACK', 'gpt-oss:20b'), temperature=0.3):
                         etype = ev.get('type')
@@ -1831,196 +1814,22 @@ async def get_recommendations(data: dict = Body(...)):
             content={"error": "Failed to generate recommendations"}
         )
 
-# OLD TRANSCRIBE-AUDIO
-# HF_API_URL = "https://api-inference.huggingface.co/models/openai/whisper-large-v3" # using this whisper model
-# HF_API_URL = "https://api-inference.huggingface.co/models/openai/whisper-tiny"
-# HF_API_TOKEN = os.getenv("HF_API_TOKEN")  
 
-# @app.post("/api/transcribe-audio")
-# async def transcribe_audio(file: UploadFile = File(...)):
-#     try:
-#         logger.info(f"Received file: {file.filename}")
 
-#         contents = await file.read()
-#         logger.info(f"File size: {len(contents)} bytes")
 
-#         content_type = file.content_type
-#         if file.filename:
-#             if file.filename.lower().endswith('.wav'):
-#                 content_type = "audio/wav"
-#             elif file.filename.lower().endswith('.mp3'):
-#                 content_type = "audio/mpeg"
-#             elif file.filename.lower().endswith('.flac'):
-#                 content_type = "audio/flac"
-#             elif file.filename.lower().endswith('.ogg'):
-#                 content_type = "audio/ogg"
-#             elif file.filename.lower().endswith('.m4a'):
-#                 content_type = "audio/m4a"
-#             elif file.filename.lower().endswith('.webm'):
-#                 content_type = "audio/webm"
 
-#         logger.info(f"Using content type: {content_type}")
 
-#         headers = {
-#             "Content-Type": content_type,
-#         }
 
-#         if HF_API_TOKEN and HF_API_TOKEN.strip():
-#             headers["Authorization"] = f"Bearer {HF_API_TOKEN}"
-#             logger.info("Using authenticated request")
-#         else:
-#             logger.info("Trying without authentication (public model)")
 
-#         logger.info(f"Transcribing with whisper-tiny model")
 
-#         response = requests.post(HF_API_URL, headers=headers, data=contents, timeout=60)
 
-#         logger.info(f"HF Status: {response.status_code}")
-#         logger.info(f"HF Response: {response.text[:500]}...")
 
-#         if response.status_code == 200:
-#             try:
-#                 result = response.json()
-#                 transcript = result.get("text") or result.get("generated_text")
 
-#                 if transcript and transcript.strip():
-#                     logger.info(f"Transcription successful: {transcript[:100]}...")
-#                     return {"transcript": transcript.strip()}
-#                 else:
-#                     logger.warning(f"No transcript in response: {result}")
-#                     return JSONResponse(
-#                         status_code=500,
-#                         content={"error": "No transcript found in response", "raw": str(result)}
-#                     )
-#             except Exception as json_error:
-#                 logger.error(f"Failed to parse JSON response: {json_error}")
-#                 return JSONResponse(
-#                     status_code=500,
-#                     content={"error": "Invalid JSON response from Hugging Face", "raw_response": response.text[:500]}
-#                 )
 
-#         elif response.status_code == 503:
-#             return JSONResponse(
-#                 status_code=200,
-#                 content={
-#                     "transcript": f"Audio Processing in Progress! Your audio file '{file.filename}' has been received. Our speech recognition service is currently starting up. Please wait 30-60 seconds and try uploading your audio again. Thank you for your patience!",
-#                     "demo_mode": True,
-#                     "api_status": "working",
-#                     "model_status": "loading_503",
-#                     "file_info": {
-#                         "filename": file.filename,
-#                         "size_bytes": len(contents),
-#                         "content_type": content_type
-#                     },
-#                     "retry_suggestion": "Please wait 30-60 seconds and try again"
-#                 }
-#             )
 
-#         elif response.status_code == 404:
-#             logger.warning("Whisper model returned 404 - not available")
-#             return JSONResponse(
-#                 status_code=200,
-#                 content={
-#                     "transcript": f"Audio Successfully Received! Your audio file '{file.filename}' has been uploaded and processed. However, our speech-to-text service is temporarily unavailable. Please try again in a few minutes, or contact support if the issue persists. We apologize for the inconvenience!",
-#                     "demo_mode": True,
-#                     "api_status": "working",
-#                     "model_status": "unavailable_404", 
-#                     "file_info": {
-#                         "filename": file.filename,
-#                         "size_bytes": len(contents),
-#                         "content_type": content_type
-#                     },
-#                     "debug_info": {
-#                         "hf_status_code": response.status_code,
-#                         "hf_response": response.text[:100],
-#                         "model_url": HF_API_URL,
-#                         "token_provided": bool(HF_API_TOKEN and HF_API_TOKEN.strip())
-#                     },
-#                     "next_steps": "The speech recognition service is temporarily unavailable. Please try again in a few minutes."
-#                 }
-#             )
 
-#         elif response.status_code == 429:
-#             return JSONResponse(
-#                 status_code=200,
-#                 content={
-#                     "transcript": f"Processing Limit Reached! Your audio file '{file.filename}' has been received successfully. However, we're currently processing many requests. Please wait a few minutes and try again. We appreciate your patience!",
-#                     "demo_mode": True,
-#                     "api_status": "working",
-#                     "model_status": "rate_limited_429",
-#                     "file_info": {
-#                         "filename": file.filename,
-#                         "size_bytes": len(contents),
-#                         "content_type": content_type
-#                     },
-#                     "retry_suggestion": "Please wait 3-5 minutes before trying again"
-#                 }
-#             )
 
-#         else:
-#             logger.error(f"Unexpected status code: {response.status_code}")
-#             logger.error(f"Response content: {response.text}")
-#             return JSONResponse(
-#                 status_code=502,
-#                 content={
-#                     "error": f"Hugging Face API error: {response.status_code}",
-#                     "details": response.text[:300],
-#                     "debug_info": f"Headers sent: {dict(headers)}"
-#                 }
-#             )
 
-#     except requests.exceptions.Timeout:
-#         logger.error("Request timed out")
-#         return JSONResponse(
-#             status_code=200,
-#             content={
-#                 "transcript": f"Processing Timeout! Your audio file '{file.filename}' was received, but the transcription service is taking longer than expected. This might be due to high server load. Please try again in a few minutes.",
-#                 "demo_mode": True,
-#                 "api_status": "timeout",
-#                 "model_status": "timeout_504",
-#                 "file_info": {
-#                     "filename": file.filename,
-#                     "size_bytes": len(contents),
-#                     "content_type": content_type if 'content_type' in locals() else "unknown"
-#                 },
-#                 "retry_suggestion": "Please try again in 2-3 minutes"
-#             }
-#         )
-#     except requests.exceptions.ConnectionError:
-#         logger.error("Connection error")
-#         return JSONResponse(
-#             status_code=200,
-#             content={
-#                 "transcript": f"Connection Issue! Your audio file '{file.filename}' was received, but we're having trouble connecting to our speech recognition service. Please check your internet connection and try again.",
-#                 "demo_mode": True,
-#                 "api_status": "connection_error",
-#                 "model_status": "connection_failed_503",
-#                 "file_info": {
-#                     "filename": file.filename,
-#                     "size_bytes": len(contents),
-#                     "content_type": content_type if 'content_type' in locals() else "unknown"
-#                 },
-#                 "retry_suggestion": "Please check your internet connection and try again"
-#             }
-#         )
-#     except Exception as e:
-#         logger.exception("Transcription failed with unexpected error")
-#         return JSONResponse(
-#             status_code=200, 
-#             content={
-#                 "transcript": f"Unexpected Error! Your audio file '{file.filename}' was received, but we encountered an unexpected issue during processing. Our technical team has been notified. Please try again later.",
-#                 "demo_mode": True,
-#                 "api_status": "error",
-#                 "model_status": "internal_error_500",
-#                 "file_info": {
-#                     "filename": file.filename if 'file' in locals() and hasattr(file, 'filename') else "unknown",
-#                     "size_bytes": len(contents) if 'contents' in locals() else 0,
-#                     "content_type": content_type if 'content_type' in locals() else "unknown"
-#                 },
-#                 "error_details": str(e),
-#                 "retry_suggestion": "Please try again later or contact support if the issue persists"
-#             }
-#         )
 
 @app.post("/api/test-database-toggle")
 async def test_database_toggle(
@@ -2039,7 +1848,6 @@ async def test_database_toggle(
     )
     
     try:
-        # Route test toggle queries through the pipeline
         response = await get_answer(question, None, "unknown", None, db_config if not db_config.is_traditional_mode() else None)
         
         return {
@@ -2063,8 +1871,5 @@ async def test_database_toggle(
 
 
 if __name__ == '__main__':
-    # Production entrypoint - run the FastAPI app with uvicorn/gunicorn.
-    # The previous interactive test runner (test_multi_model_pipeline) has been
-    # removed from production to avoid accidental execution in container builds.
     import uvicorn
     uvicorn.run("app:app", host="0.0.0.0", port=8000, log_level="info")

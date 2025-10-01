@@ -44,3 +44,7 @@ chromaDb/
 .vercel
 
 agrichat-backend/users.csv
+agrichat-backend/Agentic_RAG/Db - Sheet1.csv
+/home/ubuntu/agrichat-annam/agrichat-backend/Agentic_RAG/new_structure
+/home/ubuntu/agrichat-annam/agrichat-backend/Agentic_RAG/legacy_crewai_backup
+/home/ubuntu/agrichat-annam/Package_of_practices

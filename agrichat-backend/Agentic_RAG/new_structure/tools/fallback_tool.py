@@ -113,7 +113,11 @@ advice is practical and cost-effective for Indian farmers.
         """
         try:
             # Test LLM connectivity
-            test_response = run_local_llm("test query", temperature=0.3)
+            test_response = run_local_llm(
+                "test query",
+                temperature=0.3,
+                model=os.getenv('OLLAMA_MODEL_FALLBACK', 'gpt-oss:20b')
+            )
             self._initialized = test_response is not None
             
             if self._initialized:
@@ -135,7 +139,12 @@ advice is practical and cost-effective for Indian farmers.
         """
         try:
             # Quick LLM health check
-            response = run_local_llm("test", temperature=0.1, max_tokens=10)
+            response = run_local_llm(
+                "test",
+                temperature=0.1,
+                max_tokens=10,
+                model=os.getenv('OLLAMA_MODEL_FALLBACK', 'gpt-oss:20b')
+            )
             return response is not None and len(response.strip()) > 0
         except Exception as e:
             self.logger.error(f"[FALLBACK] Health check failed: {e}")
@@ -174,7 +183,8 @@ advice is practical and cost-effective for Indian farmers.
             response_content = run_local_llm(
                 prompt, 
                 temperature=0.3, 
-                max_tokens=2048
+                max_tokens=2048,
+                model=os.getenv('OLLAMA_MODEL_FALLBACK', 'gpt-oss:20b')
             )
             
             processing_time = time.time() - start_time

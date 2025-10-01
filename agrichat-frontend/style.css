@@ -34,11 +34,10 @@
 }
 
 body {
-  font-family: 'Rufina', serif;
+  font-family: 'Nunito', sans-serif;
+  /* font-family: 'Rufina', serif; */
   /* font-family: 'Palatino Linotype', Palatino, serif; */
-  /* font-family: 'Nunito', sans-serif; */
-  background-color: #2e564d;
-  /* #e0fde0; */
+  background-color: #2e564d;  /* #e0fde0; */
   display: grid;
   grid-template-columns: var(--sidebar-width) 1fr;
   height: 100vh;
@@ -533,7 +532,7 @@ input:checked+.toggle-slider:before {
   flex: 1;
   display: flex;
   flex-direction: column;
-  margin-top: 80px;
+  margin-top: 110px;
   background-color: var(--dark-green-bg);
 }
 
@@ -709,6 +708,10 @@ input:checked+.toggle-slider:before {
   width: 100%;
   border-radius: 20px;
   padding: 10px 20px 15px 20px;
+}
+
+#start-form.chat-form {
+  margin-bottom: 20px;
 }
 
 #start-form textarea {
@@ -1194,159 +1197,6 @@ select option:checked {
   }
 }
 
-/* For mobile devices */
-@media (max-width: 768px) {
-  body {
-    /* Second (newer) block wins in case of conflict: */
-    grid-template-columns: 1fr;
-    height: auto;
-    min-height: 100vh;
-    overflow-x: hidden;
-    overflow-y: auto;
-  }
-
-  body.sidebar-collapsed {
-    grid-template-columns: 1fr;
-  }
-
-  .sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    height: 100vh;
-    width: 280px;
-    transform: translateX(-100%);
-    z-index: 1000;
-    transition: transform 0.3s ease-in-out;
-  }
-
-  .sidebar.show {
-    transform: translateX(0);
-  }
-
-  .sidebar-close-btn {
-    display: inline;
-  }
-
-  body.sidebar-open .main-container {
-    pointer-events: none;
-    overflow: hidden;
-  }
-
-  .main-container {
-    height: auto;
-    min-height: 100vh;
-    overflow: visible;
-  }
-
-  .start-screen {
-    padding-top: 10px;
-  }
-
-  .chat-area {
-    flex: none;
-    display: block;
-    height: auto;
-    min-height: 100vh;
-    padding-bottom: 16px;
-    /* prevents chat-form cutoff */
-    overflow: visible;
-  }
-
-  .start-screen .icon {
-    margin-top: 55px;
-    margin-bottom: 5px;
-  }
-
-  .start-screen h2 {
-    font-size: 22px;
-    margin-top: 0px;
-    margin-bottom: 5px;
-  }
-
-  .start-screen p {
-    font-size: 14px;
-    max-height: 50px;
-    margin: 0 auto 30px auto;
-  }
-
-  /* Target the br inside the subheading p */
-  .subheading-container p br {
-    display: none;
-    /* hide by default */
-  }
-
-  .chat-window {
-    max-width: 75%;
-    overflow-y: auto;
-    /* enable vertical scrolling */
-  }
-
-  #start-form {
-    width: 300px;
-  }
-
-  #start-input {
-    margin-top: 10px;
-  }
-
-  #start-form.chat-form {
-    gap: 7px;
-  }
-
-  #stateSelect {
-    width: 130px;
-    /* or preferred width (100-160px is typical for mobile) */
-    min-width: 0;
-    max-width: 60vw;
-    padding: 8px;
-    font-size: 13px;
-  }
-
-  .main-header {
-    margin-bottom: 40px;
-    height: 110px;
-  }
-
-  /* Optional: space around the select if needed */
-  .main-header #stateSelect {
-    margin-left: 5px;
-    margin-right: 5px;
-    margin-bottom: 0;
-  }
-
-  .chat-form {
-    left: 0;
-    right: 0;
-    width: 100vw;
-    max-width: 100vw;
-    min-width: 0;
-    margin: 0;
-    /* Remove any centering or left/right margins */
-    border-radius: 0;
-    padding-left: 8px;
-    /* override desktop padding if you want */
-    padding-right: 8px;
-
-    margin-top: 110px;
-    /* matching the height of main-header */
-  }
-
-  #chat-form {
-    width: 100vw !important;
-    max-width: 100vw !important;
-  }
-
-  #chat-form textarea {
-    margin: 10px 5px 0 18%;
-    padding: 15px;
-  }
-
-  .chat-form-actions {
-    margin-top: 30px;
-  }
-}
-
 @media (max-width: 415px) and (min-width: 376px) {
   .start-screen .icon {
     margin-top: 125px;
@@ -1427,7 +1277,7 @@ select option:checked {
   }
 
   .start-screen .icon {
-    margin-top: 35px;
+    margin-top: 10px;
   }
 
   #chat-form textarea {
