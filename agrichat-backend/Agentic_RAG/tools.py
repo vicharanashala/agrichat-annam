@@ -1,6 +1,8 @@
-
 from pydantic import PrivateAttr, BaseModel, Field
-from crewai.tools import BaseTool
+from typing import ClassVar
+class BaseTool:
+    def __init__(self, *args, **kwargs):
+        pass
 from chroma_query_handler import ChromaQueryHandler
 from typing import ClassVar, List, Dict, Optional
 from local_llm_interface import run_local_llm
@@ -21,6 +23,54 @@ def log_fallback_to_csv(question: str, answer: str, csv_file: str = "fallback_qu
         
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         writer.writerow([timestamp, question, answer, 'FallbackAgriTool_called'])
+
+
+def is_agricultural_query(question: str) -> bool:
+    """Detect if a query is agriculture-related using keywords and patterns"""
+    question_lower = question.lower()
+    
+    # Treat greetings as NOT agricultural here so higher-level handlers can respond with a greeting template.
+    greetings = ['hi', 'hello', 'hey', 'namaste', 'good morning', 'good afternoon', 'good evening', 'how are you']
+    if any(greeting in question_lower for greeting in greetings):
+        return False
+    
+    agri_keywords = [
+        'crop', 'crops', 'farming', 'farm', 'agriculture', 'agricultural', 'plant', 'plants', 'seed', 'seeds',
+        'soil', 'fertilizer', 'pesticide', 'insecticide', 'fungicide', 'herbicide', 'irrigation', 'water',
+        'harvest', 'harvesting', 'yield', 'production', 'cultivation', 'cultivate', 'grow', 'growing',
+        'pest', 'pests', 'disease', 'diseases', 'nutrient', 'nutrients', 'organic', 'compost', 'manure',
+        'wheat', 'rice', 'maize', 'corn', 'barley', 'millet', 'sorghum', 'sugarcane', 'cotton', 'soybean',
+        'tomato', 'potato', 'onion', 'garlic', 'cabbage', 'cauliflower', 'brinjal', 'okra', 'chilli',
+        'mango', 'banana', 'apple', 'orange', 'grapes', 'coconut', 'groundnut', 'sunflower', 'mustard',
+        'kharif', 'rabi', 'zaid', 'monsoon', 'season', 'weather', 'climate', 'temperature', 'rainfall',
+        'field', 'fields', 'garden', 'gardening', 'nursery', 'greenhouse', 'polyhouse', 'drip', 'sprinkler',
+        'tractor', 'plough', 'cultivator', 'harrow', 'seeder', 'transplanter', 'thresher', 'combine',
+        'organic farming', 'precision agriculture', 'sustainable farming', 'integrated pest management',
+        'producer', 'largest producer', 'biggest producer', 'production statistics', 'agricultural state',
+        'farming state', 'crop production', 'agricultural output', 'yield statistics', 'farming statistics'
+    ]
+    
+    if any(keyword in question_lower for keyword in agri_keywords):
+        return True
+    
+    non_agri_indicators = [
+        'prime minister', 'president', 'politics', 'political', 'government policy', 'election',
+        'speed of light', 'physics', 'chemistry', 'mathematics', 'astronomy', 'space', 'nasa', 'mars',
+        'moon', 'planet', 'galaxy', 'universe', 'quantum', 'relativity', 'newton', 'einstein',
+        'brics', 'population', 'history',
+        'classical dance', 'music', 'art', 'literature', 'festival',
+        'computer', 'software', 'programming', 'technology', 'internet', 'website', 'app',
+        'medicine', 'doctor', 'hospital', 'disease treatment', 'surgery', 'pharmacy',
+        'business', 'marketing', 'economics', 'finance', 'stock market', 'investment',
+        'sports', 'football', 'cricket', 'tennis', 'olympics', 'games',
+        'movie', 'film', 'actor', 'actress', 'cinema', 'entertainment',
+        'recipe', 'cooking', 'food preparation', 'kitchen', 'restaurant'
+    ]
+    
+    if any(indicator in question_lower for indicator in non_agri_indicators):
+        return False
+    
+    return True
 
 
 class FireCrawlWebSearchTool(BaseTool):
@@ -46,38 +96,60 @@ class RAGTool(BaseTool):
         )
         self._handler = ChromaQueryHandler(chroma_path)
 
-    def _run(self, question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = "") -> str:
+    def _run(self, question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = "", db_filter: str = None) -> str:
         """
-        Run RAG tool with improved fallback detection
+        Run RAG tool with improved fallback detection and database filtering
         
         Args:
             question: Current user question
             conversation_history: List of previous Q&A pairs for context
             user_state: User's state/region detected from frontend
+            db_filter: Filter to specific database ("golden", "rag", "pops")
             
         Returns:
             Generated response with appropriate source attribution or __FALLBACK__ indicator
         """
+        import time
+        
+        rag_tool_start = time.time()
+        print(f"[TIMING] RAGTool._run started for: {question[:50]}...")
         print(f"[DEBUG] RAGTool._run called with:")
         print(f"  question: {question}")
         print(f"  conversation_history: {conversation_history}")
         print(f"  user_state: {user_state}")
+        print(f"  db_filter: {db_filter}")
         
-        import inspect
-        sig = inspect.signature(self._handler.get_answer)
-        print(f"[DEBUG] get_answer signature: {sig}")
+        chroma_query_start = time.time()
+        result = self._handler.get_answer_with_source(question, conversation_history, user_state, db_filter)
+        chroma_query_time = time.time() - chroma_query_start
+        print(f"[TIMING] ChromaDB query took: {chroma_query_time:.3f}s")
         
-        answer = self._handler.get_answer(question, conversation_history, user_state)
+        print(f"[DEBUG] Query result:")
+        print(f"  Source: {result['source']}")
+        print(f"  Cosine Similarity: {result['cosine_similarity']:.3f}")
+        print(f"  Document Metadata: {result['document_metadata']}")
         
-        if answer.startswith("__FALLBACK__"):
-            log_fallback_to_csv(question, "Database search failed - using LLM fallback", "fallback_queries.csv")
+        fallback_check_start = time.time()
+        if result['answer'].startswith("__FALLBACK__"):
+            log_fallback_to_csv(question, f"Database search failed - using LLM fallback (Source: {result['source']})", "fallback_queries.csv")
+            fallback_check_time = time.time() - fallback_check_start
+            print(f"[TIMING] Fallback check took: {fallback_check_time:.3f}s")
             return "__FALLBACK__"
         
-        if answer.strip() == "I don't have enough information to answer that.":
+        if result['answer'].strip() == "I don't have enough information to answer that.":
+            fallback_check_time = time.time() - fallback_check_start
+            print(f"[TIMING] Fallback check took: {fallback_check_time:.3f}s")
             return "__FALLBACK__"
         
+        answer = result['answer']
         if answer.startswith("__NO_SOURCE__"):
-            return answer.replace("__NO_SOURCE__", "")
+            answer = answer.replace("__NO_SOURCE__", "")
+        
+        fallback_check_time = time.time() - fallback_check_start
+        print(f"[TIMING] Fallback check took: {fallback_check_time:.3f}s")
+        
+        total_rag_time = time.time() - rag_tool_start
+        print(f"[TIMING] TOTAL RAGTool processing took: {total_rag_time:.3f}s")
         
         return answer
     
@@ -94,81 +166,61 @@ class FallbackAgriToolSchema(BaseModel):
 
 
 class FallbackAgriTool(BaseTool):
-    _classifier: any = PrivateAttr()
     args_schema = FallbackAgriToolSchema
+    
+    SYSTEM_PROMPT: ClassVar[str] = """You are an Indian agricultural assistant. Follow these rules strictly:
 
-    FALLBACK_PROMPT: ClassVar[str] = """
-You are an expert agricultural assistant specializing in Indian agriculture and farming practices. Focus exclusively on Indian context, regional conditions, and India-specific agricultural solutions. Use your expert knowledge to answer agricultural questions relevant to Indian farmers, soil conditions, climate patterns, and crop varieties suited to different Indian states and regions.
+1. For agricultural questions (farming, crops, livestock, rural development, agricultural production, etc.):
+   - Answer directly and helpfully without disclaimers
+   - Focus on Indian context, varieties, and practices
+   - Provide practical, actionable advice
+   - Consider Indian seasons, climate, and regional variations
+   - Keep responses concise and helpful
+   - DO NOT mention current month/date unless specifically relevant
+   - DO NOT add unnecessary disclaimers about being an agricultural assistant
 
-IMPORTANT: All responses must be specific to Indian agricultural context, Indian crop varieties, Indian soil types, Indian climate conditions, and farming practices suitable for Indian farmers.
+2. For NON-agricultural questions (politics, science, entertainment, general knowledge, etc.):
+   - Respond EXACTLY with: "I'm an agricultural assistant focused on Indian farming. I can only help with agriculture-related questions. Please ask about crops, farming practices, soil management, pest control, or other agricultural topics."
+   - Do NOT provide any information about the non-agricultural topic
+   - Do NOT explain what the topic is about
 
-- When providing advice, always consider Indian monsoon patterns, soil types common in India, and crop varieties developed for Indian conditions.
-- Reference Indian agricultural practices, local farming techniques, and solutions available to Indian farmers.
-- For fertilizers, pesticides, and agricultural inputs, focus on products and brands available in Indian markets.
-- Consider regional variations within India (North Indian plains, South Indian conditions, coastal regions, hill states, etc.).
+3. For greetings (hello, hi, namaste, good morning, etc.):
+   - Respond politely and introduce yourself as an agricultural assistant
+   - Suggest some agricultural topics they can ask about
 
-If the question is a normal greeting or salutation (e.g., "hello," "how are you?", "good morning"), respond gently and politely—don't refuse, but give a soft, appropriate answer. Do NOT answer non-agricultural queries except for such greetings.
+4. Response format:
+   - Be direct and helpful
+   - Avoid unnecessary verbosity
+   - Focus on practical agricultural information
 
-- Give detailed, step-by-step advice specific to Indian farming conditions and structure your answer with bullet points, headings, or tables when appropriate.
-- Stick strictly to the user's topic within Indian agricultural context; do not introduce unrelated information.
-- Always provide sources for your information (LLM knowledge or database) and specify if advice is for Indian conditions.
-- Keep the response concise, focused on Indian agriculture, and do not provide any preamble or explanations except for the final answer.
+Question: {question}
 
-### Detailed Explanation (India-Specific)
-- Provide comprehensive, step-by-step explanations using Indian agricultural knowledge and practices that work in Indian climate and soil conditions.
-- Reference Indian crop varieties, local farming methods, and region-specific practices.
-- Use bullet points, sub-headings, or tables to clarify complex information relevant to Indian farmers.
-- Reference Indian agricultural research institutes (ICAR, state agricultural universities) when relevant.
-- Consider Indian farming seasons (Kharif, Rabi, Zaid) and monsoon patterns in your advice.
-- Briefly define technical terms inline if needed, using Indian context and examples.
-
-### Special Instructions for Disease, Fertilizer, Fungicide, or Tonic Queries (Indian Context)
-- For questions about diseases, pest attacks, fertilizers, fungicides, plant tonics, or agricultural inputs:
-    - Provide standard recommendations using products and chemicals available in Indian markets
-    - Include quick, low-cost household/natural solutions suitable for Indian farmers and readily available Indian materials
-    - Consider Indian organic farming practices and traditional Indian agricultural methods
-    - Reference Indian brands and suppliers when suggesting specific products
-
-- For each method, explain when/why it may be preferable in Indian conditions, with relevant precautions for Indian climate.
-- Always offer both modern (chemical) and traditional/natural Indian farming solutions unless the question strictly forbids one or the other.
-
-### Additional Guidance for Indian Crop Management Questions
-- If questions relate to growing specific crops, focus on Indian varieties and cultivation practices suited to Indian conditions.
-- Provide information about:
-    - Indian crop varieties and their regional suitability
-    - Soil preparation techniques for Indian soil types
-    - Irrigation methods suitable for Indian water conditions
-    - Pest and disease management using Indian-available solutions
-    - Fertilizer recommendations based on Indian soil testing and availability
-    - Harvest and post-harvest handling for Indian market conditions
-
-### Regional Context Requirements:
-- Always consider the diversity of Indian agriculture across different states and regions
-- Provide region-specific advice when possible (North vs South India, coastal vs inland, plains vs hills)
-- Reference local Indian agricultural practices and traditional knowledge
-- Consider local Indian market conditions and crop pricing
-
-### User Question
-{question}
-
----
-### Your Answer (India-Specific):
-"""
+Response:"""
 
     def __init__(self, **kwargs):
         super().__init__(
             name="fallback_agri_tool",
-            description="Fallback LLM tool for general agricultural answering.",
+            description="Fallback agricultural assistant for Indian farming queries only.",
             **kwargs
         )
 
     def _run(self, question: str, conversation_history: Optional[List[Dict]] = None) -> str:
         print(f"[DEBUG] FallbackAgriTool called with question: {question}")
-        print(f"[DEBUG] FallbackAgriTool received conversation history: {len(conversation_history) if conversation_history else 0} entries")
+        
+        question_lower = question.lower().strip()
+        greetings = ['hi', 'hello', 'hey', 'namaste', 'good morning', 'good afternoon', 'good evening', 'how are you']
+        
+        if any(greeting in question_lower for greeting in greetings):
+            return ("Hello! I'm your agricultural assistant specializing in Indian farming. "
+                   "I can help you with crop management, soil health, pest control, fertilizers, "
+                   "irrigation, farming techniques, and agricultural practices. What would you like to know?")
+        
+        if not is_agricultural_query(question):
+            return ("I'm an agricultural assistant focused on Indian farming. I can only help with agriculture-related questions. "
+                   "Please ask about crops, farming practices, soil management, pest control, or other agricultural topics.")
         
         if conversation_history and len(conversation_history) > 0:
             recent_context = []
-            
             for entry in conversation_history[-2:]:
                 q = entry.get('question', '')
                 a = entry.get('answer', '')
@@ -176,24 +228,29 @@ If the question is a normal greeting or salutation (e.g., "hello," "how are you?
                 recent_context.append(f"Assistant: {a}")
             
             context_text = "\n".join(recent_context)
-            
-            enhanced_prompt = f"""Here's our recent conversation:
+            prompt = f"""Previous conversation:
 {context_text}
 
-Now the user asks: {question}
+Current question: {question}
 
-Please respond naturally, understanding what they're referring to from our conversation context."""
-
-            prompt = enhanced_prompt
+{self.SYSTEM_PROMPT.format(question=question)}"""
         else:
-            prompt = f"User asks: {question}\n\nPlease respond as an agricultural expert."
-            
-        response_text = run_local_llm(prompt, use_fallback=True)
-        
-        print(f"[SOURCE] Local LLM used for question: {question}")
+            prompt = self.SYSTEM_PROMPT.format(question=question)
+        # Call the local LLM (explicitly using the configured fallback model)
+        response_text = run_local_llm(
+            prompt,
+            use_fallback=True,
+            temperature=0.1,
+            model=os.getenv('OLLAMA_MODEL_FALLBACK', 'gpt-oss:20b')
+        )
+
+        print(f"[SOURCE] Local LLM used for agricultural question: {question}")
         log_fallback_to_csv(question, response_text)
-        print(f"[DEBUG] Logged fallback call to CSV")
-        
-        return response_text.strip()
+
+        final_response = response_text.strip()
+        if not any(greeting in question.lower() for greeting in greetings):
+            final_response += "\n\n<small><i>Source: Fallback to LLM</i></small>"
+
+        return final_response
 
 

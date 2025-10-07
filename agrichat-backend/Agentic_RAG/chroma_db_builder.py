@@ -21,14 +21,15 @@ class ChromaDBBuilder:
         df = pd.read_csv(self.csv_path)
         column_map = {
         "DistrictName": "District",
-        "StateName": "State",
-        "QueryText": "Question",
-        "KccAns": "Answer"
+        # "Refined KCC Query [HF]": "Question",
+        "QUESTION [by Agri Team]": "Question",
+        "Final Answer": "Answer",
+        "Source [Name and Link]": "Source"
         }
         df.rename(columns=column_map, inplace=True)
         standard_columns = [
-        "Year", "Month", "Day", "State", "District", 
-        "Crop", "Season", "Sector", "Question", "Answer"
+        "Date", "State", "District", 
+        "Crop", "Season", "Question", "Answer","YT VIdeo Link"
         ]
         print(df.columns)
         for col in standard_columns:
@@ -37,15 +38,15 @@ class ChromaDBBuilder:
         docs = []
         for _, row in df.iterrows():
             metadata = {
-                "Year":          row.get("Year", "Others"),
-                "Month":         row.get("Month", "Others"),
-                "Day":           row.get("Day", "Others"),
+                "Date":          row.get("Date", "2025-07-01"),
                 "State":         row.get("State", "Others"),
                 "Crop":          row.get("Crop", "Others"),
                 "District":      row.get("District", "Others"),
                 "Season":        row.get("Season", "Others"),
-                "Sector":        row.get("Sector", "Others"),
+                "YT Video Link":     row.get("YT VIdeo Link", "Others"),
             }
+            for k, v in metadata.items():
+               print(f"[DEBUG] {k}: {v}")
             meta_str = " | ".join(f"{k}: {v}" for k, v in metadata.items() if v)
             question = row.get("Question", "Others")
             answer = row.get("Answer", "Others")
@@ -72,17 +73,9 @@ class ChromaDBBuilder:
         print(f"[SUCCESS] Stored {len(self.documents)} agricultural Q/A pairs in ChromaDB at: {self.persist_dir}")
 
 if __name__ == "__main__":
-    data_folder = r"data/embedded_data"
-    completed_folder = r"data/completed"
-    storage_dir = r"data/chromaDb"
-    os.makedirs(completed_folder, exist_ok=True)
-
-    for filename in os.listdir(data_folder):
-        if filename.lower().endswith(".csv"):
-            csv_file = os.path.join(data_folder, filename)
-            builder = ChromaDBBuilder(csv_path=csv_file, persist_dir=storage_dir)
-            builder.load_csv_to_documents()
-            builder.store_documents_to_chroma()
-            shutil.move(csv_file, os.path.join(completed_folder, filename))
-            print(f"[INFO] Moved {filename} to {completed_folder}")
+    storage_dir = r"/home/ubuntu/agrichat-annam/agrichat-backend/chromaDb"
+    csv_file = r"/home/ubuntu/agrichat-annam/agrichat-backend/Agentic_RAG/Db - Sheet1.csv"
+    builder = ChromaDBBuilder(csv_path=csv_file, persist_dir=storage_dir)
+    builder.load_csv_to_documents()
+    builder.store_documents_to_chroma()
 

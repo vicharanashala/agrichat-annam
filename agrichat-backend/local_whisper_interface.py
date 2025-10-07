@@ -28,20 +28,25 @@ class LocalWhisperInterface:
         self.load_model()
     
     def load_model(self):
-        """Load Whisper model onto GPU if available"""
+        """Load Whisper model from cache directory"""
         try:
-            print(f"Loading Whisper {self.model_size} model...")
-            self.model = whisper.load_model(self.model_size)
-            print(f"Whisper {self.model_size} model loaded successfully!")
+            # Set the cache directory for Whisper
+            cache_dir = os.environ.get('WHISPER_CACHE_DIR', os.path.expanduser('~/.cache/whisper'))
+            print(f"📥 Loading Whisper {self.model_size} model from cache...")
+            print(f"💾 Cache directory: {cache_dir}")
+            
+            # Load model directly without checking cache (model should already be cached)
+            self.model = whisper.load_model(self.model_size, download_root=cache_dir)
+            print(f"✅ Whisper {self.model_size} model loaded successfully from cache!")
             
             import torch
             if torch.cuda.is_available():
-                print(f"Using GPU acceleration with {torch.cuda.get_device_name()}")
+                print(f"🚀 Using GPU acceleration with {torch.cuda.get_device_name()}")
             else:
-                print("Using CPU inference (GPU not available)")
+                print("💻 Using CPU inference (GPU not available)")
                 
         except Exception as e:
-            print(f"Failed to load Whisper model: {e}")
+            print(f"❌ Failed to load Whisper model: {e}")
             self.model = None
     
     def transcribe_audio(self, audio_data: bytes, filename: str = "audio") -> str:
@@ -90,11 +95,21 @@ class LocalWhisperInterface:
             return ext
         return ".wav"
 
-# Global Whisper instance
-# Change model_size based on your needs:
-# - "tiny": Fastest, good for real-time
-# - "base": Good balance (recommended)  
-# - "small": Better accuracy
-# - "medium": Very good accuracy
-# - "large": Best accuracy but slowest
-local_whisper = LocalWhisperInterface(model_size="large")
+# Global Whisper instance - loaded immediately when module is imported
+print("[WHISPER] Initializing Whisper interface with base model...")
+_whisper_instance = LocalWhisperInterface(model_size="base")
+
+def get_whisper_instance(model_size: str = "base") -> LocalWhisperInterface:
+    """
+    Get the global Whisper instance (pre-loaded, no lazy loading)
+    
+    Args:
+        model_size: Whisper model size (ignored, always uses pre-loaded base model)
+    
+    Returns:
+        LocalWhisperInterface instance (pre-loaded)
+    """
+    # Return the pre-loaded instance regardless of model_size parameter
+    return _whisper_instance
+
+

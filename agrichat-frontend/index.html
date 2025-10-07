@@ -6,8 +6,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AgriChat - Your Farming Assistant</title>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300..700&family=Rufina:wght@400;700&display=swap"
+    rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="./style.css" />
+  <!-- Markdown rendering library -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@9.1.2/marked.min.js"></script>
+  <!-- Syntax highlighting for code blocks (optional) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+  <link rel="stylesheet" href="./style.css?v=2.0" />
 </head>
 
 <body class="sidebar-collapsed">
@@ -33,84 +40,50 @@
       <div id="activeSessions"></div>
       <div id="archivedSessions" style="display: none;"></div>
       <div class="no-sessions" id="noSessions" style="display: none;">
-        <div class="icon"><i class="fas fa-inbox"></i></div>
-        <p>No sessions found</p>
+        <div class="icon"><i class="fas fa-inbox" style="color: #2e564d"></i></div>
+        <p style="color: #0f3d16; font-size: 16px; font-family: 'Nunito', sans-serif;">No sessions found</p>
       </div>
     </div>
   </aside>
 
-  <!-- Start of Login/Register Form -->
+  <!-- Login Form -->
+  <div id="loginOverlay" style="
+    position: fixed; inset: 0; background: rgba(0, 0, 0, 0.8);
+    display: none; align-items: center; justify-content: center; z-index: 9999;">
 
-  <!-- LOGIN/REGISTER DOUBLE SECTIONED POPUP -->
-    <!-- <div id="loginOverlay" style="
-  position: fixed; inset: 0; background: rgba(255, 255, 255, 0.664);
-  display: flex; align-items: center; justify-content: center; z-index: 9999;">
-  
-  <div style="
-    background: white; border-radius: 12px; box-shadow: 0 8px 36px rgba(0,0,0,0.2);
-    width: 700px; max-width: 90vw; height: 400px;
-    display: flex;"> -->
+    <div style="
+      background: white; border-radius: 12px; box-shadow: 0 8px 36px rgba(0,0,0,0.3);
+      width: 400px; max-width: 90vw; padding: 2em;">
 
-    <!-- Login Panel -->
-    <!-- <div style="
-      flex: 1; padding: 2em; border-right: 1px solid #eee; display: flex; flex-direction: column; justify-content: center;">
-      <h2 style="color: #248241; padding-bottom: 1rem;">Login</h2>
-      <small style="margin-bottom:10px; color:#666;">For existing members</small>
-      <form id="loginForm" style="display: flex; flex-direction: column; gap: 1em;">
-        <input type="text" placeholder="Username" required style="padding: 0.7em; border: 1px solid #ccc; border-radius: 6px;">
-        <input type="password" placeholder="Password" required style="padding: 0.7em; border: 1px solid #ccc; border-radius: 6px;">
-        <button type="submit" style="background: #118650; color: white; padding: 0.7em; border:none; border-radius: 6px; cursor: pointer;">Login</button>
-      </form>
-    </div> -->
-
-    <!-- Register Panel -->
-    <!-- <div style="
-      flex: 1; padding: 2em; display: flex; flex-direction: column; justify-content: center; background: rgb(55, 148, 51); border-top-right-radius: 6px; border-bottom-right-radius: 6px;">
-      <h2 style="color: #f1f7f3; padding-bottom: 1rem; margin-top: 1.4rem;">Register</h2>
-      <small style="margin-bottom:10px; color:#ffffff;">For new members</small>
-      <form id="registerForm" style="display: flex; flex-direction: column; gap:1em;">
-        
-      <input type="text" id="aadharInput" maxlength="14" placeholder="12-digit Aadhar ID"
-        style="padding: 0.7em; border: 1px solid #ccc; border-radius: 6px; letter-spacing:2px;" oninput="formatAadhaar(this)" autocomplete="off" required>
-
-        <div style="display: flex; gap: 0.5em; align-items: center;">
-        <span style="font-size:1em; padding: 0.3em 1em; border: 1px solid #ccc; border-radius:6px; background:#e9ecef;">🇮🇳 +91</span>
-        
-        <input
-          type="tel"
-          id="phoneInput"
-          maxlength="13"
-          placeholder="12345 67890"
-          autocomplete="off"
-          style="flex:1; padding:0.7em; border:1px solid #ccc; border-radius:6px; letter-spacing:1.5px;"
-          required
-          oninput="formatIndianPhone(this)"
-        >
+      <div style="text-align: center; margin-bottom: 2em;">
+        <h2 style="color: #248241; margin-bottom: 0.5em;">🌾 AgriChat Login</h2>
+        <p style="color: #666; margin: 0;">Enter your credentials to access AgriChat</p>
       </div>
 
-        <button type="submit" style="background: #15570c; color: white; padding: 0.7em; border:none; border-radius: 6px; cursor: pointer;">Sign Up</button>
-      </form> -->
+      <form id="loginForm" style="display: flex; flex-direction: column; gap: 1em;">
+        <div>
+          <label style="display: block; margin-bottom: 0.5em; color: #333; font-weight: 600;">Username</label>
+          <input type="text" id="loginUsername" placeholder="Enter your username" required
+            style="width: 100%; padding: 0.8em; border: 2px solid #ddd; border-radius: 6px; font-size: 1em;"
+            autocomplete="username">
+        </div>
 
-      <!-- For Guests -->
-      <!-- <button 
-      id="guestBtnRegister" 
-      type="button"
-      style="
-        margin-top: 1em; 
-        background: none; 
-        color: #fff;
-        text-decoration: underline;
-        cursor: pointer; 
-        border: none; 
-        font-size: 0.9em;
-        padding: 0;">
-      Or continue as guest with 5 messages
-      </button>
-    
+        <div>
+          <label style="display: block; margin-bottom: 0.5em; color: #333; font-weight: 600;">Password</label>
+          <input type="password" id="loginPassword" placeholder="Enter your password" required
+            style="width: 100%; padding: 0.8em; border: 2px solid #ddd; border-radius: 6px; font-size: 1em;"
+            autocomplete="current-password">
+        </div>
+
+        <button type="submit"
+          style="background: #248241; color: white; padding: 0.8em; border: none; border-radius: 6px; cursor: pointer; font-size: 1em; font-weight: 600; margin-top: 0.5em;">
+          Sign In
+        </button>
+      </form>
+
+      <div id="loginError" style="color: #dc3545; text-align: center; margin-top: 1em; display: none;"></div>
     </div>
   </div>
-</div>   -->
-  <!-- End of Login/Register Form -->
 
   <main class="main-container">
     <header class="main-header">
@@ -118,31 +91,70 @@
         <button class="sidebar-toggle" id="sidebarToggle">
           <i class="fas fa-bars" id="sidebarIcon"></i>
         </button>
-        <h1 class="main-title">
+        <h1 class="main-title" style="font-family: 'Rufina', serif;">
           <i class="fas fa-seedling"></i>
           AgriChat
         </h1>
       </div>
 
+      <!-- Database Selection Toggles -->
+      <!-- <div class="database-toggles" id="databaseToggles">
+        <div class="toggles-header">
+          <i class="fas fa-database"></i>
+          <span>Database Sources</span>
+        </div>
+        <div class="toggles-container">
+          <div class="toggle-item">
+            <label class="toggle-switch">
+              <input type="checkbox" id="ragToggle" checked>
+              <span class="toggle-slider"></span>
+            </label>
+            <span class="toggle-label">Golden FAQs</span>
+          </div>
+          <div class="toggle-item">
+            <label class="toggle-switch">
+              <input type="checkbox" id="popsToggle" checked>
+              <span class="toggle-slider"></span>
+            </label>
+            <span class="toggle-label">Package of Practices</span>
+          </div>
+          <div class="toggle-item">
+            <label class="toggle-switch">
+              <input type="checkbox" id="llmToggle" checked>
+              <span class="toggle-slider"></span>
+            </label>
+            <span class="toggle-label">LLM Fallback</span>
+          </div>
+          <div class="toggle-item">
+            <label class="toggle-switch">
+              <input type="checkbox" id="llmToggle" checked>
+              <span class="toggle-slider"></span>
+            </label>
+            <span class="toggle-label">Premium</span>
+          </div>
+        </div>
+      </div> -->
+
       <div class="location-info-bar">
         <div class="location-info" id="locationInfo">
           <i class="fas fa-map-marker-alt"></i>
-          <span id="locationState">Detecting...</span>,
-          <span id="locationLanguage">Detecting...</span>
+          <span id="locationState">Detecting...</span>
+          <!-- <span id="locationLanguage">Detecting...</span> -->
           <button id="editLocationBtn" class="edit-icon-btn" title="Edit">
             <i class="fas fa-pencil-alt"></i>
           </button>
         </div>
 
-        <div class="location-dropdown" id="locationEdit" style="display: none;">
+        <div class="location-dropdown" id="locationEdit"
+          style="display: none; justify-content: center; align-items: center;">
           <div class="dropdown-group">
             <label for="manualStateSelect">State</label>
             <select id="manualStateSelect"></select>
           </div>
-          <div class="dropdown-group">
+          <!-- <div class="dropdown-group">
             <label for="manualLanguageSelect">Language</label>
             <select id="manualLanguageSelect"></select>
-          </div>
+          </div> -->
 
           <!-- <select id="stateSelect" required style="margin-bottom: 10px; padding: 10px; border-radius: 8px; border: 1px solid #ccc;">
     <option value="">-- Select your State / UT --</option>
@@ -187,6 +199,23 @@
         </div>
       </div>
 
+      <div class="account-icon" id="accountIcon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="#000000">
+          <path
+            d="M5.85 17.1q1.275-.975 2.85-1.538T12 15q1.725 0 3.3.563t2.85 1.537q.875-1.025 1.363-2.325T20 12q0-3.325-2.337-5.663T12 4Q8.675 4 6.337 6.337T4 12q0 1.475.488 2.775T5.85 17.1ZM12 13q-1.475 0-2.488-1.012T8.5 9.5q0-1.475 1.012-2.488T12 6q1.475 0 2.488 1.012T15.5 9.5q0 1.475-1.012 2.488T12 13Zm0 9q-2.075 0-3.9-.788t-3.175-2.137q-1.35-1.35-2.137-3.175T2 12q0-2.075.788-3.9t2.137-3.175q1.35-1.35 3.175-2.137T12 2q2.075 0 3.9.788t3.175 2.137q1.35 1.35 2.138 3.175T22 12q0 2.075-.788 3.9t-2.137 3.175q-1.35 1.35-3.175 2.138T12 22Z" />
+        </svg>
+
+        <div class="account-dropdown-menu">
+        <div class="username" id="usernameDisplay" style="font-family: 'Nunito', sans-serif;">Hello, Username!</div>
+        <button class="logout-btn"
+                style="font-family: 'Nunito', sans-serif;"
+                type="button"
+                id="logoutDropdownBtn">
+          Logout
+        </button>
+      </div>
+      </div>
+
       <a class="export-button" id="exportBtn" style="display: none;">
         <i class="fas fa-download"></i>
         Export CSV
@@ -228,6 +257,58 @@
           </button>
           <div class="button-row">
 
+            <!-- Plus (with Database Toggles)-->
+
+            <div class="tooltip-container" style="position: relative; display: inline-block;">
+              <button type="button" class="feature-button" aria-label="Toggle database options"
+                id="databaseToggleButtonChat">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                  <path fill-rule="evenodd" clip-rule="evenodd"
+                    d="M7.5 14a6.5 6.5 0 1 0 0-13a6.5 6.5 0 0 0 0 13m0 1c4.14 0 7.5-3.36 7.5-7.5S11.64 0 7.5 0S0 3.36 0 7.5S3.36 15 7.5 15" />
+                  <path d="M8 4.5a.5.5 0 0 0-1 0V7H4.5a.5.5 0 0 0 0 1H7v2.5a.5.5 0 0 0 1 0V8h2.5a.5.5 0 0 0 0-1H8z" />
+                </svg>
+              </button>
+
+              <div class="database-toggles dropdown-menu"
+                style="display: none; position: absolute; bottom: 100%; right: 0; margin-bottom: 8px; min-width: 220px; background: #fff; border-radius: 6px; box-shadow: 0 2px 8px rgba(44,62,80,0.1); z-index: 100;">
+                <div class="toggles-header"
+                  style="display: flex; align-items: center; font-weight: bold; gap: 8px; padding: 10px;">
+                  <i class="fas fa-database"></i>
+                  <span>Database Sources</span>
+                </div>
+                <div class="toggles-container" style="padding: 0 12px 12px;">
+                  <div class="toggle-item" style="margin-bottom: 8px;">
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="ragToggleChat" checked>
+                      <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label">Golden FAQs</span>
+                  </div>
+                  <div class="toggle-item" style="margin-bottom: 8px;">
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="popsToggleChat" checked>
+                      <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label">Package of Practices</span>
+                  </div>
+                  <div class="toggle-item" style="margin-bottom: 8px;">
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="llmToggleChat" checked>
+                      <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label">LLM Fallback</span>
+                  </div>
+                  <div class="toggle-item">
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="premiumToggleChat" checked>
+                      <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label">Premium</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- Attachment -->
             <div class="tooltip-container">
               <button type="button" class="feature-button inactive" aria-label="Attach file or image">
@@ -243,7 +324,7 @@
             <!-- Mic -->
             <div class="tooltip-container">
               <button type="button" class="feature-button" aria-label="Start voice input">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
                   <g>
                     <path d="M5 3a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0V3z" />
                     <path
@@ -259,7 +340,7 @@
 
       <div class="start-screen" id="startScreen">
         <div class="icon"><i class="fas fa-seedling"></i></div>
-        <h2>Welcome to AgriChat</h2>
+        <h2 style="font-family: 'Rufina', serif;">Welcome to AgriChat</h2>
 
         <div class="subheading-container">
           <p>Your intelligent farming assistant is here to help you with <br> agricultural queries, crop management, and
@@ -273,6 +354,58 @@
             rows="3"></textarea>
 
           <div class="button-row">
+
+            <!-- Plus (with Database Toggles)-->
+
+            <div class="tooltip-container" style="position: relative; display: inline-block;">
+              <button type="button" class="feature-button" aria-label="Toggle database options"
+                id="databaseToggleButtonStart">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                  <path fill-rule="evenodd" clip-rule="evenodd"
+                    d="M7.5 14a6.5 6.5 0 1 0 0-13a6.5 6.5 0 0 0 0 13m0 1c4.14 0 7.5-3.36 7.5-7.5S11.64 0 7.5 0S0 3.36 0 7.5S3.36 15 7.5 15" />
+                  <path d="M8 4.5a.5.5 0 0 0-1 0V7H4.5a.5.5 0 0 0 0 1H7v2.5a.5.5 0 0 0 1 0V8h2.5a.5.5 0 0 0 0-1H8z" />
+                </svg>
+              </button>
+
+              <div class="database-toggles dropdown-menu"
+                style="display: none; position: absolute; bottom: 100%; right: 0; margin-bottom: 8px; min-width: 220px; background: #fff; border-radius: 6px; box-shadow: 0 2px 8px rgba(44,62,80,0.1); z-index: 100;">
+                <div class="toggles-header"
+                  style="display: flex; align-items: center; font-weight: bold; gap: 8px; padding: 10px;">
+                  <i class="fas fa-database"></i>
+                  <span>Database Sources</span>
+                </div>
+                <div class="toggles-container" style="padding: 0 12px 12px;">
+                  <div class="toggle-item" style="margin-bottom: 8px;">
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="ragToggleStart" checked>
+                      <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label">Golden FAQs</span>
+                  </div>
+                  <div class="toggle-item" style="margin-bottom: 8px;">
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="popsToggleStart" checked>
+                      <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label">Package of Practices</span>
+                  </div>
+                  <div class="toggle-item" style="margin-bottom: 8px;">
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="llmToggleStart" checked>
+                      <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label">LLM Fallback</span>
+                  </div>
+                  <div class="toggle-item">
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="premiumToggleStart" checked>
+                      <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label">Premium</span>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             <div class="tooltip-container">
               <button type="button" class="feature-button inactive" aria-label="Attach file or image">
@@ -322,7 +455,46 @@
     const closeBtn = document.getElementById('sidebarCloseBtn');
     const backdrop = document.getElementById('backdrop');
     const locationInfo = document.querySelector('.location-info');
+    const dbToggleButton = document.getElementById('databaseToggleButton');
+    const dbDropdownMenu = document.getElementById('databaseDropdown');
     const body = document.body;
+
+    // Chat-form placeholder text color
+    const textarea = document.getElementById('start-input');
+    const style = document.createElement('style');
+    style.innerHTML = `
+      #start-input::placeholder {
+        color: #f4f5f5 !important;
+        opacity: 1 !important;
+      }
+    `;
+    document.head.appendChild(style);
+
+    // Close database-toggle dropdown by clicking outside
+    document.addEventListener('click', (event) => {
+      if (!dbToggleButton.contains(event.target) && !dbDropdownMenu.contains(event.target)) {
+        dbDropdownMenu.style.display = 'none';
+      }
+    });
+
+    // Close location-edit dropdown by clicking outside
+    const locationToggleButton = document.getElementById('editLocationBtn');
+    const locationDropdown = document.getElementById('locationEdit');
+
+    locationToggleButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (locationDropdown.style.display === 'none' || locationDropdown.style.display === '') {
+        locationDropdown.style.display = 'flex';
+      } else {
+        locationDropdown.style.display = 'none';
+      }
+    });
+
+    document.addEventListener('click', (event) => {
+      if (!locationToggleButton.contains(event.target) && !locationDropdown.contains(event.target)) {
+        locationDropdown.style.display = 'none';
+      }
+    });
 
     // LOGIN-REGISTER FUNCTIONS:
 
@@ -472,6 +644,41 @@
     // And update on window resize
     window.addEventListener('resize', updateChatFormPadding);
 
+    function setupDatabaseToggleForForm(formId, ariaLabel) {
+      const form = document.getElementById(formId);
+      if (!form) return;
+
+      // Find the plus button inside this form by aria-label
+      const plusButton = form.querySelector(`button[aria-label="${ariaLabel}"]`);
+      if (!plusButton) return;
+
+      // Assume the dropdown menu container exists inside the same form container
+      const dropdownMenu = form.querySelector('.database-dropdown');
+      if (!dropdownMenu) return;
+
+      // Hide initially
+      dropdownMenu.style.display = 'none';
+
+      plusButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (dropdownMenu.style.display === 'block') {
+          dropdownMenu.style.display = 'none';
+        } else {
+          dropdownMenu.style.display = 'block';
+        }
+      });
+
+      // Global document click listener to close menu when clicking outside
+      document.addEventListener('click', (e) => {
+        if (!plusButton.contains(e.target) && !dropdownMenu.contains(e.target)) {
+          dropdownMenu.style.display = 'none';
+        }
+      });
+    }
+
+    // Initialize handlers for both forms & plus buttons
+    setupDatabaseToggleForForm('start-form', 'Toggle database options');
+    setupDatabaseToggleForForm('chat-form', 'Toggle database options');
 
   </script>
 

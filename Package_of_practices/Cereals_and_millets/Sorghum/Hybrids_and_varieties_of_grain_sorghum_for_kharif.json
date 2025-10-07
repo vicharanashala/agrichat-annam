@@ -1,0 +1,307 @@
+[
+  {
+    "heading": "Introduction",
+    "content": [
+      {
+        "type": "text",
+        "content": "Sorghum is one of the main staple food for the poor people across the semi arid tropics. It is mainly consumed by poor farmers. India contributes about 16% of the world’s sorghum production. It is the fourth most important cereal crop in the country and also contributing green fodder, feed and biofuel."
+      },
+      {
+        "type": "text",
+        "content": "This crop was one of the major cereal during the 1950s contributing to more than 10% of the food basket. At present, it is reduced to less than 4.0%. Sorghum cultivation is taken up in 5.97 m ha with a production of 5.01 million tonnes ( Ref : Agricultural Statistics at a Glance 2018°f Department of Agriculture, Cooperation and Farmers Welfare ). There has been rapid improvement in productivity - 466 kg/ ha in 1971 as against 998 kg/ ha in 2017–18. This has been possible through use of productive hybrids and varieties and adoption of improved production technologies. In the last three decades productivity has gone upto 84% in case of kharif sorghum and 70% in rabi sorghum."
+      }
+    ]
+  },
+  {
+    "heading": "Hybrids and varieties for Kharif season",
+    "content": [
+      {
+        "type": "text",
+        "content": "The essential information on grain sorghum hybrids and varieties released in the country for cultivating under kharif season is presented below."
+      },
+      {
+        "type": "subheading",
+        "content": "Hybrids"
+      },
+      {
+        "type": "table",
+        "content": {
+          "headers": [
+            "Hybrid",
+            "Duration",
+            "Grain Yield (kg/ha)",
+            "Fodder Yield (kg/ha)",
+            "Suitable Areas*"
+          ],
+          "rows": [
+            [
+              "CSH1",
+              "90–100",
+              "3000–3500",
+              "7500",
+              "TN, AP, KA, RJ, UP, GJ, MH, MP. Specific adaption to low rainfall and light soil kharif areas of country."
+            ],
+            [
+              "CSH2",
+              "115–120",
+              "3000–3500",
+              "-",
+              "Suitable for assured rainfall mid-late kharif tracts specifically in Karnataka"
+            ],
+            [
+              "CSH3",
+              "150–170",
+              "3500–3800",
+              "-",
+              "Assured rainfall tracts in MH, TG, monsoon areas of TN, Malwa Plateau (MP) and Bundelkhand (UP)"
+            ],
+            [
+              "CSH4",
+              "110–105",
+              "3500–3800",
+              "-",
+              "All kharif and some rabi areas of all over the country"
+            ],
+            [
+              "CSH5",
+              "100–120",
+              "3800–4000",
+              "9300",
+              "All kharif areas and late kharif tracts of AP and summer irrigated areas in TN, and KA. Well adapted for intercropping and ratooning"
+            ],
+            [
+              "CSH6",
+              "95–100",
+              "3376",
+              "8100",
+              "For cultivation in kharif, early rabi and rabi seasons a;; over the country. Suitable for low rainfall tracts of kharif and late kharif season in AP. Ideally suited for intercropping and ratooning"
+            ],
+            [
+              "CSH9",
+              "105–110",
+              "4000–4200",
+              "9800",
+              "All kharif sorghum areas except in humid areas of KA and TN"
+            ],
+            [
+              "CSH10",
+              "100–115",
+              "3633",
+              "12000",
+              "KA"
+            ],
+            [
+              "CSH11",
+              "105–115",
+              "4172",
+              "9180",
+              "All kharif growing areas"
+            ],
+            [
+              "CSH13",
+              "105–110",
+              "3924",
+              "14100",
+              "AP, GJ, TN, KA, MP, HR, RJ, MH and UP"
+            ],
+            [
+              "CSH14",
+              "105",
+              "3840",
+              "8800",
+              "All kharif growing areas medium to heavy soils for low rainfall areas"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "table",
+        "content": {
+          "headers": [
+            "Hybrids",
+            "Duration",
+            "Grain Yield (kg/ha)",
+            "Fodder Yield (kg/ha)",
+            "Suitable Areas*"
+          ],
+          "rows": [
+            [
+              "CSH16",
+              "110",
+              "4308",
+              "9676",
+              "Kharif sorghum growing areas of MH, TN, AP, GJ, KA, MP, RJ and UP"
+            ],
+            [
+              "CSH17",
+              "103",
+              "4186",
+              "10400",
+              "All Kharif growing areas of RJ, MP, GJ and TN"
+            ],
+            [
+              "CSH18",
+              "110–115",
+              "4336",
+              "13100",
+              "All kharif season as a rainfed crop in sorghum growing states in country"
+            ],
+            [
+              "CSH23",
+              "105",
+              "4100",
+              "8700",
+              "All over India"
+            ],
+            [
+              "CSH25",
+              "110–115",
+              "4370",
+              "12710",
+              "MH in Kharif season"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "subheading",
+        "content": "Varieties"
+      },
+      {
+        "type": "table",
+        "content": {
+          "headers": [
+            "Variety",
+            "Duration",
+            "Grain Yield (kg/ha)",
+            "Fodder Yield (kg/ha)",
+            "Suitable Areas*"
+          ],
+          "rows": [
+            [
+              "CSV 1",
+              "95–100",
+              "3000–5000",
+              "-",
+              "All kharif sorghum growing areas of MH, GJ, KA and AP"
+            ],
+            [
+              "CSV 2",
+              "105–110",
+              "3000–3500",
+              "-",
+              "Kharif tracts of MH, MP and adjoining areas of RJ, Bundelkhand (UP) and North Telangana"
+            ],
+            [
+              "CSV 3",
+              "105–110",
+              "3500–4000",
+              "-",
+              "All kharif growing areas of country"
+            ],
+            [
+              "CSV 4",
+              "105–110",
+              "3000–3500",
+              "-",
+              "All kharif sorghum growing areas"
+            ],
+            [
+              "CSV 5",
+              "110–120",
+              "3000–3500",
+              "-",
+              "KA,TN and MH"
+            ],
+            [
+              "CSV 6",
+              "115–120",
+              "3200–3500",
+              "-",
+              "Assured rainfall areas of vidharbha and west MH regions,MP, Kota region of RJ, Bundelkhand (UP), South GJ, Adilabad (AP) and TN"
+            ],
+            [
+              "CSV 9",
+              "110–115",
+              "3000–3500",
+              "8940",
+              "All kharif sorghum growing areas in India"
+            ],
+            [
+              "CSV 10",
+              "110–115",
+              "3000–3500",
+              "9010",
+              "MH, KA, AP and RJ"
+            ],
+            [
+              "CSV 11",
+              "110–115",
+              "3250",
+              "9600",
+              "All kharif growing areas in India"
+            ],
+            [
+              "CSV 13",
+              "110–120",
+              "3525",
+              "9700",
+              "All kharif growing areas of the country"
+            ],
+            [
+              "CSV 15",
+              "110–112",
+              "3621",
+              "12100",
+              "All kharif growing areas of the country"
+            ],
+            [
+              "CSV 17",
+              "97",
+              "2500",
+              "6800",
+              "Low rainfall and drought prone sorghum regions of the country"
+            ],
+            [
+              "CSV 20",
+              "109",
+              "3100",
+              "13300",
+              "All India"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "subheading",
+        "content": "* KA :KARNATAKA, TN :TAMILNADU, AP :ANDHRA PRADESH, RJ :RAJASTHAN, GJ :GUJARAT, UP :UTTAR PRADESH, MH :MAHARASHTRA, MP :MADHYA PRADESH"
+      },
+      {
+        "type": "subheading",
+        "content": "Authors"
+      },
+      {
+        "type": "ordered_list",
+        "content": [
+          "Deepika C, ICAR-Indian Institute of Millets Research, Hyderabad",
+          "Vinu V, ICAR-Sugarcane Breeding Institute, Coimbatore",
+          "Swarna R, ICAR-Indian Institute of Millets Research, Hyderabad",
+          "Jinu J, ICAR-Indian Institute of Millets Research, Hyderabad",
+          "Sooganna,ICAR-Indian Institute of Millets Research, Hyderabad",
+          "Gayatri B, ICAR-Indian Institute of Oilseed Research, Hyderabad"
+        ]
+      },
+      {
+        "type": "subheading",
+        "content": "References"
+      },
+      {
+        "type": "ordered_list",
+        "content": [
+          "<em>Sorghum Cultivars of India: Hybrid, Varieties and parental lines</em>. 2009 Vilas A Tonapi, M Elangovan, N kannababu, KV Raghavendra Rao, Raghunath Kulakarni, D Chandra Sekhar Reddy, Ram Swaroop Meena, HS Gawali and N Seetharama. ISBN 81–89335–23–5.144 pp",
+          "<em>Genetic Improvement of Grain Sorghum</em> . 2019 Editor(s): C. Aruna, K. B. R. S. Visarada, B. Venkatesh Bhat, Vilas A. Tonapi. ISBN 9780081018798, Pages 157–173."
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,91 @@
+[
+  {
+    "heading": "Rice",
+    "content": [
+      {
+        "type": "text",
+        "content": "Rice is the major cereal crop grown in about 44.6 million hectares in the country. India represents all kinds of diversity under which rice is grown across the globe. No other crop is as versatile as rice. Rice crop is interwoven in the cultural, social and economic life of millions of Indian and it holds the key for food and nutritional security of the country. Rice production scenario in the country during the past decade presents a gloomy picture of compound growth rate of just 1.7 per cent. To meet a production target of 125 million tonnes by 2025, all inclusive of food requirement, seed for cultivation, storage in buffer stock and a share for exports, productivity in irrigated area needs to be enhanced by 1.5 tons/ha and in rain-fed lowlands by about 1 ton/ha."
+      }
+    ]
+  },
+  {
+    "heading": "Rice Knowledge Management Portal (RKMP)",
+    "content": [
+      {
+        "type": "text",
+        "content": "Considering the need for empowering rice farmers for increased productivity and production, providing continuous knowledge support to the extension workers in the rice growing states, Directorate of Rice Research (DRR) with the support of ICAR developed the ‘Rice Knowledge Management Portal (RKMP)’. This portal has been launched in 2010, with an aim of strengthening the research, extension, farmers and private subsystems, partnerships and networks, for the better flow of rice knowledge and information contributing to the over all rice development in the country."
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          {
+            "text": "Rice Knowledge Management Portal (RKMP)",
+            "link": "http://www.rkmp.co.in/"
+          }
+        ]
+      },
+      {
+        "type": "source",
+        "content": "ICAR - Indian Institute of Rice Research",
+        "link": "http://www.drricar.org/"
+      }
+    ]
+  },
+  {
+    "heading": "Agro advisory for Rice",
+    "content": [
+      {
+        "type": "text",
+        "content": "Bi-weekly agro advisory for Rice farmers (Aavailable in English and Odia) and released by the National Rice Research Institute (NRRI), Cuttack. To view the advisory, click here ."
+      }
+    ]
+  },
+  {
+    "heading": "Improved rice production practices under climate change conditions",
+    "content": [
+      {
+        "type": "ordered_list",
+        "content": [
+          {
+            "text": "Rice Cultivation in Rainfed Upland and Drought Prone Areas Under Changed Climate (NRRI, Cuttack)",
+            "link": "http://www.nicra-icar.in/nicrarevised/images/publications/Tbu_Crp_Rice%20Cultivation%20in%20Rainfed%20Upland.pdf"
+          },
+          {
+            "text": "Improved Rice Production Technology for resource conservation and climate resilience (ICAR-RCNR, Meghalaya)",
+            "link": "http://www.nicra-icar.in/nicrarevised/images/Books/Improved%20rice%20production%20technology%20for%20resource%20conservation%20and%20climate%20resilience.pdf"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Rice Production related resources",
+    "content": [
+      {
+        "type": "ordered_list",
+        "content": [
+          {
+            "text": "Tips on Rice from NFSM",
+            "link": "https://static.vikaspedia.in/media/files_en/agriculture/crop-production/package-of-practices/tips-for-farmers/tips-for-rice-growers.pdf"
+          },
+          {
+            "text": "Rodent Management in Paddy (28.2KB)",
+            "link": "https://static.vikaspedia.in/media/files_en/agriculture/crop-production/package-of-practices/rodant-management-in-paddy.pdf"
+          },
+          {
+            "text": "Hybrid Rice Seed Production-Guidelines (752KB)",
+            "link": "https://static.vikaspedia.in/media/files_en/agriculture/crop-production/package-of-practices/hybrid-rice-seed-production.pdf"
+          },
+          {
+            "text": "Management of Rice Stem Borer (15.4KB)",
+            "link": "https://static.vikaspedia.in/media/files_en/agriculture/crop-production/package-of-practices/rice-stem-borer-management.pdf"
+          },
+          {
+            "text": "Manual on Organic Production of Kalanamak Rice",
+            "link": "http://ipindiaservices.gov.in/GI_DOC/205/205%20-%20GI%20-%20Manual%20on%20Organic%20Production%20of%20Kalanamak%20Rice%20-%2025-03-2010.pdf"
+          }
+        ]
+      }
+    ]
+  }
+]

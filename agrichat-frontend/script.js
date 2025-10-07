@@ -1,13 +1,192 @@
-// API_BASE is now defined in config.js and automatically loaded
+// Authentication System
+class AuthManager {
+  constructor() {
+    this.user = null;
+    this.init();
+  }
 
-// Helper function for API calls with ngrok support
+  init() {
+    // Check if user is already logged in
+    const savedUser = localStorage.getItem('agrichat_user');
+    if (savedUser) {
+      this.user = JSON.parse(savedUser);
+      this.hideLoginForm();
+      // Show welcome message on page load if user is already logged in
+      setTimeout(() => this.showAccountDropdown(this.user), 100);
+
+      // setTimeout(() => this.showWelcomeMessage(), 100);
+    } else {
+      this.showLoginForm();
+    }
+  }
+
+  async login(username, password) {
+    try {
+      const response = await apiCall(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password })
+      });
+
+      const result = await response.json();
+
+      if (result.authenticated) {
+        this.user = {
+          username: result.username,
+          role: result.role,
+          full_name: result.full_name
+        };
+        localStorage.setItem('agrichat_user', JSON.stringify(this.user));
+        this.hideLoginForm();
+        this.showAccountDropdown(this.user);
+        // this.showWelcomeMessage();
+        return { success: true };
+      } else {
+        return { success: false, message: result.message };
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      return { success: false, message: 'Connection error. Please try again.' };
+    }
+  }
+
+  logout() {
+    this.user = null;
+    localStorage.removeItem('agrichat_user');
+
+    // Remove user info from header
+    const userInfo = document.querySelector('.user-info');
+    if (userInfo) {
+      userInfo.remove();
+    }
+
+    this.showLoginForm();
+  }
+
+  showLoginForm() {
+    const overlay = document.getElementById('loginOverlay');
+    if (overlay) {
+      overlay.style.display = 'flex';
+    }
+  }
+
+  hideLoginForm() {
+    const overlay = document.getElementById('loginOverlay');
+    if (overlay) {
+      overlay.style.display = 'none';
+    }
+  }
+
+  showAccountDropdown(user) {
+    const usernameElem = document.getElementById('usernameDisplay');
+    if (user && usernameElem) {
+      usernameElem.textContent = `Hello, ${user.full_name}`;
+    }
+
+    // Attach Logout action if not already present
+    const logoutBtn = document.getElementById('logoutDropdownBtn');
+    if (logoutBtn && typeof authManager !== "undefined" && typeof authManager.logout === "function") {
+      logoutBtn.onclick = authManager.logout.bind(authManager);
+      // logoutBtn.onclick = authManager.logout;
+    }
+  }
+
+  // showWelcomeMessage() {
+  //   if (this.user) {
+  //     // Add user info to header
+  //     const header = document.querySelector('.header-left');
+  //     if (header) {
+  //       // Remove existing user info if it exists
+  //       const existingUserInfo = header.querySelector('.user-info');
+  //       if (existingUserInfo) {
+  //         existingUserInfo.remove();
+  //       }
+
+  //       const userInfo = document.createElement('div');
+  //       userInfo.className = 'user-info';
+  //       userInfo.innerHTML = `
+  //         <span style="color: #033220; font-weight: 600; margin-left: 1em;">
+  //           Hello, ${this.user.full_name}!
+  //         </span>
+  //         <button onclick="authManager.logout()" style="margin-left: 1em; padding: 0.3em 0.6em; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8em;">
+  //           Logout
+  //         </button>
+  //       `;
+  //       header.appendChild(userInfo);
+  //     }
+  //   }
+  // }
+
+  isAuthenticated() {
+    return this.user !== null;
+  }
+
+  getUser() {
+    return this.user;
+  }
+
+  // Utility method to require authentication for actions
+  requireAuth(action) {
+    if (!this.isAuthenticated()) {
+      this.showLoginForm();
+      return false;
+    }
+    return true;
+  }
+}
+
+// Initialize auth manager
+const authManager = new AuthManager();
+
+// Handle login form submission
+document.addEventListener('DOMContentLoaded', function () {
+  const loginForm = document.getElementById('loginForm');
+  if (loginForm) {
+    loginForm.addEventListener('submit', async function (e) {
+      e.preventDefault();
+
+      const username = document.getElementById('loginUsername').value;
+      const password = document.getElementById('loginPassword').value;
+      const errorDiv = document.getElementById('loginError');
+
+      // Show loading state
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      const originalText = submitBtn.textContent;
+      submitBtn.textContent = 'Signing in...';
+      submitBtn.disabled = true;
+
+      try {
+        const result = await authManager.login(username, password);
+
+        if (result.success) {
+          errorDiv.style.display = 'none';
+        } else {
+          errorDiv.textContent = result.message;
+          errorDiv.style.display = 'block';
+        }
+      } catch (error) {
+        errorDiv.textContent = 'An error occurred. Please try again.';
+        errorDiv.style.display = 'block';
+      }
+
+      // Restore button state
+      submitBtn.textContent = originalText;
+      submitBtn.disabled = false;
+    });
+  }
+});
+
 async function apiCall(url, options = {}) {
-  const headers = options.headers || {};
+  const headers = { ...(options.headers || {}) };
 
-  // Add ngrok bypass header if using ngrok
   if (API_BASE.includes('ngrok')) {
     headers["ngrok-skip-browser-warning"] = "true";
   }
+
+  console.log('[API] Making request to:', url);
+  console.log('[API] Headers:', headers);
 
   return fetch(url, {
     ...options,
@@ -93,24 +272,155 @@ if (!deviceId) {
 let currentSession = null;
 let showingArchived = false;
 
+// Database Toggle State Management
+let databaseToggles = {
+  rag: true,
+  pops: true,
+  llm: true
+};
+
+// Load database toggle preferences from localStorage
+function loadDatabasePreferences() {
+  const saved = localStorage.getItem("agrichat_database_preferences");
+  if (saved) {
+    try {
+      databaseToggles = { ...databaseToggles, ...JSON.parse(saved) };
+    } catch (e) {
+      console.warn("Failed to parse saved database preferences");
+    }
+  }
+
+  // Update UI toggles for BOTH forms
+  ['Start', 'Chat'].forEach(function (suffix) {
+    const rag = document.getElementById(`ragToggle${suffix}`);
+    if (rag) rag.checked = databaseToggles.rag;
+    const pops = document.getElementById(`popsToggle${suffix}`);
+    if (pops) pops.checked = databaseToggles.pops;
+    const llm = document.getElementById(`llmToggle${suffix}`);
+    if (llm) llm.checked = databaseToggles.llm;
+  });
+}
+
+// function loadDatabasePreferences() {
+//   const saved = localStorage.getItem("agrichat_database_preferences");
+//   if (saved) {
+//     try {
+//       databaseToggles = { ...databaseToggles, ...JSON.parse(saved) };
+//     } catch (e) {
+//       console.warn("Failed to parse saved database preferences");
+//     }
+//   }
+
+//   // Update UI toggles
+//   document.getElementById("ragToggle").checked = databaseToggles.rag;
+//   document.getElementById("popsToggle").checked = databaseToggles.pops;
+//   document.getElementById("llmToggle").checked = databaseToggles.llm;
+// }
+
+// Save database toggle preferences to localStorage
+function saveDatabasePreferences() {
+  localStorage.setItem("agrichat_database_preferences", JSON.stringify(databaseToggles));
+}
+
+// Get current database selection array for API
+function getDatabaseSelection() {
+  const selection = [];
+  if (databaseToggles.rag) selection.push("rag");
+  if (databaseToggles.pops) selection.push("pops");
+  if (databaseToggles.llm) selection.push("llm");
+
+  // Ensure at least one database is selected
+  if (selection.length === 0) {
+    selection.push("llm"); // Fallback to LLM if none selected
+    databaseToggles.llm = true;
+    document.getElementById("llmToggle").checked = true;
+    saveDatabasePreferences();
+  }
+
+  return selection;
+}
+
+// Initialize database toggle event listeners
+function initializeDatabaseToggles() {
+  ['Start', 'Chat'].forEach(function (suffix) {
+    const ragToggle = document.getElementById(`ragToggle${suffix}`);
+    const popsToggle = document.getElementById(`popsToggle${suffix}`);
+    const llmToggle = document.getElementById(`llmToggle${suffix}`);
+
+    if (ragToggle) {
+      ragToggle.addEventListener("change", () => {
+        databaseToggles.rag = ragToggle.checked;
+        saveDatabasePreferences();
+      });
+    }
+    if (popsToggle) {
+      popsToggle.addEventListener("change", () => {
+        databaseToggles.pops = popsToggle.checked;
+        saveDatabasePreferences();
+      });
+    }
+    if (llmToggle) {
+      llmToggle.addEventListener("change", () => {
+        databaseToggles.llm = llmToggle.checked;
+        saveDatabasePreferences();
+      });
+    }
+  });
+}
+
+// function initializeDatabaseToggles() {
+//   const ragToggle = document.getElementById("ragToggle");
+//   const popsToggle = document.getElementById("popsToggle");
+//   const llmToggle = document.getElementById("llmToggle");
+
+//   ragToggle.addEventListener("change", () => {
+//     databaseToggles.rag = ragToggle.checked;
+//     saveDatabasePreferences();
+//   });
+
+//   popsToggle.addEventListener("change", () => {
+//     databaseToggles.pops = popsToggle.checked;
+//     saveDatabasePreferences();
+//   });
+
+//   llmToggle.addEventListener("change", () => {
+//     databaseToggles.llm = llmToggle.checked;
+//     saveDatabasePreferences();
+//   });
+// }
+
 async function loadSessions() {
-  const res = await apiCall(`${API_BASE}/sessions?device_id=${deviceId}`);
-  const { sessions } = await res.json();
+  try {
+    console.log('[SESSIONS] Loading sessions for device:', deviceId);
+    const res = await apiCall(`${API_BASE}/sessions?device_id=${deviceId}`);
 
-  const activeDiv = document.getElementById("activeSessions");
-  const archivedDiv = document.getElementById("archivedSessions");
-  activeDiv.innerHTML = "";
-  archivedDiv.innerHTML = "";
+    console.log('[SESSIONS] API response status:', res.status);
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    }
 
-  let activeCount = 0;
-  let archivedCount = 0;
+    const data = await res.json();
+    console.log('[SESSIONS] Parsed data:', data);
 
-  sessions.forEach((s) => {
+    const { sessions } = data;
+    if (!sessions || !Array.isArray(sessions)) {
+      throw new Error('Invalid sessions data structure');
+    }
 
-    const isActiveSession = currentSession?.session_id === s.session_id;
-    const container = document.createElement("div");
-    container.className = `session-entry  ${s.status === 'archived' ? 'archived' : ''} ${isActiveSession ? 'active' : ''}`;
-    container.innerHTML = `
+    const activeDiv = document.getElementById("activeSessions");
+    const archivedDiv = document.getElementById("archivedSessions");
+    activeDiv.innerHTML = "";
+    archivedDiv.innerHTML = "";
+
+    let activeCount = 0;
+    let archivedCount = 0;
+
+    sessions.forEach((s) => {
+
+      const isActiveSession = currentSession?.session_id === s.session_id;
+      const container = document.createElement("div");
+      container.className = `session-entry  ${s.status === 'archived' ? 'archived' : ''} ${isActiveSession ? 'active' : ''}`;
+      container.innerHTML = `
     <a href="#" class="session-link">
       <div class="session-date">
         <i class="fas fa-calendar"></i> ${new Date(s.timestamp).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}
@@ -132,23 +442,38 @@ async function loadSessions() {
     </div>
   `;
 
-    container.querySelector(".session-link").addEventListener("click", async () => {
-      const resp = await apiCall(`${API_BASE}/session/${s.session_id}`);
-      const { session } = await resp.json();
-      currentSession = session;
-      loadChat(currentSession);
-      loadSessions();
-    });
+      container.querySelector(".session-link").addEventListener("click", async () => {
+        const resp = await apiCall(`${API_BASE}/session/${s.session_id}`);
+        const { session } = await resp.json();
+        currentSession = session;
+        loadChat(currentSession);
+        loadSessions();
+      });
 
-    if (s.status === "archived") {
-      archivedDiv.appendChild(container);
-      archivedCount++;
-    } else {
-      activeDiv.appendChild(container);
-      activeCount++;
-    }
-  });
-  document.getElementById("noSessions").style.display = (activeCount + archivedCount === 0) ? "block" : "none";
+      if (s.status === "archived") {
+        archivedDiv.appendChild(container);
+        archivedCount++;
+      } else {
+        activeDiv.appendChild(container);
+        activeCount++;
+      }
+    });
+    document.getElementById("noSessions").style.display = (activeCount + archivedCount === 0) ? "block" : "none";
+
+    console.log('[SESSIONS] Successfully loaded', sessions.length, 'sessions');
+  } catch (error) {
+    console.error('[SESSIONS] Failed to load sessions:', error);
+    console.error('[SESSIONS] Error details:', error.message);
+
+    // Show error message to user
+    const activeDiv = document.getElementById("activeSessions");
+    const archivedDiv = document.getElementById("archivedSessions");
+    activeDiv.innerHTML = '<div class="error-message">Failed to load sessions. Please refresh the page.</div>';
+    archivedDiv.innerHTML = '';
+
+    // Still show the no sessions message
+    document.getElementById("noSessions").style.display = "block";
+  }
 }
 
 function toggleView() {
@@ -173,7 +498,6 @@ async function toggleSessionStatus(session_id, currentStatus) {
     document.getElementById("startScreen").style.display = "block";
   } else {
     const headers = {};
-    // Add ngrok bypass header if using ngrok
     if (API_BASE.includes('ngrok')) {
       headers["ngrok-skip-browser-warning"] = "true";
     }
@@ -196,7 +520,6 @@ async function deleteSession(session_id) {
   if (!confirmed) return;
 
   const headers = {};
-  // Add ngrok bypass header if using ngrok
   if (API_BASE.includes('ngrok')) {
     headers["ngrok-skip-browser-warning"] = "true";
   }
@@ -224,7 +547,6 @@ async function rateAnswer(index, rating, btn) {
   formData.append("rating", rating);
 
   const headers = {};
-  // Add ngrok bypass header if using ngrok
   if (API_BASE.includes('ngrok')) {
     headers["ngrok-skip-browser-warning"] = "true";
   }
@@ -252,10 +574,8 @@ async function rateAnswer(index, rating, btn) {
 function copyToClipboard(button) {
   const answer = button.closest(".message").querySelector(".bot-answer").innerText;
   navigator.clipboard.writeText(answer).then(() => {
-    // Add the selected class to flash grey
     button.classList.add('selected');
 
-    // Swap icon for checkmark SVG (optional, but users like feedback)
     button.innerHTML = `
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 512 512">
         <path fill="currentColor" d="M504.5 75.5c-10-10-26.2-10-36.2 0L184 359.8l-140.3-140.3
@@ -267,7 +587,6 @@ function copyToClipboard(button) {
     setTimeout(() => {
       button.classList.remove('selected');
 
-      // Restore the Copy svg icon
       button.innerHTML = `
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 448 512">
           <path fill="currentColor" d="M320 448v40c0 13.255-10.745 24-24 24H24c-13.255 0-24-10.745-24-24V120c0-13.255
@@ -277,47 +596,173 @@ function copyToClipboard(button) {
           24 0 0 0-7.029-16.97z"/>
         </svg>
       `;
-    }, 800); // stays grey for 0.8 seconds
+    }, 800);
   });
 }
 
 
 
-function appendMessage(sender, text, index = null, rating = null) {
+function appendMessage(sender, text, index = null, rating = null, thinking = null, source = null, confidence = null) {
   const div = document.createElement("div");
   div.className = `message ${sender}`;
 
   if (sender === "user") {
     div.innerHTML = ` ${text}`;
   } else {
-    div.innerHTML = `
-    <div class="bot-answer">${text}</div>
-    <div class="message-actions">
-      <button class="copy-btn" onclick="copyToClipboard(this)" title="Copy">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 448 512">
-          <path fill="currentColor" d="M320 448v40c0 13.255-10.745 24-24 24H24c-13.255 0-24-10.745-24-24V120c0-13.255 10.745-24 24-24h72v296c0 30.879 25.121 56 56 56h168zm0-344V0H152c-13.255 0-24 10.745-24 24v368c0 13.255 10.745 24 24 24h272c13.255 0 24-10.745 24-24V128H344c-13.2 0-24-10.8-24-24zm120.971-31.029L375.029 7.029A24 24 0 0 0 358.059 0H352v96h96v-6.059a24 24 0 0 0-7.029-16.97z"/>
-        </svg>
-      </button>
-      <button class="rate-btn thumbs-up ${rating === 'up' ? 'selected' : ''}" onclick="rateAnswer(${index}, 'up', this)" title="Thumbs up">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
-          <path fill="currentColor" fill-rule="evenodd" d="M15 9.7h4a2 2 0 0 1 1.6.9a2 2 0 0 1 .3 1.8l-2.4 7.2c-.3.9-.5 1.4-1.9 1.4c-2 0-4.2-.7-6.1-1.3L9 19.3V9.5A32 32 0 0 0 13.2 4c.1-.4.5-.7.9-.9h1.2c.4.1.7.4 1 .7l.2 1.3zM4.2 10H7v8a2 2 0 1 1-4 0v-6.8c0-.7.5-1.2 1.2-1.2" clip-rule="evenodd"/>
-        </svg>
-      </button>
-      <button class="rate-btn thumbs-down ${rating === 'down' ? 'selected' : ''}" onclick="rateAnswer(${index}, 'down', this)" title="Thumbs down">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
-          <path fill="currentColor" fill-rule="evenodd" d="M9 14.3H5a2 2 0 0 1-1.6-.9a2 2 0 0 1-.3-1.8l2.4-7.2C5.8 3.5 6 3 7.4 3c2 0 4.2.7 6.1 1.3l1.4.4v9.8a32 32 0 0 0-4.2 5.5c-.1.4-.5.7-.9.9a1.7 1.7 0 0 1-2.1-.7c-.2-.4-.3-.8-.3-1.3zm10.8-.3H17V6a2 2 0 1 1 4 0v6.8c0 .7-.5 1.2-1.2 1.2" clip-rule="evenodd"/>
-        </svg>
-      </button>
-    </div>
-  `;
-  }
+    let botAnswerHtml = text || '';
 
+    if (typeof marked !== 'undefined') {
+      marked.setOptions({
+        breaks: true,
+        gfm: true,
+        sanitize: false,
+        smartLists: true,
+        highlight: function (code, lang) {
+          if (typeof hljs !== 'undefined' && lang) {
+            try {
+              return hljs.highlight(code, { language: lang }).value;
+            } catch (e) {
+              return hljs.highlightAuto(code).value;
+            }
+          }
+          return code;
+        }
+      });
+
+      // Render markdown to HTML
+      botAnswerHtml = marked.parse(botAnswerHtml);
+    }
+
+    let youtubeUrl = null;
+    try {
+      if (researchData && Array.isArray(researchData)) {
+        for (const d of researchData) {
+          if (d && d.youtube_url) { youtubeUrl = d.youtube_url; break; }
+        }
+      }
+    } catch (e) {
+      youtubeUrl = null;
+    }
+
+    // Helper to get YouTube thumbnail URL from a YouTube link
+    function getYouTubeId(url) {
+      if (!url || typeof url !== 'string') return null;
+      // patterns: v=ID, /embed/ID, youtu.be/ID, /watch?v=ID
+      const idMatch = url.match(/(?:v=|\/embed\/|youtu\.be\/|\/v\/)([A-Za-z0-9_-]{6,})/);
+      if (idMatch && idMatch[1]) return idMatch[1];
+      // fallback: try to extract last path segment
+      try {
+        const u = new URL(url);
+        if (u.hostname && u.hostname.toLowerCase().includes('youtube')) {
+          const params = new URLSearchParams(u.search);
+          if (params.has('v')) return params.get('v');
+        }
+      } catch (e) {
+        // ignore
+      }
+      return null;
+    }
+
+    if (youtubeUrl) {
+      const vid = getYouTubeId(youtubeUrl);
+      const thumbUrl = vid ? `https://img.youtube.com/vi/${vid}/hqdefault.jpg` : null;
+      const thumbHtml = thumbUrl ?
+        `<div class="bot-source-video" style="margin-top:6px;"><div class="suggested-video-title" style="font-weight:600;margin-bottom:6px;">Suggested Video</div><a href="${youtubeUrl}" target="_blank" rel="noopener noreferrer"><img src="${thumbUrl}" alt="Watch video" style="max-width:360px; width:100%; height:auto; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.15);"></a></div>` :
+        `<div class="bot-source-video"><div class="suggested-video-title" style="font-weight:600;margin-bottom:4px;">Suggested Video</div><small><a class="inline-video-link" href="${youtubeUrl}" target="_blank" rel="noopener noreferrer">▶ Watch video</a></small></div>`;
+
+      // Prefer to insert under the explicit RAG/PoPs/Golden source label if present
+      try {
+        const ragRegex = /(RAG Database(?:\s*\([^)]*\))?|PoPs Database|Golden Database|Fallback LLM)/i;
+        if (ragRegex.test(botAnswerHtml)) {
+          botAnswerHtml = botAnswerHtml.replace(ragRegex, (match) => `${match}\n${thumbHtml}`);
+        } else if (botAnswerHtml.indexOf('</small>') !== -1) {
+          // insert immediately after the first closing small tag (where Source is often placed)
+          botAnswerHtml = botAnswerHtml.replace('</small>', `</small>${thumbHtml}`);
+        } else if (botAnswerHtml.toLowerCase().indexOf('source:') !== -1) {
+          // As a fallback, append next to the word Source:
+          botAnswerHtml = botAnswerHtml.replace(/(source:\s*[^<\n\r]*)/i, `$1${thumbHtml}`);
+        } else {
+          // final fallback: append at the end inside a small tag
+          botAnswerHtml = botAnswerHtml + thumbHtml;
+        }
+      } catch (e) {
+        // If anything goes wrong, append as a small block at the end
+        botAnswerHtml = botAnswerHtml + thumbHtml;
+      }
+    }
+
+    // Show thinking process if available
+    const hasThinking = thinking && thinking.trim().length > 0;
+
+    if (hasThinking) {
+      const thinkingHtml = `
+        <div class="thinking-section" style="margin-bottom: 15px; padding: 12px; background: #e8f5e8; border-left: 4px solid #28a745; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+          <div class="thinking-header" style="font-weight: 600; color: #2d5a2d; margin-bottom: 8px; display: flex; align-items: center; font-size: 0.95em;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="margin-right: 8px;">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="#28a745"/>
+            </svg>
+            🧠 Thinking Process
+          </div>
+          <div class="thinking-content" style="color: #4a6a4a; font-size: 0.9em; line-height: 1.5; font-style: italic;">
+            ${thinking.replace(/\n/g, '<br>')}
+          </div>
+        </div>
+      `;
+
+      div.innerHTML = `
+        ${thinkingHtml}
+        <div class="bot-answer">${botAnswerHtml}</div>
+        <div class="message-actions">
+          <button class="copy-btn" onclick="copyToClipboard(this)" title="Copy">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 448 512">
+              <path fill="currentColor" d="M320 448v40c0 13.255-10.745 24-24 24H24c-13.255 0-24-10.745-24-24V120c0-13.255 10.745-24 24-24h72v296c0 30.879 25.121 56 56 56h168zm0-344V0H152c-13.255 0-24 10.745-24 24v368c0 13.255 10.745 24 24 24h272c13.255 0 24-10.745 24-24V128H344c-13.2 0-24-10.8-24zm120.971-31.029L375.029 7.029A24 24 0 0 0 358.059 0H352v96h96v-6.059a24 24 0 0 0-7.029-16.97z"/>
+            </svg>
+          </button>
+          <button class="rate-btn thumbs-up ${rating === 'up' ? 'selected' : ''}" onclick="rateAnswer(${index}, 'up', this)" title="Thumbs up">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+              <path fill="currentColor" fill-rule="evenodd" d="M15 9.7h4a2 2 0 0 1 1.6.9a2 2 0 0 1 .3 1.8l-2.4 7.2c-.3.9-.5 1.4-1.9 1.4c-2 0-4.2-.7-6.1-1.3L9 19.3V9.5A32 32 0 0 0 13.2 4c.1-.4.5-.7.9-.9h1.2c.4.1.7.4 1 .7l.2 1.3zM4.2 10H7v8a2 2 0 1 1-4 0v-6.8c0-.7.5-1.2 1.2-1.2" clip-rule="evenodd"/>
+            </svg>
+          </button>
+          <button class="rate-btn thumbs-down ${rating === 'down' ? 'selected' : ''}" onclick="rateAnswer(${index}, 'down', this)" title="Thumbs down">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+              <path fill="currentColor" fill-rule="evenodd" d="M9 14.3H5a2 2 0 0 1-1.6-.9a2 2 0 0 1-.3-1.8l2.4-7.2C5.8 3.5 6 3 7.4 3c2 0 4.2.7 6.1 1.3l1.4.4v9.8a32 32 0 0 0-4.2 5.5c-.1.4-.5.7-.9.9a1.7 1.7 0 0 1-2.1-.7c-.2-.4-.3-.8-.3-1.3zm10.8-.3H17V6a2 2 0 1 1 4 0v6.8c0 .7-.5 1.2-1.2 1.2" clip-rule="evenodd"/>
+            </svg>
+          </button>
+        </div>
+        ${source ? `<div style="margin-top: 8px; font-size: 0.85em; color: #666;">Source: ${source}${confidence ? ` | Confidence: ${(confidence * 100).toFixed(0)}%` : ''}</div>` : ''}
+      `;
+    } else {
+      // Default rendering when no structured data
+      div.innerHTML = `
+      <div class="bot-answer">${botAnswerHtml}</div>
+      <div class="message-actions">
+        <button class="copy-btn" onclick="copyToClipboard(this)" title="Copy">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 448 512">
+            <path fill="currentColor" d="M320 448v40c0 13.255-10.745 24-24 24H24c-13.255 0-24-10.745-24-24V120c0-13.255 10.745-24 24-24h72v296c0 30.879 25.121 56 56 56h168zm0-344V0H152c-13.255 0-24 10.745-24 24v368c0 13.255 10.745 24 24 24h272c13.255 0 24-10.745 24-24V128H344c-13.2 0-24-10.8-24-24zm120.971-31.029L375.029 7.029A24 24 0 0 0 358.059 0H352v96h96v-6.059a24 24 0 0 0-7.029-16.97z"/>
+          </svg>
+        </button>
+        <button class="rate-btn thumbs-up ${rating === 'up' ? 'selected' : ''}" onclick="rateAnswer(${index}, 'up', this)" title="Thumbs up">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+            <path fill="currentColor" fill-rule="evenodd" d="M15 9.7h4a2 2 0 0 1 1.6.9a2 2 0 0 1 .3 1.8l-2.4 7.2c-.3.9-.5 1.4-1.9 1.4c-2 0-4.2-.7-6.1-1.3L9 19.3V9.5A32 32 0 0 0 13.2 4c.1-.4.5-.7.9-.9h1.2c.4.1.7.4 1 .7l.2 1.3zM4.2 10H7v8a2 2 0 1 1-4 0v-6.8c0-.7.5-1.2 1.2-1.2" clip-rule="evenodd"/>
+          </svg>
+        </button>
+        <button class="rate-btn thumbs-down ${rating === 'down' ? 'selected' : ''}" onclick="rateAnswer(${index}, 'down', this)" title="Thumbs down">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+            <path fill="currentColor" fill-rule="evenodd" d="M9 14.3H5a2 2 0 0 1-1.6-.9a2 2 0 0 1-.3-1.8l2.4-7.2C5.8 3.5 6 3 7.4 3c2 0 4.2.7 6.1 1.3l1.4.4v9.8a32 32 0 0 0-4.2 5.5c-.1.4-.5.7-.9.9a1.7 1.7 0 0 1-2.1-.7c-.2-.4-.3-.8-.3-1.3zm10.8-.3H17V6a2 2 0 1 1 4 0v6.8c0 .7-.5 1.2-1.2 1.2" clip-rule="evenodd"/>
+          </svg>
+        </button>
+      </div>
+      ${source ? `<div style="margin-top: 8px; font-size: 0.85em; color: #666;">Source: ${source}${confidence ? ` | Confidence: ${(confidence * 100).toFixed(0)}%` : ''}</div>` : ''}
+    `;
+    }
+  }
 
   document.getElementById("chatWindow").appendChild(div);
 }
 
+
+
 function displayRecommendations(recommendations) {
-  // Remove any existing recommendations first
   const existingRecs = document.querySelectorAll('.inline-recommendations');
   existingRecs.forEach(rec => rec.remove());
 
@@ -325,7 +770,6 @@ function displayRecommendations(recommendations) {
     return;
   }
 
-  // Create inline recommendations div
   const recDiv = document.createElement("div");
   recDiv.className = "inline-recommendations";
   recDiv.innerHTML = `
@@ -343,7 +787,6 @@ function displayRecommendations(recommendations) {
     </div>
   `;
 
-  // Add click handlers to recommendation items
   recDiv.addEventListener('click', (e) => {
     const item = e.target.closest('.inline-rec-item');
     if (item) {
@@ -353,7 +796,6 @@ function displayRecommendations(recommendations) {
     }
   });
 
-  // Insert after the last bot message
   const chatWindow = document.getElementById("chatWindow");
   chatWindow.appendChild(recDiv);
   chatWindow.scrollTop = chatWindow.scrollHeight;
@@ -366,15 +808,13 @@ function loadChat(session) {
   document.getElementById("exportBtn").style.display = "inline-block";
   document.getElementById("locationEdit").style.display = "none";
 
-  // Only add the classes if NOT mobile screen width
-  if (window.innerWidth > 768) {  // Define mobile breakpoint here
+  if (window.innerWidth > 768) {
     document.querySelector('.main-header').classList.add('chat-active-width');
   } else {
-    // On mobile, ensure classes are removed in case they existed
+
     document.querySelector('.main-header').classList.remove('chat-active-width');
   }
 
-  // new
   if (!session || typeof session.status === "undefined" || !Array.isArray(session.messages)) {
     alert("Could not load chat session (data missing or malformed).");
     return;
@@ -390,30 +830,44 @@ function loadChat(session) {
 
   session.messages.forEach((msg, idx) => {
     appendMessage("user", msg.question);
-    appendMessage("bot", msg.answer, idx, msg.rating || null);
+    appendMessage("bot", msg.answer, idx, msg.rating || null, msg.thinking || null, msg.source || null, msg.confidence || null);
   });
 
-  // Show recommendations if available (using new inline style)
   if (session.recommendations && session.recommendations.length > 0) {
     displayRecommendations(session.recommendations);
   }
 
-  // Hide the old recommendations section since we're using inline style
   document.getElementById("recommendationsSection").style.display = "none";
 
   document.getElementById("chatWindow").scrollTop = document.getElementById("chatWindow").scrollHeight;
 }
 
-window.addEventListener("DOMContentLoaded", () => {
+window.addEventListener("DOMContentLoaded", async () => {
   populateStateDropdowns();
   detectLocationAndLanguage();
+
+  // Ensure user info is displayed if logged in
+  if (authManager && authManager.isAuthenticated()) {
+    authManager.showAccountDropdown(authManager.user);
+    // authManager.showWelcomeMessage();
+  }
+
+  // Initialize database toggles
+  loadDatabasePreferences();
+  initializeDatabaseToggles();
+
   const savedState = localStorage.getItem("agrichat_user_state");
   if (savedState) {
     const stateSelect = document.getElementById("stateSelect");
     if (stateSelect) stateSelect.value = savedState;
   }
 
-  loadSessions();
+  try {
+    await loadSessions();
+  } catch (error) {
+    console.error('[INIT] Failed to load sessions on page load:', error);
+    // Continue with page initialization even if sessions fail to load
+  }
 
   document.getElementById("editLocationBtn").addEventListener("click", () => {
     const locationEdit = document.getElementById("locationEdit");
@@ -434,6 +888,12 @@ window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("start-form").addEventListener("submit", async (e) => {
     e.preventDefault();
 
+    // Check authentication
+    if (!authManager.isAuthenticated()) {
+      authManager.showLoginForm();
+      return;
+    }
+
     //     const textarea = document.getElementById("start-input");
     //     // const textarea = e.target.querySelector("textarea");
     //     const question = textarea.value.trim();
@@ -448,7 +908,7 @@ window.addEventListener("DOMContentLoaded", () => {
     //     // }
     //     localStorage.setItem("agrichat_user_state", state); 
     // (NEW) After the audioBlob is ready...
-    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' }); // or another appropriate MIME type
+    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
 
 
 
@@ -470,27 +930,54 @@ window.addEventListener("DOMContentLoaded", () => {
 
     if (!question) return;
 
-    const formData = new FormData();
-    formData.append("question", question);
-    formData.append("device_id", deviceId);
-    formData.append("state", state);
-    formData.append("language", lang);
-    formData.append("file", audioBlob, "recording.webm");
-    const headers = {};
-    // Add ngrok bypass header if using ngrok
-    if (API_BASE.includes('ngrok')) {
-      headers["ngrok-skip-browser-warning"] = "true";
+    // Handle audio transcription if audio is present
+    let finalQuestion = question;
+    if (audioBlob) {
+      try {
+        console.log('Transcribing audio...');
+        const formData = new FormData();
+        formData.append("file", audioBlob, "recording.webm");
+        formData.append("language", lang);
+
+        const transcribeRes = await apiCall(`${API_BASE}/transcribe-audio`, {
+          method: "POST",
+          body: formData,
+        });
+
+        const transcribeData = await transcribeRes.json();
+        if (transcribeData.transcript) {
+          finalQuestion = transcribeData.transcript;
+          console.log('Audio transcribed:', finalQuestion);
+        }
+      } catch (error) {
+        console.error('Audio transcription failed:', error);
+        // Continue with original question if transcription fails
+      }
     }
 
-    showLoader();
-    const res = await fetch(`${API_BASE}/query`, {
+    // Send the query to the correct API endpoint
+    const requestData = {
+      question: finalQuestion,
+      device_id: deviceId,
+      state: state,
+      language: lang,
+      database_config: {
+        rag_enabled: databaseToggles.rag,
+        pops_enabled: databaseToggles.pops,
+        llm_enabled: databaseToggles.llm
+      }
+    };
+
+    const res = await apiCall(`${API_BASE}/query`, {
       method: "POST",
-      headers: headers,
-      body: formData,
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestData),
     });
 
     const data = await res.json();
-    console.log('API response:', data); // new line to log data
+    console.log('API response:', data);
     currentSession = data.session;
     loadChat(currentSession);
     hideLoader();
@@ -500,43 +987,251 @@ window.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("chat-form").addEventListener("submit", async (e) => {
     e.preventDefault();
+
+    // Check authentication
+    if (!authManager.isAuthenticated()) {
+      authManager.showLoginForm();
+      return;
+    }
+
     const input = document.getElementById("user-input");
     const question = input.value.trim();
-    if (!question || !currentSession) return;
+    if (!question) return;
 
     appendMessage("user", question);
     input.value = "";
 
-    const formData = new FormData();
-    formData.append("question", question);
-    formData.append("device_id", deviceId);
-    formData.append("state", localStorage.getItem("agrichat_user_state") || "");
+    // Always use thinking stream for better UX
+    await handleThinkingStreamQuery(question);
+  });
 
-    const headers = {};
-    // Add ngrok bypass header if using ngrok
-    if (API_BASE.includes('ngrok')) {
-      headers["ngrok-skip-browser-warning"] = "true";
-    }
+  async function handleSessionQuery(question) {
+    const requestData = {
+      question: question,
+      device_id: deviceId,
+      state: localStorage.getItem("agrichat_user_state") || "",
+      database_config: {
+        rag_enabled: databaseToggles.rag,
+        pops_enabled: databaseToggles.pops,
+        llm_enabled: databaseToggles.llm
+      }
+    };
 
     showLoader();
-    const res = await fetch(`${API_BASE}/session/${currentSession.session_id}/query`, {
+    const res = await apiCall(`${API_BASE}/session/${currentSession.session_id}/query`, {
       method: "POST",
-      headers: headers,
-      body: formData,
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestData),
     });
     const data = await res.json();
     const last = data.session.messages.at(-1);
     hideLoader();
-    appendMessage("bot", last.answer);
+    appendMessage("bot", last.answer, null, null, last.thinking || null, last.source || null, last.confidence || null);
 
-    // Update current session with new data including recommendations
     currentSession = data.session;
 
-    // Show updated recommendations if available (using new inline style)
     if (currentSession.recommendations && currentSession.recommendations.length > 0) {
       displayRecommendations(currentSession.recommendations);
     }
-  });
+  }
+
+  async function handleThinkingStreamQuery(question) {
+    const requestData = {
+      question: question,
+      device_id: deviceId,
+      state: localStorage.getItem("agrichat_user_state") || "",
+      language: selectedLanguage,
+      database_config: {
+        rag_enabled: databaseToggles.rag,
+        pops_enabled: databaseToggles.pops,
+        llm_enabled: databaseToggles.llm
+      }
+    };
+
+    // Create thinking display containers
+    let thinkingContainer = null;
+    let answerContainer = null;
+    let currentThinkingText = '';
+
+    try {
+      const response = await apiCall(`${API_BASE}/query/thinking-stream`, {
+        method: "POST",
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestData),
+      });
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+
+              switch (data.type) {
+                case 'thinking_start':
+                  // Create thinking section
+                  thinkingContainer = createThinkingContainer();
+                  break;
+
+                case 'thinking_token':
+                  // Update thinking display in real-time with new token
+                  if (thinkingContainer) {
+                    currentThinkingText = data.text; // This is the cumulative text
+                    updateThinkingDisplay(thinkingContainer, currentThinkingText);
+                  }
+                  break;
+
+                case 'thinking_complete':
+                  // Mark thinking as complete
+                  if (thinkingContainer) {
+                    finalizeThinkingDisplay(thinkingContainer);
+                  }
+                  break;
+
+                case 'answer_start':
+                  // Create answer section
+                  answerContainer = createAnswerContainer();
+                  break;
+
+                case 'answer':
+                  // Display final answer
+                  if (answerContainer) {
+                    displayFinalAnswer(answerContainer, data.answer, data.source, data.confidence);
+                  }
+                  break;
+
+                case 'session_complete':
+                  // Update session info
+                  currentSession = data.session;
+                  if (currentSession.recommendations && currentSession.recommendations.length > 0) {
+                    displayRecommendations(currentSession.recommendations);
+                  }
+                  break;
+
+                case 'error':
+                  console.error('Stream error:', data.message);
+                  hideLoader();
+                  appendMessage("bot", "Sorry, I encountered an error processing your question.", null, null, null, null, null);
+                  break;
+              }
+            } catch (e) {
+              console.error('Error parsing stream data:', e);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Stream error:', error);
+      hideLoader();
+      appendMessage("bot", "Sorry, I encountered an error processing your question.", null, null, null, null, null);
+    }
+  }
+
+  function createThinkingContainer() {
+    const messagesDiv = document.getElementById("messages");
+    const thinkingDiv = document.createElement("div");
+    thinkingDiv.className = "message bot-message";
+    thinkingDiv.innerHTML = `
+      <div class="thinking-section" style="margin-bottom: 15px; padding: 12px; background: #f8f9fa; border-left: 4px solid #007bff; border-radius: 6px;">
+        <div class="thinking-header" style="font-weight: 600; color: #495057; margin-bottom: 8px; display: flex; align-items: center;">
+          <div class="thinking-spinner" style="margin-right: 8px; width: 16px; height: 16px; border: 2px solid #e9ecef; border-top: 2px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+          Thinking...
+        </div>
+        <div class="thinking-content" style="color: #6c757d; font-size: 0.9em; line-height: 1.4; min-height: 20px; font-family: monospace;">
+          <span class="thinking-cursor">|</span>
+        </div>
+      </div>
+    `;
+    messagesDiv.appendChild(thinkingDiv);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    return thinkingDiv.querySelector('.thinking-content');
+  }
+
+  function updateThinkingDisplay(container, text) {
+    if (container) {
+      container.innerHTML = `${text.replace(/\n/g, '<br>')}<span class="thinking-cursor" style="animation: blink 1s infinite;">|</span>`;
+      container.closest('#messages').scrollTop = container.closest('#messages').scrollHeight;
+    }
+  }
+
+  function finalizeThinkingDisplay(container) {
+    if (container) {
+      const cursor = container.querySelector('.thinking-cursor');
+      if (cursor) cursor.remove();
+
+      const header = container.closest('.thinking-section').querySelector('.thinking-header');
+      header.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="#28a745" style="margin-right: 6px;">
+          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+        </svg>
+        Thinking Complete
+      `;
+      header.closest('.thinking-section').style.borderLeftColor = '#28a745';
+    }
+  }
+
+  function createAnswerContainer() {
+    const messagesDiv = document.getElementById("messages");
+    const answerDiv = document.createElement("div");
+    answerDiv.className = "message bot-message";
+    answerDiv.innerHTML = `
+      <div class="answer-section" style="padding: 12px; background: #fff; border-radius: 6px; border: 1px solid #e9ecef;">
+        <div class="answer-header" style="font-weight: 600; color: #495057; margin-bottom: 8px; display: flex; align-items: center;">
+          <div class="answer-spinner" style="margin-right: 8px; width: 16px; height: 16px; border: 2px solid #e9ecef; border-top: 2px solid #28a745; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+          Generating Answer...
+        </div>
+        <div class="answer-content" style="min-height: 20px;">
+          <!-- Answer will be populated here -->
+        </div>
+      </div>
+    `;
+    messagesDiv.appendChild(answerDiv);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    return answerDiv.querySelector('.answer-content');
+  }
+
+  function displayFinalAnswer(container, answer, source, confidence) {
+    if (container) {
+      const header = container.closest('.answer-section').querySelector('.answer-header');
+      header.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="#28a745" style="margin-right: 6px;">
+          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+        </svg>
+        Answer
+      `;
+
+      container.innerHTML = `
+        <div class="bot-answer">${answer}</div>
+        ${source ? `<div class="message-source" style="margin-top: 10px; font-size: 0.8em; color: #6c757d;">Source: ${source}</div>` : ''}
+        <div class="message-actions" style="margin-top: 10px;">
+          <button class="action-btn copy-btn" onclick="copyToClipboard(this)" title="Copy answer">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+            </svg>
+          </button>
+          <button class="action-btn rate-btn" onclick="rateMessage(this, 1)" title="Good answer">👍</button>
+          <button class="action-btn rate-btn" onclick="rateMessage(this, -1)" title="Bad answer">👎</button>
+        </div>
+      `;
+
+      container.closest('#messages').scrollTop = container.closest('#messages').scrollHeight;
+    }
+  }
+
+
+  // ...existing code... (streaming functionality removed by user request)
 
   document.getElementById("restoreBtn").addEventListener("click", async () => {
     if (currentSession) {
@@ -621,32 +1316,34 @@ async function detectLocationAndLanguage(updateBackend = false) {
   });
 }
 
+// function updateLocationUI(state, language) {
+//   document.getElementById("locationState").textContent = state;
+//   document.getElementById("locationLanguage").textContent = language;
+
+//   const manualStateSelect = document.getElementById("manualStateSelect");
+//   // const manualLangSelect = document.getElementById("manualLanguageSelect");
+
+//   if (manualStateSelect) manualStateSelect.value = state;
+//   // if (manualLangSelect) manualLangSelect.value = language;
+// }
+
 function updateLocationUI(state, language) {
-  document.getElementById("locationState").textContent = state;
-  document.getElementById("locationLanguage").textContent = language;
-
+  const stateElem = document.getElementById("locationState");
+  const langElem = document.getElementById("locationLanguage");
   const manualStateSelect = document.getElementById("manualStateSelect");
-  const manualLangSelect = document.getElementById("manualLanguageSelect");
 
+  if (stateElem) stateElem.textContent = state;
+  if (langElem) langElem.textContent = language;
   if (manualStateSelect) manualStateSelect.value = state;
-  if (manualLangSelect) manualLangSelect.value = language;
 }
-
 
 async function updateLanguageInBackend(state, language) {
   try {
-    const headers = {
-      "Content-Type": "application/json"
-    };
-
-    // Add ngrok bypass header if using ngrok
-    if (API_BASE.includes('ngrok')) {
-      headers["ngrok-skip-browser-warning"] = "true";
-    }
-
-    const response = await fetch(`${API_BASE}/update-language`, {
+    const response = await apiCall(`${API_BASE}/update-language`, {
       method: "POST",
-      headers: headers,
+      headers: {
+        "Content-Type": "application/json"
+      },
       body: JSON.stringify({
         device_id: deviceId,
         state: state,
@@ -668,7 +1365,9 @@ async function updateLanguageInBackend(state, language) {
 document.getElementById("manualStateSelect").addEventListener("change", async (e) => {
   const selectedState = e.target.value;
   const defaultLang = stateLanguageMap[selectedState] || "Hindi";
-  const selectedLang = document.getElementById("manualLanguageSelect").value || defaultLang;
+  const selectedLang = localStorage.getItem("agrichat_user_language") || defaultLang;
+
+  // const selectedLang = document.getElementById("manualLanguageSelect").value || defaultLang;
 
   localStorage.setItem("agrichat_user_state", selectedState);
   localStorage.setItem("agrichat_user_language", selectedLang);
@@ -677,16 +1376,30 @@ document.getElementById("manualStateSelect").addEventListener("change", async (e
   await updateLanguageInBackend(selectedState, selectedLang);
 });
 
-document.getElementById("manualLanguageSelect").addEventListener("change", async (e) => {
-  const selectedLang = e.target.value;
-  const selectedState = document.getElementById("manualStateSelect").value;
+// document.getElementById("manualLanguageSelect").addEventListener("change", async (e) => {
+//   const selectedLang = e.target.value;
+//   const selectedState = document.getElementById("manualStateSelect").value;
 
-  localStorage.setItem("agrichat_user_language", selectedLang);
-  if (selectedState) localStorage.setItem("agrichat_user_state", selectedState);
+//   localStorage.setItem("agrichat_user_language", selectedLang);
+//   if (selectedState) localStorage.setItem("agrichat_user_state", selectedState);
 
-  updateLocationUI(selectedState, selectedLang);
-  if (selectedState) await updateLanguageInBackend(selectedState, selectedLang);
-});
+//   updateLocationUI(selectedState, selectedLang);
+//   if (selectedState) await updateLanguageInBackend(selectedState, selectedLang);
+// });
+
+const languageSelect = document.getElementById("manualLanguageSelect");
+if (languageSelect) {
+  languageSelect.addEventListener("change", async (e) => {
+    const selectedLang = e.target.value;
+    const selectedState = document.getElementById("manualStateSelect").value;
+
+    localStorage.setItem("agrichat_user_language", selectedLang);
+    if (selectedState) localStorage.setItem("agrichat_user_state", selectedState);
+
+    updateLocationUI(selectedState, selectedLang);
+    if (selectedState) await updateLanguageInBackend(selectedState, selectedLang);
+  });
+}
 
 document.getElementById("resetLocationBtn").addEventListener("click", async () => {
   await detectLocationAndLanguage(true);
@@ -812,7 +1525,6 @@ async function transcribeAudio(audioBlob) {
   formData.append('file', audioBlob, 'recording.webm');
 
   const headers = {};
-  // Add ngrok bypass header if using ngrok
   if (API_BASE.includes('ngrok')) {
     headers["ngrok-skip-browser-warning"] = "true";
   }

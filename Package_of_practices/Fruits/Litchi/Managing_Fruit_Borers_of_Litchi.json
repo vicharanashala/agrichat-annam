@@ -1,0 +1,93 @@
+[
+  {
+    "heading": "0",
+    "content": [
+      {
+        "type": "text",
+        "content": "Fruit borers are the most important insect pests of litchi causing extensive loss to farmers. for its management orchardists need to prepare themselves from the time when initiation of inflorescence takes place. In major litchi growing areas (Bihar and adjoining states) planning must commence from February. For the benefit of orchardists a brief description of sign and symptoms of damage and the recommended management practices is given here."
+      }
+    ]
+  },
+  {
+    "heading": "Symptoms of Infestation",
+    "content": [
+      {
+        "type": "text",
+        "content": "Though fruit borers are have several generations in a year two generation during fruiting season is very important. First generation, when infestation of fruits occur is developing fruits sized just about 18–20 mm length or clove sized due to which a large number of fruits drop and the second, at colour break stage or 15–20 days before harvest that renders fruits unfit for consumption causing direct loss to growers. The small caterpillars bore through the stalk end of the fruit and feed on the seed. An exit hole is visible on dropped fruits due to early infestation of borers. During the maturity phase, the insect lays eggs at stem end of fruits. The newly emerged larvae bore into maturing fruits and feed on seed. The infestation is not detectable as the egg laid by the insect on the fruit surface is invisible to naked eyes but black to brown excretory deposit beneath the bark at the top of the fruit near stem end can easily be seen in infected fruits. High humidity and intermittent rains favour the infestation."
+      }
+    ]
+  },
+  {
+    "heading": "Management",
+    "content": [
+      {
+        "type": "subheading",
+        "content": "Panicle/Inflorescence Emergence Stage"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "For integrated pest management, wherever possible use pheromone traps (12–15 no./ ha) at mid height of canopy at (10–12 ft) in last week of January and replace the lure after 12–20 days.",
+          "Before flower opening prophylactic spray of nimbicidin (0.5 %), neem oil or nimbin @4 ml/L water or any neem-based pesticides like azadirachtinformulation at manufacturers' recommended dose or vermiwash (5%) may be done."
+        ]
+      },
+      {
+        "type": "subheading",
+        "content": "After Fruit-Set"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "First insecticidal spray : Ten days after fruit set when the fruits are about pea-sized; sprayThiacloprid 21.7 SC or Imidacloprid 17.8 SL @0.7–1.0 ml/L Water.",
+          "Second insecticidal spray : 12–15 days after first spray Imidacloprid 17.8 SL or Thiacloprid 21.7 SC @0.7–1.0 ml/L water.",
+          {
+            "text": "Third insecticidal spray : If weather conditions are normal i.e. no intermittent rains occur, spray any of the following three insecticides just 10–12 days before expected harvest of fruits:",
+            "sublist": [
+              "Novaluron 10% EC @1.5ml/L water",
+              "Emamectin Benzoate 5% SG @0.7g/L water",
+              "Lambda Cyhalothrin 5% EC @0.7 ml/L water"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "content": "In case of adverse weather i.e. if intermittent rains occur, one additional spray may be required between second spray (as above) to harvesting of fruits. For this, Novaluron, Emamection Benzoate, or Lambda Cyhalothrin may be applied."
+      }
+    ]
+  },
+  {
+    "heading": "Some more do's",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "Practice orchard sanitation and remove weeds particularly croton ( <em>Crotolaria juncea</em> ) from orchard.",
+          "As far as possible, destroy the first stage infested fruits dropped and lying on orchard. floor by burying them deep inside soil.",
+          "Ensure uniform and full coverage of sprays on tree.",
+          "Spraying should be done in a sunshine day preferably in the afternoon.",
+          "If rains occur within 24 hr of spray application, a repeatspray will be required.",
+          "A community based approach in management of fruit borers is required.",
+          "Put ordinary detergent/surf powder or any sticker in the spray solution @ 1 teaspoonful/ 15 L solution."
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Dont's",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "No spray should be done on trees from flower opening to fruit set as it will hamper pollination activities by bees.",
+          "Do not repeat same insecticidal application one after another."
+        ]
+      },
+      {
+        "type": "source",
+        "content": "ICAR-National Research Centre on Litchi",
+        "link": "https://www.nrclitchi.org/uploads/extension-folder/managing-fruit-borers-of-litchi.pdf"
+      }
+    ]
+  }
+]

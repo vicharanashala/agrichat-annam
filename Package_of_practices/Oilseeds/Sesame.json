@@ -1,0 +1,513 @@
+[
+  {
+    "heading": "0",
+    "content": [
+      {
+        "type": "text",
+        "content": "Sesame ( Sesamum indicum L.) is the oldest indigenous oilseed crop, with longest history of cultivation in India. Sesame or gingelly is commonly known as til (Hindi, Punjabi, Assamese, Bengali, Marathi), tal (Gujarati), nuvvulu, manchi nuvvulu (Telugu), ellu (Tamil, Malayalam, Kannada), tila/pitratarpana (Sanskrit) and rasi (Odia ) in different parts of India."
+      },
+      {
+        "type": "text",
+        "content": "India ranks first in world with 19.47 Lakh ha area and 8.66 Lakh tonnes production. The average yield of sesame (413 kg/ha) in India is low as compared with other countries in the world (535 kg / ha). The main reasons for low productivity of sesame are its rainfed cultivation in marginal and submarginal lands under poor management and input starved conditions. However, improved varieties and agro production technologies capable of increasing the productivity levels of sesame are now developed for different agro ecological situations in the country. A well managed crop of sesame can yield 1200–1500 kg/ha under irrigated and 800–1000 kg/ha under rainfed conditions."
+      },
+      {
+        "type": "text",
+        "content": "The crop is grown in almost all parts of the country. More than 85% production of sesame comes from West Bengal, Madhya Pradesh, Rajasthan, Uttar Pradesh, Gujarat, Andhra Pradesh and Telangana."
+      }
+    ]
+  },
+  {
+    "heading": "Season and climate",
+    "content": [
+      {
+        "type": "text",
+        "content": "Sesame is grown in almost all the states in large or small areas. It can be cultivated up to the latitude of 1600m (India 1200 m). Sesame plant needs fairly high temperature during its life cycle. Normally the optimum temperature required during its life cycle is between 25–35 degree C. If the temperature is more than 40 degree C with hot winds the oil content reduces. If the temperature goes beyond 45 degree C or less than 15 degree C there is a severe reduction in yield."
+      },
+      {
+        "type": "text",
+        "content": "Season : Kharif in arid and semi-arid tropics and rabi/summer in cooler areas"
+      },
+      {
+        "type": "text",
+        "content": "Climate : Semi arid climate of Western India, Central, Eastern and Southern part of India including lower Himalayas"
+      }
+    ]
+  },
+  {
+    "heading": "Cropping systems",
+    "content": [
+      {
+        "type": "table",
+        "content": {
+          "rows": [
+            [
+              "State",
+              "Crop Sequence"
+            ],
+            [
+              "Andhra Pradesh",
+              "Rice-Groundnut-Sesame, Sesame - Horsegram, Finger millet/Sorghum/Horsegram - Sesame, Sesame - Upland Rice"
+            ],
+            [
+              "Bihar",
+              "Early Rice - Potato-Summer Sesame/Green gram, Kharif Sesame-Maize/Pigeonpea/Chickpea, Wheat-Summer Sesame/Green gram"
+            ],
+            [
+              "Gujarat",
+              "Sesame-Wheat/Mustard"
+            ],
+            [
+              "Karnataka",
+              "Sesame-Horsegram/Chickpea"
+            ],
+            [
+              "Madhya Pradesh",
+              "Cotton-Sesame-Wheat, Rice -Summer Sesame, Sesame-Wheat"
+            ],
+            [
+              "Maharashtra",
+              "Sesame (Early)-Rabi Sorghum/Safflower, Cotton-Sesame-Wheat"
+            ],
+            [
+              "Odisha",
+              "Rice/Potato-Sesame, kharif Sesame-Maize/Pigeonpea/Chickpea"
+            ],
+            [
+              "Rajasthan",
+              "Sesame-Wheat/Green gram/Barley"
+            ],
+            [
+              "Tamil Nadu",
+              "Rice/Groundnut-Sesame, Sesame-Black gram, Sesame-Rabi Sorghum, Sesame-Green gram, Cowpea-Sesame"
+            ],
+            [
+              "Uttar Pradesh",
+              "Sesame (Early)-Chickpea/Rapeseed & Mustard/Lentil/Pea"
+            ],
+            [
+              "West Bengal",
+              "Potato-Sesame (Late Jan./Early Feb), Rice – Sesame"
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "heading": "Varieties",
+    "content": [
+      {
+        "type": "text",
+        "content": "For upland cultivation use varieties with long duration of 100–110 days and for low land, use varieties with duration of 80–99 days."
+      },
+      {
+        "type": "text",
+        "content": "Sesame varieties"
+      },
+      {
+        "type": "table",
+        "content": {
+          "rows": [
+            [
+              "State",
+              "Variety",
+              "Seed Colour"
+            ],
+            [
+              "Gujarat",
+              "Guj. Til-1, 2, 3Guj. Til-10",
+              "White seedBlack seed"
+            ],
+            [
+              "Madhya Pradesh",
+              "TKG-21, 22, 55, 306, 308 and JTS – 8PKDS-11, 12PKDS-8",
+              "White seedDark brown seedBold black seeded"
+            ],
+            [
+              "Rajasthan",
+              "RT-46, 103, 125, 127, 346, 351RT-54",
+              "White seedLight brown seed"
+            ],
+            [
+              "Maharashtra",
+              "AKT-64, AKT-101, JLT-408, PKVNT-11",
+              "White seed"
+            ],
+            [
+              "Uttar Pradesh",
+              "T-78, Sekhar",
+              "White seed"
+            ],
+            [
+              "Tamil Nadu",
+              "TSS-6Co-1, Paiyur-1, VRI-1, VRI-2, TMV-7",
+              "White seedBlack and Brown seed"
+            ],
+            [
+              "West Bengal",
+              "Rama, Savitri",
+              "Brown seed"
+            ],
+            [
+              "Odisha",
+              "Nirmala, ShubhraPrachi, AmritSmarak",
+              "White seedBrown / Black seedGolden yellow and bold seed"
+            ],
+            [
+              "Andhra Pradesh",
+              "Varaha, Gautama, ChandanaSwetha Til, Hima",
+              "Brown seedWhite seed"
+            ],
+            [
+              "Karnataka",
+              "DS-1DSS-9",
+              "Dark brown seedWhite bold seed"
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "heading": "Soil",
+    "content": [
+      {
+        "type": "text",
+        "content": "Sesame can be grown on a wide range of soils but well drained light to medium textured soils are preferred. The optimum pH range is 5.5 to 8.0, acidic or alkaline soils are not suitable."
+      }
+    ]
+  },
+  {
+    "heading": "Seed rate",
+    "content": [
+      {
+        "type": "text",
+        "content": "A seed rate of 5 kg/ha is adequate to achieve the required plant population."
+      }
+    ]
+  },
+  {
+    "heading": "Sowing",
+    "content": [
+      {
+        "type": "text",
+        "content": "For prevention of seed borne diseases, use seed treated with Bavistin 2.0 g/kg seed. Wherever bacterial leaf spot disease is a problem, soak the seed for 30 minutes in 0.025% solution of Agrimycin-100 prior to seeding."
+      },
+      {
+        "type": "text",
+        "content": "Preparation of land Prepare the soil into a fine tilth by ploughing 2–4 times and breaking the clods. Broadcast seeds evenly. To facilitate easy seeding and even distribution seed is mixed with either sand or dry soil or well sieved farm yard manure in 1:20 ratio. Work with harrow, followed by pressing with wooden plank so as to cover the seed in the soil."
+      },
+      {
+        "type": "text",
+        "content": "Sowing Time and Spacing"
+      },
+      {
+        "type": "table",
+        "content": {
+          "rows": [
+            [
+              "State",
+              "Season",
+              "Sowing time",
+              "Spacing (cm)"
+            ],
+            [
+              "Andhra Pradesh/Coastal Telangana",
+              "KharifSummerKharif",
+              "Second fortnight of MaySecond fortnight of JanuarySecond fortnight of July",
+              "30 x 1530 x 1530 x 10–15"
+            ],
+            [
+              "Assam",
+              "Kharif",
+              "July-August",
+              "30 x 10–15"
+            ],
+            [
+              "Bihar/ Jharkhand",
+              "Kharif",
+              "July",
+              "30 x 15"
+            ],
+            [
+              "Gujarat",
+              "KharifSemi-rabiSummer",
+              "Last week of June to second fortnight of JulyMid SeptemberJanuary-February",
+              "45 x 1045 x 1045 x 15"
+            ],
+            [
+              "KarnatakaNorthSouth",
+              "KharifEarly Kharif",
+              "June-JulyApril-May",
+              "30 x 1530 x 15"
+            ],
+            [
+              "Kerala",
+              "KharifSummer",
+              "AugustDecember",
+              "30 x 10–1530 x 15"
+            ],
+            [
+              "Madhya Pradesh/Chhattisgarh",
+              "KharifSemi-rabiSummer",
+              "First week of JulyLate August-Early SeptemberSecond to last week of February",
+              "30 x 10–1530 x 1530 x 15"
+            ],
+            [
+              "Maharashtra",
+              "KharifSemi-rabiSummer",
+              "Second fortnight of June to JulyEarly SeptemberFebruary",
+              "30 x 1530 x 1545 x 15"
+            ],
+            [
+              "Odisha",
+              "KharifRabiSummer",
+              "June-JulySeptember-OctoberFebruary",
+              "30 x 1530 x 1530 x 15"
+            ],
+            [
+              "Punjab/ Haryana",
+              "Kharif",
+              "Second fortnight of July",
+              "30 x 10–15"
+            ],
+            [
+              "Rajasthan",
+              "Kharif",
+              "Late June-Early July",
+              "30 x 15"
+            ],
+            [
+              "Tamil Nadu",
+              "KharifRabiSummer",
+              "Second fortnight of May to Second fortnight of JuneNovember-DecemberSecond fortnight of January to March",
+              "22.5 x 22.522.5 x 22.530 x 10"
+            ],
+            [
+              "Uttar Pradesh & Uttarakhand",
+              "Kharif",
+              "Second fortnight of July",
+              "30–45 x 15"
+            ],
+            [
+              "West Bengal",
+              "Summer",
+              "February-March",
+              "30 x 15"
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "heading": "Manuring",
+    "content": [
+      {
+        "type": "text",
+        "content": "Apply cattle manure/compost as basal dressing and incorporate into the soil along with last ploughing. Apply fertilizers as basal dose when there is enough moisture in the soil. Urea is preferable to ammonium sulphate. Nitrogen may be applied in split doses, 75 per cent as basal and the balance as foliar spray at 3 per cent concentration, 20–35 days after sowing keeping the discharge rate at 500 1 ha-1."
+      },
+      {
+        "type": "table",
+        "content": {
+          "rows": [
+            [
+              "State/ Situation",
+              "Recommended dose of N:P:K (kg/ha)",
+              "Specific recommendation"
+            ],
+            [
+              "Andhra Pradesh - Coastal regionTelangana",
+              "40–40–20<br>30–30–20",
+              "-"
+            ],
+            [
+              "GujaratKharifSemi-rabi",
+              "30–25–025–25–037.5–25–25",
+              "Apply sulphur @ 20–40 kg/ha. Half N + full P₂O₅and K₂O as basal, remaining half N at 30–35 DAS."
+            ],
+            [
+              "Madhya Pradesh /ChhattisgarhRainfedSummer",
+              "40–30–2060–40–20",
+              "Apply 25 kg/ha zinc sulphate once in three years in zinc deficient soils."
+            ],
+            [
+              "Maharashtra",
+              "50–0–0",
+              "Half N at 3 weeks after sowing and remaining half 6 weeks thereafter"
+            ],
+            [
+              "Odisha",
+              "30–20–30",
+              "-"
+            ],
+            [
+              "RajasthanHeavy soilsLight soils",
+              "20–20–040–25–0",
+              "For areas with less than 350 mm rainfallFor areas with more than 350mm rainfall"
+            ],
+            [
+              "Tamil NaduIrrigatedRainfed",
+              "35–23–2325–15–15",
+              "Apply full dose of N, P2O5, K2°as basal. Seed may be treated with Azospirillum."
+            ],
+            [
+              "Uttar Pradesh /Uttarakhand",
+              "20–10–0",
+              "-"
+            ],
+            [
+              "West BengalIrrigatedRainfed",
+              "50–25–2525–13–13",
+              "No fertilizer if sown after potato."
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "heading": "Interculture",
+    "content": [
+      {
+        "type": "text",
+        "content": "The crop is very sensitive to weed competition during the first 20–25 days. Two weeding, one after 15–20 days of sowing and other at 30–35 days after sowing are required to keep the field weed free and to make moisture and nutrients available to the crop."
+      },
+      {
+        "type": "text",
+        "content": "When the plants are about 15 cm in height, thin the crop so as to give a spacing of 15–25 cm between plants."
+      },
+      {
+        "type": "text",
+        "content": "State-wise intercropping"
+      },
+      {
+        "type": "table",
+        "content": {
+          "rows": [
+            [
+              "State",
+              "Intercropping System"
+            ],
+            [
+              "Gujarat",
+              "Sesame+Groundnut / Urd bean (3:3)Sesame+Pearlmillet / Cotton (3:1)"
+            ],
+            [
+              "Karnataka",
+              "Sesame+Groundnut (1:4)"
+            ],
+            [
+              "Madhya Pradesh",
+              "Sesame+Green gram / Black gram (2:2°r 3:3)Sesame+Soybean (2:1°r 2:2)"
+            ],
+            [
+              "Maharastra",
+              "Sesame+Pearlmillet / Black gram (3:1)"
+            ],
+            [
+              "Odisha",
+              "Sesame+ Summer Groundnut (2:3)Sesame+Green gram/Black gram (2:2)"
+            ],
+            [
+              "Rajasthan",
+              "Sesame+Pearlmillet / Mothbean (1:1)"
+            ],
+            [
+              "Tamil Nadu",
+              "Sesame+Green gram / Black gram (3:3)Sesame+Pigeonpea (3:1), Sesame+Groundnut (2:4)"
+            ],
+            [
+              "Uttar Pradesh",
+              "Sesame+Green gram (1:1), Sesame+ Pigeonpea (3:1)"
+            ],
+            [
+              "West Bengal",
+              "Sesame+ Groundnut (1:3°r 2:2)"
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "heading": "Irrigation",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "Usually the crop is grown under rainfed conditions. When facilities are available, the crop may be irrigated to field capacity after thinning operation and thereafter at 15–20 days interval.",
+          "Stop irrigation just before the pods begin to mature. Surface irrigation at 3 cm depth during the critical stages, viz., 4–5 leaves, branching, flowering and pod formation will increase the yield by 35–52 per cent.",
+          "Two irrigations of 3 cm depth each in the vegetative phase (4–5 leaf stage or branching) and in reproductive phase (at flowering or pod formation) are the best, registering maximum yield and water use efficiency.",
+          "In the case of single irrigation, it can be best given in the reproductive phase.",
+          "In the tail end fields in command area, best use of the sparingly available water can be made for augmenting sesame production."
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Plant protection",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "For control of leaf and pod caterpillar, remove affected leaves and shoots and dust with carbaryl 10 per cent.",
+          "Azadirachtin 0.03 per cent at 5 ml per litre spray at 7th and 20th DAS and thereafter need based application can manage the incidence of leaf and pod caterpillar, pod borer infestation and phyllody incidence.",
+          "For control of gall fly, give preventive spray with 0.2 per cent carbaryl.",
+          "For control of leaf curl disease, remove and destroy disease affected sesame plants as well as the diseased collateral hosts like chilli, tomato and zinnia.",
+          "Remove plants affected with phyllody and destroy them. Do not use seeds from affected plants for sowing."
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Harvesting",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "Harvest the crop, when the leaves turn yellow and start drooping and the bottom capsules are lemon yellow by pulling out the plants. Harvest during the morning hours.",
+          "Cut the root portion and stack the plants in bundles for 3–4 days when the leaves will fall off. Spread in the sun and beat with sticks to break open the capsules.",
+          "Repeat this for 3 days. Preserve seeds collected during the first day for seed purposes. Clean and dry in sun for about 7 days before storing."
+        ]
+      },
+      {
+        "type": "text",
+        "content": "Storage of seeds"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "By keeping sesame seeds in polybags, tin bins, wooden receptacles or in earthen pots, the viability can be maintained for about one year.",
+          "Admixture of seeds with ash will drastically reduce germination."
+        ]
+      },
+      {
+        "type": "text",
+        "content": "Source : NMOOP"
+      }
+    ]
+  },
+  {
+    "heading": "Related resources",
+    "content": [
+      {
+        "type": "ordered_list",
+        "content": [
+          {
+            "text": "District-wise Promising Technologies for Rainfed Sesame based Production System in India",
+            "link": "http://www.crida.in/AICRPDA/Sesame.pdf"
+          },
+          {
+            "text": "Market profile of Sesame",
+            "link": "http://agriexchange.apeda.gov.in/Market%20Profile/MOA/Product/Sesame.pdf"
+          },
+          {
+            "text": "AESA based IPM – Sesame",
+            "link": "http://niphm.gov.in/IPMPackages/Sesame.pdf"
+          }
+        ]
+      }
+    ]
+  }
+]

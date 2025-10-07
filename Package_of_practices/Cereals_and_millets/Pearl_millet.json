@@ -1,0 +1,341 @@
+[
+  {
+    "heading": "Preparation of land",
+    "content": [
+      {
+        "type": "text",
+        "content": "Pearl millet can be grown in different soils. It does not grow well in soils prone to waterlogged conditions. The field should be ploughed once or twice followed by harrowing to create fine tilth"
+      }
+    ]
+  },
+  {
+    "heading": "Selection of high yielding hybrids and varieties",
+    "content": [
+      {
+        "type": "text",
+        "content": "Most of the pearl millet area is grown with hybrids while the varieties are preferred in drought prone ecologies. The latest list of hybrids and varieties of pearl millet is given below."
+      },
+      {
+        "type": "table",
+        "content": {
+          "rows": [
+            [
+              "Region/ State",
+              "",
+              "Recommended Hybrid",
+              "Recommended Variety"
+            ],
+            [
+              "Rajasthan",
+              "Kharif",
+              "KBH 108, GHB 905, 86M89, MPMH 17, Kaveri Super Boss, Bio 448, MP 7872, MP 7792, 86M86, 86M66, RHB-173, HHB 67",
+              "MBC 2, PC 443, JBV 3, PC 383, ICMV 221, Raj 171"
+            ],
+            [
+              "",
+              "Summer",
+              "Nandi 70, Nandi 72, 86M64",
+              ""
+            ],
+            [
+              "",
+              "Kharif – arid parts",
+              "HHB 234, Bio 70, HHB-226, RHB-177",
+              "CZP 9802"
+            ],
+            [
+              "Gujarat",
+              "Kharif",
+              "KBH 108, GHB 905, 86M89, MPMH 17, Kaveri Super Boss, Bio 448, MP 7872, MP 7792, 86M86, 86M66, RHB-173, HHB 67",
+              "MBC 2, PC 443, JBV 3, PC 383, ICMV 221, Raj 171"
+            ],
+            [
+              "",
+              "Summer",
+              "Nandi 70, Nandi 72, 86M64",
+              ""
+            ],
+            [
+              "",
+              "Kharif – arid parts",
+              "HHB 234, Bio 70, HHB-226, RHB-177",
+              "CZP 9802"
+            ],
+            [
+              "Haryana",
+              "Kharif",
+              "KBH 108, GHB 905, 86M89, MPMH 17, Kaveri Super Boss, Bio 448, MP 7872, MP 7792, 86M86, 86M66, RHB-173, HHB 67",
+              "MBC 2, PC 443, HC 20, JBV 3, PC 383, HC 10, ICMV 221, Raj 171"
+            ],
+            [
+              "",
+              "Kharif – arid parts",
+              "HHB 234, Bio 70, HHB-226, RHB-177",
+              "CZP 9802"
+            ],
+            [
+              "Punjab",
+              "Kharif",
+              "KBH 108, GHB 905, 86M89, MPMH 17, Kaveri Super Boss, Bio 448, MP 7872, MP 7792, 86M86, 86M66, RHB-173",
+              "PCB 164, ICMV 221, Raj 171"
+            ],
+            [
+              "Delhi",
+              "Kharif",
+              "KBH 108, GHB 905, 86M89, MPMH 17, Kaveri Super Boss, Bio 448, MP 7872, MP 7792, 86M86, 86M66, RHB-173",
+              "JBV 3, PC 383, ICMV 221, Raj 171"
+            ],
+            [
+              "Uttar Pradesh",
+              "Kharif",
+              "KBH 108, GHB 905, 86M89, MPMH 17, Kaveri Super Boss, Bio 448, MP 7872, MP 7792, 86M86, 86M66, RHB-173",
+              "JBV 3, PC 383, ICMV 221, Raj 171"
+            ],
+            [
+              "Madhya Pradesh",
+              "Kharif",
+              "KBH 108, GHB 905, 86M89, MPMH 17, Kaveri Super Boss, Bio 448, MP 7872, MP 7792, 86M86, 86M66, RHB-173",
+              "JBV 4, JBV 3, PC 383, ICMV 221, Raj 171"
+            ],
+            [
+              "Maharashtra",
+              "Kharif",
+              "Kaveri Super Boss, Pratap, PKV Raj, Shine, MP 7792, 86M86, PAC 909, 86M64, 86M53",
+              "ABPC-4–3, PC 612, Parbhani Sampada, Samrudhi, ICMV 221, Raj 171, ICMV 155"
+            ],
+            [
+              "",
+              "Summer",
+              "Nandi 70, Nandi 72, 86M64",
+              ""
+            ],
+            [
+              "Tamil nadu",
+              "Kharif",
+              "Kaveri Super Boss, Pratap, Co 9, Shine, MP 7792, 86M86, PAC 909, 86M64, 86M53",
+              "PC 612, CoCu 9, Samrudhi, ICMV 221, Raj 171, ICMV 155"
+            ],
+            [
+              "",
+              "Summer",
+              "Nandi 70, Nandi 72, 86M64",
+              ""
+            ],
+            [
+              "Andhra Pradesh",
+              "Kharif",
+              "Kaveri Super Boss, Pratap, Shine, MP 7792, 86M86, PAC 909, 86M64, 86M53",
+              "PC 612, Samrudhi, ICMV 221, Raj 171, ICMV 155, Ananta"
+            ],
+            [
+              "Karnataka",
+              "Kharif",
+              "Kaveri Super Boss, Pratap, Shine, MP 7792, 86M86, PAC 909, 86M64, 86M53",
+              "PC 612, Samrudhi, ICMV 221, Raj 171, ICMV 155"
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "heading": "Method of sowing",
+    "content": [
+      {
+        "type": "text",
+        "content": "Three systems of pearl millet sowing are followed: (1) on a flat surface, or (2) using ridge and furrow system, or (3) on a broad-bed and furrow system. The seed should be sown at 2.5 cm – 3 cm depth"
+      }
+    ]
+  },
+  {
+    "heading": "Time of sowing",
+    "content": [
+      {
+        "type": "text",
+        "content": "Sowing of kharif pearl millet should be done with the onset of monsoon i.e. first fortnight of July in north and central parts of the country. First fortnight of October is appropriate time for rabi season in Tamil Nadu. Gap filling should be done by transplanting seedlings after 2–3 weeks of sowing if scanty population exists. In Marathwada area of Maharashtra, dry sowing prior to first monsoon rains is recommended. Summer pearl millet should be sown from 4th to 5th Standard Meteorological Week (SMW) i.e. last week of January to 1st week of February to obtain higher production of summer pearl millet in zone B."
+      }
+    ]
+  },
+  {
+    "heading": "Seed treatment",
+    "content": [
+      {
+        "type": "text",
+        "content": "Seed treatment with biopesticides ( Trichoderma harzianum @ 4g kg -1 ) or thiram 75% dust @ 3 g kg -1 seed will help against soilborne diseases. Seed treatment with 300-mesh sulfur powder @ 4 g kg -1 seeds controls the smut disease. For removing ergot affected seeds, they are soaked in 10% salt solution. Seed treatment with metalaxyl (Apron 35 SD) @ 6 g kg -1 seed controls downy mildew. Seeds are treated with Azospirillum (600 g) and Phosphobacterium to enhance the availability of nitrogen and phosphorus."
+      }
+    ]
+  },
+  {
+    "heading": "Seed rate",
+    "content": [
+      {
+        "type": "text",
+        "content": "3 kg/ha"
+      }
+    ]
+  },
+  {
+    "heading": "Spacing",
+    "content": [
+      {
+        "type": "text",
+        "content": "For arid-western plain of Rajasthan, Haryana and Kutch of Gujarat (A1 zone), pearl millet should be planted in rows 60 cm apart, maintaining low plant population of 1.00 to 1.25 lac/ha. For the area receiving rainfall more than 450 mm (zone A & B), the crop should be planted at the spacing of 45 x 10–15 cm keeping plant population of 1.75 to 2.0 lakhs/ha. Seed rate for the crop should be taken @ 3 to 4 kg/ha for obtaining required plant stand."
+      }
+    ]
+  },
+  {
+    "heading": "Plant population",
+    "content": [
+      {
+        "type": "text",
+        "content": "The recommended plant stand for pearl millet under normal conditions is 180,000 plants ha -1°r 72,000 plants acre -1 . Under irrigation or high levels of management on highly productive soils, a population of 225,000 plants ha -1 (100,000 plants acre -1 ) is recommended. On extremely sandy, droughty soils, a population of about 90,000 plants ha -1 (40,000 plants acre -1 ) is desirable."
+      }
+    ]
+  },
+  {
+    "heading": "Nutrient management",
+    "content": [
+      {
+        "type": "text",
+        "content": "Application of 40 kg N + 20 kg P2O5/ha for arid regions and 60 kg N/ha + 30 kg P2O5/ha for semi-arid regions is recommended for sole pearl millet as well as intercropping system. In light soils (sandy loams) the applied nitrogen may be lost due to leaching with heavy rains. So, only about half of the recommended nitrogen dose should be applied at seedbed preparation. The remaining half of nitrogen dose is side-dressed when the crop is 25 days old. On soils which do not leach easily like black soils, all of the nitrogen may be applied during seedbed preparation. Pearl millet seeds are sensitive to fertilizer burn. Do not apply fertilizer in the furrow with the seed or very near the seed in the row after sowing. It should be applied as side dressing Use of biofertilizer ( Azospirillum and PSB) can economize the N and P fertilizer application."
+      },
+      {
+        "type": "text",
+        "content": "In zinc deficient soils of the pearl millet growing area of the country, application of 10 kg ZnSO4/ha is recommended. To correct the zinc deficiency in standing crop, spray of 0.2% ZnSO4 at tillering to pre-flowering stage is recommended. Under prolonged dry spell, skip top dressing of N and spray 2% urea. Under excessive rain situation during vegetative phase, additional dose of nitrogen @ 20 kg/ha should be given."
+      }
+    ]
+  },
+  {
+    "heading": "Inter cultivation and weed control",
+    "content": [
+      {
+        "type": "text",
+        "content": "Two hoeings and weedings at 15 and 30 DAS are sufficient for controlling weeds effectively which is comparable with the herbicidal weed control through pre-emergent application of atrazine @ 0.5 kg/ha superimposed with one hand weeding. Second weeding helps to conserve soil moisture."
+      }
+    ]
+  },
+  {
+    "heading": "Pearl millet-based cropping systems in kharif",
+    "content": [
+      {
+        "type": "text",
+        "content": "Rotation of cultivars also should be adopted to avoid downy mildew disease problem. Pearl millet hybrids and open-pollinated varieties should be used in alternate years/seasons. It is advised not to grow the same hybrid or open pollinated variety continuously on the same piece of land."
+      },
+      {
+        "type": "table",
+        "content": {
+          "rows": [
+            [
+              "Rajasthan",
+              "Pearl millet + cluster bean/ cowpea/ green gram/mothbean/ sesame"
+            ],
+            [
+              "Haryana",
+              "Pearl millet + Green gram/ sesame / cluster bean/ cowpea"
+            ],
+            [
+              "Gujarat",
+              "Pearl millet + Green gram/ sesame/cowpea"
+            ],
+            [
+              "Uttar Pradesh",
+              "Pearl millet + Green gram/ sesame/cowpea"
+            ],
+            [
+              "Madhya Pradesh",
+              "Pearl millet + Black gram/ soybean/ Pigeonpea/cowpea"
+            ],
+            [
+              "Delhi",
+              "Pearl millet + Pigeonpea/ groundnut / castor"
+            ],
+            [
+              "Punjab",
+              "Pearl millet + Chickpea/fodder sorghum/wheat"
+            ],
+            [
+              "Maharashtra",
+              "Pearl millet + Moth bean / Pigeonpea / soybean / blackgram, greengram / cowpea / sunflower"
+            ],
+            [
+              "Karnataka",
+              "Pearl millet + Pigeonpea greengram / sunflower / soybean"
+            ],
+            [
+              "Tamil Nadu",
+              "Pearl millet + Pigeonpea greengram / sunflower / soybean / cowpea"
+            ],
+            [
+              "Andhra Pradesh",
+              "Pearl millet + Pigeonpea / greengram / sunflower / soybean / groundnut"
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "heading": "Irrigation",
+    "content": [
+      {
+        "type": "text",
+        "content": "Under prolonged dry spells, irrigation should be applied at critical stages of crop growth i.e. tillering, flowering and grain developmental stage, if water is available. In summer, pearl millet should be irrigated at regular intervals (0.75–1.0IW/CPE with 40 mm) as per need of the crop."
+      }
+    ]
+  },
+  {
+    "heading": "Harvesting",
+    "content": [
+      {
+        "type": "text",
+        "content": "The best stage to harvest pearl millet is when the plants reach physiological maturity determined by the black spot at the bottom of the grain in the hilar region. When the crop matures, the leaves turn yellowish and present a nearly dried up appearance. The grains are hard and firm. The usual practice of harvesting pearl millet is cutting the earheads first and the stalks later. The stalks (straw) are cut after a week, allowed to dry and then stacked. Grain at or below 14% moisture is considered dry. For long-term storage (more than 6 months), grain moisture content should be less than 12%."
+      }
+    ]
+  },
+  {
+    "heading": "Major Insect Pests",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "White Grub",
+          "Shoot fly",
+          "Grass Hoppers",
+          "Termites",
+          "Grey weevil",
+          "Ear head bug",
+          "Stem borers",
+          "Hairy caterpillars"
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Major Diseases",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "Downy mildew",
+          "Rust",
+          "Smut",
+          "Ergot",
+          "Blast"
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Contingency Planning",
+    "content": [
+      {
+        "type": "text",
+        "content": "To conserve in situ rainwater, deep plough the field during summer on heavy soils of Maharashtra, Tamil Nadu, Andhra Pradesh, Karnataka and Eastern Rajasthan. A wider row spacing of 60 cm is advocated where rainfall is less than 400 mm. Adopt suitable intercropping system select early maturing hybrids/composite of pearl millet under late onset of monsoon. Keep the crop weed-free by timely weeding. If dry spell occurs immediately after sowing, replant pearl millet in between the existing row or relay cropping may be practiced including short duration oilseed/pulse crops. Under normal onset of monsoon and occurrence of prolonged dry spell during grand growth period of the crop, reduce plant population to the extent of 25 to 40%. Skip top dressing of nitrogen and spray 2% urea. If drought prevails for 2–3 week during pre-flowering to grain setting stage, one life saving irrigation may be given if water is available. Under excessive rains during vegetative phases, additional dose of 20 kg N/ha should be applied."
+      },
+      {
+        "type": "text",
+        "content": "Source : Indian Institute of Millets Research"
+      }
+    ]
+  }
+]

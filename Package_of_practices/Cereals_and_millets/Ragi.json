@@ -1,0 +1,255 @@
+[
+  {
+    "heading": "0",
+    "content": [
+      {
+        "type": "text",
+        "content": "Manor ragi growing states are Karnataka, Maharashtra, Uttarakhand, Tamilnadu, Andhra Pradesh, Jharkhand, Odisha, Chattisgarh and Gujarat."
+      }
+    ]
+  },
+  {
+    "heading": "Season",
+    "content": [
+      {
+        "type": "text",
+        "content": "Finger millet is grown in all the cropping seasons in different parts of the country. More than 90 per cent of the area is under rainfed conditions, grown during Kharif season."
+      },
+      {
+        "type": "table",
+        "content": {
+          "rows": [
+            [
+              "Name of the state",
+              "Season"
+            ],
+            [
+              "Andhra Pradesh<br>",
+              "Early kharif (May - August)Late kharif (July - November)Late Rabi (November - March)"
+            ],
+            [
+              "Bihar",
+              "Kharif (June - September)"
+            ],
+            [
+              "Chattisgarh",
+              "Kharif (June - Sept)"
+            ],
+            [
+              "Jharkhand",
+              "Kharif (June - September)"
+            ],
+            [
+              "Gujarat",
+              "Kharif (June - September)"
+            ],
+            [
+              "Himachal Pradesh",
+              "Kharif (April - September)"
+            ],
+            [
+              "Karnataka",
+              "Kar or Early Kharif (April - August)Kharif (July - November)Late kharif (August - November)Rabi (October - September)Summer (January - May)"
+            ],
+            [
+              "Maharashtra<br>",
+              "Kharif (May - September)"
+            ],
+            [
+              "Madhya Pradesh",
+              "Kharif (June - October)"
+            ],
+            [
+              "Odisha<br>",
+              "Kharif (June - September)"
+            ],
+            [
+              "Tamil Nadu<br>",
+              "Maghazipattam (December - April)Chitharaipattam (April - August)Adipa ttam (June - September)Purattasipattam (September. - December)"
+            ],
+            [
+              "Uttar Pradesh",
+              "Kharif (June - September)"
+            ],
+            [
+              "Uttaranchal",
+              "Kharif (June - October)"
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "heading": "Field preparation and sowing of direct seeded crop",
+    "content": [
+      {
+        "type": "text",
+        "content": "Fall ploughing is advantageous for moisture conservation. In the month of April or May, one deep ploughing with mould board plough, followed by ploughing with wooden plough twice is necessary. Before sowing secondary tillage with cultivator and multiple tooth hoe to prepare smooth seed bed is necessary. Minor land smoothening before sowing helps in better in- situ moisture conservation."
+      },
+      {
+        "type": "text",
+        "content": "Seeds are very small (400 seeds / g) and take 5–7 days to germinate. Hence good seeds, land preparation helps in better germination, minimize weeds problem and effective soil moisture conservation. In Uttaranchal where frequent ploughing oper ations are difficult to carry out effective digging and turning of soil, removing perennial weeds, land smoothening, providing inward slope with a shallow drain helps in taking out excess rain water."
+      }
+    ]
+  },
+  {
+    "heading": "Nursery",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "Seedlings should be raised in well prepared nurseries in an area of 500m2for transplanting of 1 ha area.",
+          "Apply 20 basket of FYM and small dose of fertilizer to help rapid growth of the seedlings.",
+          "The seedling will be ready within 25 to 30 days. 8–10 kg of seeds will be sufficient for transplanting1 ha."
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Transplanting",
+    "content": [
+      {
+        "type": "text",
+        "content": "Line sowing is beneficial - helps in inter cultivation and control of weeds effectively. Maintenance of optimum plant population of 4–5 lakh plants per ha is important."
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "Apply manure, fertilizer after land preparation.",
+          "Transplanting should be closed Spacing – Early variety – 20x10cm, Medium duration varieties 22.5 x 10cm.",
+          "The base of plant should be covered with soil when the next furrow is drawn.",
+          "Shallow planting within 5 cm depth encourages quick establishment & better tillering."
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Fertilization",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "It is better to apply fertilizer as per soil test recommendation.",
+          "40:20:20 NPK kg/ha for short duration varieties cultivated under rainfed conditions; 60:30:30 NPK kg/ ha for short & medium duration varieties cultivated under irrigated conditions.",
+          "Nitrogen is to be applied as two split 50% as basal and the remaining 50% as top dressing just before first hoeing and weeding so as to incorporate fertilizer into the soil. Entire P₂O₅and K₂are to be applied at the time of sowing.",
+          "Bio-fertilizers : Treating seeds with Azospirillum brasilense (N fixing bacterium) and Aspergillus awamori (P Solubilizing fungus) @ 25 g/kg seed is beneficial. In case seeds are to be treated with seed dressing chemicals, treat the seeds first with seed dressing chemicals and then with bio-fertilizers at the time of sowing. Procedure for inoculating seeds with bio-fertilizers"
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Weed management",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "Early weeding of the direct seeded crop is essential for getting good yields.",
+          "The 1st hoeing & weeding is done @ 2 to 3 weeks after sowing. When necessary 2nd weeding may be done 15–20 days after irrigation.",
+          "In assured rainfall and irrigated areas : Pre-emergence spray: Isoproturon @ 0.5 kg a.i./ha. (Rainfed areas), Oxyflurofen @ 0.1 lta.i /ha (Irrigated areas) Post-emergent spray; 2, 4 -D sodium salt @ 0.75 kg a.i./ha Spraying around 20–25 days after sowing effectively control weeds."
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Water management",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "Excess irrigation should be avoided. Rabi & Summer ragi should be irrigated at 20–25 days intervals."
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Plant protection",
+    "content": [
+      {
+        "type": "text",
+        "content": "Insects"
+      },
+      {
+        "type": "text",
+        "content": "Finger millet attracts several pests of which army worm, cutworm, stemborer, leaf aphid, grasshoppers, grey weevil, shootfly and ear caterpillars are important."
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "Stem borer : spray nursery bed once at 15–20 days after germination with Chloropyriphos or Monocrotophos @ 40ml/ 10 cm nursery area.",
+          "Before transplanting apply Phorate @ 0.5kg or Carbofuran 3G 1.2 kg/ha.",
+          "Aphids- Spray Methyl Demeton @1000 ml/ha at pre flowering stage.",
+          "Ear caterpillars- Dust crop with Malathion 5% @ 25 kg/ha"
+        ]
+      },
+      {
+        "type": "text",
+        "content": "Diseases"
+      },
+      {
+        "type": "text",
+        "content": "Finger millet is affected by a variety of diseases of which blast caused by Pyriculariagrisea is the major problem. The disease is quite severe in kharif crop at all the growth stages. The losses caused will be more if the disease appears in the nursery and on the ears affecting the neck and fingers."
+      },
+      {
+        "type": "text",
+        "content": "Management practices"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "By growing resistant varieties like GPU 28, GPU 26 and GPU 48.",
+          "Treating seeds with fungicides like carbendazim @ 2g/kg a day before sowing",
+          "If necessary spraying the nursery with carbendazim (0.05%) or kitazin (0.1%) or Ediphefos (0.1%) or Saaf (0.2%)",
+          "Spray any of the above fungicides at 50 per cent flowering and repeat 10 days later if Kitazin or Ediphenfos were used to control neck and finger blast."
+        ]
+      },
+      {
+        "type": "text",
+        "content": "In recent years, brown spot caused by Drechsleranodulosa is gaining importance. Its damage could be severe if the crop is subjected to drought or nutrition deficiency. The disease can be effectively managed by proper nutrition and water management. Need based spraying of Mancozeb or Saaf (0.2%) can be resorted to."
+      },
+      {
+        "type": "text",
+        "content": "Other diseases affecting the crop are mottle streak & streak virus, foot rot ( Sclerotiumrolfsii ), downy mildew or green ear (Sclerosporamacrospora ), grain smut ( Melanopsichiumeleusinis ). Besides, at higher altitudes Cercopspora a leaf spot and in the coastal regions sheath blight ( Rhizoctonia sp.) also appear, but are of minor importance."
+      }
+    ]
+  },
+  {
+    "heading": "Harvesting and Yield",
+    "content": [
+      {
+        "type": "text",
+        "content": "The crop matures in about 120–135 days depending on the tract and the variety. The ear heads are harvested with ordinary sickles and straw is cut close to ground."
+      },
+      {
+        "type": "text",
+        "content": "Yield : It is possible to harvest 20–25 qtl/ha of grain and 60–80 qtl/ha of fodder. The Straw of finger millet makes nutritious fodder."
+      }
+    ]
+  },
+  {
+    "heading": "Nutritional benefits of Ragi",
+    "content": [
+      {
+        "type": "text",
+        "content": "Ragi is a rich source of calcium, iron, protein, fiber and other minerals. The cereal has low fat content and contains mainly unsaturated fat. It is easy to digest and does not contain gluten. Finger millet is considered one of the most nutritious cereals which helps in keeping weight in control, maintaining bone health, lowering blood cholesterol, control anaemia and for diabetics because of lower glycemic response i.e lower ability to increase blood sugar level. Ragi is rich in amino acids which are vital in normal functioning of body and are essential for repairing body tissues. If consumed regularly, Ragi could help in keeping malnutrition, degenerative diseases and premature aging at bay. Green ragi is recommended for conditions of blood pressure, liver disorders, asthma, lactating mother and heart weakness. Its high intake could increase quantity of oxalic acid in the body. Therefore, it is not advised to patients having kidney stones. Finger Millet can be value added to prepare cakes, roti, dosa, porridge, upma, pitha, halwa, biscuits from the powder of Ragi."
+      },
+      {
+        "type": "text",
+        "content": "Sources :"
+      },
+      {
+        "type": "ordered_list",
+        "content": [
+          {
+            "text": "Recommended package of practices - IIMR",
+            "link": "http://millets.res.in/technologies/1-Recommended_Package_of_Practices-Finger_Millet.pdf"
+          },
+          {
+            "text": "NFSM package of practices",
+            "link": "http://nfsm.gov.in/ReadyReckoner/NFSM_Package.pdf"
+          }
+        ]
+      }
+    ]
+  }
+]

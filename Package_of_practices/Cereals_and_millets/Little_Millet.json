@@ -1,0 +1,200 @@
+[
+  {
+    "heading": "Varieties",
+    "content": [
+      {
+        "type": "text",
+        "content": "A number of varieties with high yield potential have been released for different states. The list of latest and popular varieties recommended for different states are given below"
+      },
+      {
+        "type": "table",
+        "content": {
+          "rows": [
+            [
+              "SL. No",
+              "State",
+              "Varieties"
+            ],
+            [
+              "1.",
+              "Orissa",
+              "OLM 203, OLM 208, OLM-217"
+            ],
+            [
+              "2.",
+              "Madhya Pradesh",
+              "JK-4, JK 8 and JK 36"
+            ],
+            [
+              "3.",
+              "Andhra Pradesh",
+              "OLM 203, JK 8"
+            ],
+            [
+              "4.",
+              "Tamil Nadu",
+              "Paiyur 2, TNAU 63 and CO 3,C0–4,K1, OLM 203,OLM 20"
+            ],
+            [
+              "5.",
+              "Chattisgarh",
+              "JK 8, BL 6, BL-4, JK 36"
+            ],
+            [
+              "6.",
+              "Karnataka",
+              "OLM 203, JK 8"
+            ],
+            [
+              "7.",
+              "Gujarat",
+              "GV 2, GV 1, OLM 203, JK 8"
+            ],
+            [
+              "8.",
+              "Maharashtra",
+              "Phule Ekadashi, JK 8, OLM 203"
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "heading": "Season",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "Odisha - Middle of June",
+          "Tamil Nadu - June and September-October",
+          "Karnataka, Madhya Pradesh and South Bihar - last week of June to first week of July is desirable to escape from shoot fly and gall midge."
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Spacing and seed rate",
+    "content": [
+      {
+        "type": "text",
+        "content": "Spacing : 22.5 cm between rows and 10 cm between plants within a row"
+      },
+      {
+        "type": "text",
+        "content": "Seed rate:"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "8 kg per ha for line sowing",
+          "12 kg per ha for broadcasting"
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Manuring and fertilization",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "5 tones of farm yard manure per hectare 2–3 weeks before sowing.",
+          "The fertilizer required for different states is as follows"
+        ]
+      },
+      {
+        "type": "table",
+        "content": {
+          "rows": [
+            [
+              "States",
+              "Fertilizer recommended NP₂O₅K₂O kg ha-1"
+            ],
+            [
+              "Andhra Pradesh",
+              "20:20:0"
+            ],
+            [
+              "Bihar and Odisha",
+              "20:10:0"
+            ],
+            [
+              "Tamil nadu",
+              "40:20:0"
+            ],
+            [
+              "Other states",
+              "20:20:0"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "text",
+        "content": "Bio-fertilizer: Seed inoculation with Agrobacterium radiobacter and Aspergillus awamori improves seed yield."
+      }
+    ]
+  },
+  {
+    "heading": "Weed control",
+    "content": [
+      {
+        "type": "unordered_list",
+        "content": [
+          "Two inter cultivations and one hand weeding in line sowing",
+          "Two hand weeding in broadcasted crop"
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Cropping systems",
+    "content": [
+      {
+        "type": "text",
+        "content": "Inter cropping"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "Odisha : Little millet + black gram (2:1 row ratio)",
+          "Madhya Pradesh: Little millet + +Sesamum / soybean / pigeon pea (2:1 row ratio)",
+          "Southern Bihar: Little millet + +pigeon pea (2:1 row ratio)"
+        ]
+      },
+      {
+        "type": "text",
+        "content": "Cropping sequence"
+      },
+      {
+        "type": "unordered_list",
+        "content": [
+          "South Bihar : Little millet – Niger"
+        ]
+      }
+    ]
+  },
+  {
+    "heading": "Diseases",
+    "content": [
+      {
+        "type": "text",
+        "content": "Though there are no serious diseases on this crop, grain smut may be problematic sometimes, which is effectively checked by pre sowing treatment of the seeds with either Carbendazim or Carboxin @ 2g per kg seeds"
+      }
+    ]
+  },
+  {
+    "heading": "Pests",
+    "content": [
+      {
+        "type": "text",
+        "content": "Shootfly It is the most serious pest causing significant yield losses. Control : Early sowing with the onset of monsoon is an effective and cheapest method of control."
+      },
+      {
+        "type": "text",
+        "content": "Source : Indian Institute of Millets Research"
+      }
+    ]
+  }
+]

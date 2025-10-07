@@ -1,28 +1,37 @@
 from fastapi import FastAPI, Request, Form, Body, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from pymongo import MongoClient
 from uuid import uuid4
 from datetime import datetime
-from bs4 import BeautifulSoup
-from pathlib import Path
 import sys
 import os
-import markdown
 import csv
 from io import StringIO
 import certifi
 import pytz
-from dateutil import parser
 from contextlib import asynccontextmanager
-from dotenv import load_dotenv
 import logging
 from typing import Optional, List, Dict
-import requests
-from local_whisper_interface import local_whisper
+import time
+import asyncio
+import hashlib
+from functools import lru_cache
+from local_whisper_interface import get_whisper_instance
+import re
+from Agentic_RAG.fast_response_handler import FastResponseHandler
+from Agentic_RAG.database_config import DatabaseConfig
+from Agentic_RAG import main as rag_main
+import json
+import markdown
+import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-import re
+from langchain.memory import ConversationBufferWindowMemory
+from fastapi.responses import StreamingResponse
+from bs4 import BeautifulSoup
+from dateutil import parser
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -31,132 +40,545 @@ IST = pytz.timezone("Asia/Kolkata")
 current_dir = os.path.dirname(os.path.abspath(__file__))
 agentic_rag_path = os.path.join(current_dir, "Agentic_RAG")
 sys.path.insert(0, agentic_rag_path)
-load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
+project_root = os.path.dirname(current_dir)
+sys.path.insert(0, project_root)
 
-USE_FAST_MODE = os.getenv("USE_FAST_MODE", "false").lower() == "true"
-logger.info(f"[CONFIG] USE_FAST_MODE environment variable: {os.getenv('USE_FAST_MODE', 'not set')}")
-logger.info(f"[CONFIG] Fast Mode Enabled: {USE_FAST_MODE}")
+USE_FAST_MODE = os.getenv("USE_FAST_MODE", "true").lower() == "true"
+DISABLE_RECOMMENDATIONS = os.getenv("DISABLE_RECOMMENDATIONS", "false").lower() == "true"
+PARALLEL_RECOMMENDATIONS = os.getenv("PARALLEL_RECOMMENDATIONS", "true").lower() == "true"
+
+class QueryRequest(BaseModel):
+    question: str
+    device_id: str
+    state: str = ""
+    language: str = "en"
+    database_config: Optional[Dict] = None
+
+class SessionQueryRequest(BaseModel):
+    question: str
+    device_id: str
+    state: str = ""
+    database_config: Optional[Dict] = None
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+class AuthResponse(BaseModel):
+    authenticated: bool
+    username: Optional[str] = None
+    role: Optional[str] = None
+    full_name: Optional[str] = None
+    message: str = ""
 
 fast_handler = None
 if USE_FAST_MODE:
     try:
-        from fast_response_handler import FastResponseHandler
         fast_handler = FastResponseHandler()
-        logger.info("[CONFIG] Fast response handler loaded successfully")
-    except ImportError as e:
-        logger.warning(f"[CONFIG] Fast response handler not available: {e}")
-        logger.info("[CONFIG] Falling back to CrewAI mode")
+    except Exception as e:
+        logger.warning(f"[CONFIG] Fast response handler initialization failed: {e}")
         USE_FAST_MODE = False
-
-from crewai import Crew
-from Agentic_RAG.crew_agents import (
-    Retriever_Agent, Grader_agent,
-    hallucination_grader, answer_grader
-)
-from Agentic_RAG.crew_tasks import (
-    retriever_task, grader_task,
-    hallucination_task, answer_task
-)
 from Agentic_RAG.chroma_query_handler import ChromaQueryHandler
+from Agentic_RAG.tools import is_agricultural_query
 
-chroma_db_path = os.path.join(current_dir, "Agentic_RAG", "chromaDb")
-logger.info(f"[DEBUG] ChromaDB path: {chroma_db_path}")
-logger.info(f"[DEBUG] ChromaDB path exists: {os.path.exists(chroma_db_path)}")
+chroma_db_path = os.getenv('CHROMA_DB_PATH')
+if not chroma_db_path:
+    if os.path.exists('/app') and os.path.exists('/app/chromaDb'):
+        chroma_db_path = '/app/chromaDb'
+        environment = 'Docker'
+    else:
+        chroma_db_path = '/home/ubuntu/agrichat-annam/agrichat-backend/chromaDb'
+        environment = 'Local'
+
+logger.info(f"[CONFIG] Environment: {environment}")
+logger.info(f"[CONFIG] ChromaDB path: {chroma_db_path}")
+logger.info(f"[CONFIG] ChromaDB exists: {os.path.exists(chroma_db_path)}")
 
 query_handler = ChromaQueryHandler(chroma_path=chroma_db_path)
 
-def get_answer(question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None) -> str:
-    """
-    Main answer function that routes to fast mode or CrewAI based on configuration.
-    
-    Args:
-        question: Current user question
-        conversation_history: List of previous Q&A pairs for context
-        user_state: User's state/region detected from frontend location
-    """
-    if USE_FAST_MODE and fast_handler:
-        return get_fast_answer(question, conversation_history, user_state)
-    else:
-        return get_crewai_answer(question, conversation_history, user_state)
+pipeline = None
 
-def get_fast_answer(question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None) -> str:
-    """
-    Fast mode using FastResponseHandler for 10-15x faster responses.
-    """
-    logger.info(f"[FAST] Processing question with fast handler: {question}")
+local_llm = None
+local_embeddings = None
+response_formatter = None
+try:
+    from Agentic_RAG.local_llm_interface import LocalLLMInterface
+    from Agentic_RAG.local_llm_interface import LocalEmbeddings
+    local_llm = LocalLLMInterface()
+    local_embeddings = LocalEmbeddings()
+except Exception as e:
+    logger.warning(f"[CONFIG] Local LLM/embeddings initialization failed: {e}")
+
+try:
+    from response_formatter import AgriculturalResponseFormatter
+    response_formatter = AgriculturalResponseFormatter()
+except Exception as e:
+    logger.warning(f"[CONFIG] Response formatter initialization failed: {e}")
+
+MONGO_URI = os.getenv("MONGO_URI")
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+try:
+    client = MongoClient(MONGO_URI) if ENVIRONMENT == "development" else MongoClient(MONGO_URI, tlsCAFile=certifi.where())
+    db = client.get_database("agrichat")
+    sessions_collection = db["sessions"]
+    logger.info("[DB] MongoDB client initialized and 'sessions' collection ready")
+except Exception as e:
+    logger.error(f"[DB] Failed to initialize MongoDB client: {e}")
+    sessions_collection = None
+
+session_memories = {}
+
+def load_users_from_csv():
+    """Load users from CSV file"""
+    users = {}
+    csv_path = os.path.join(os.path.dirname(__file__), "users.csv")
+    
     try:
-        return fast_handler.get_answer(question, conversation_history, user_state)
+        with open(csv_path, 'r', newline='', encoding='utf-8') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                users[row['username']] = {
+                    'password': row['password'],
+                    'role': row['role'],
+                    'full_name': row['full_name']
+                }
+        logger.info(f"[AUTH] Loaded {len(users)} users from CSV")
+    except FileNotFoundError:
+        logger.error(f"[AUTH] Users CSV file not found at {csv_path}")
     except Exception as e:
-        logger.error(f"[FAST] Error in fast mode: {e}")
-        logger.info("[FAST] Falling back to CrewAI")
-        return get_crewai_answer(question, conversation_history, user_state)
-
-def get_crewai_answer(question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None) -> str:
-    """
-    CrewAI mode - original multi-agent approach for complex reasoning.
-    """
-    logger.info(f"[CREWAI] Processing question with CrewAI approach: {question}")
+        logger.error(f"[AUTH] Error loading users CSV: {e}")
     
+    return users
+
+def authenticate_user(username: str, password: str) -> dict:
+    """Authenticate user credentials"""
+    users = load_users_from_csv()
+    
+    if username in users and users[username]['password'] == password:
+        return {
+            'authenticated': True,
+            'username': username,
+            'role': users[username]['role'],
+            'full_name': users[username]['full_name']
+        }
+    
+    return {'authenticated': False}
+
+recommendations_cache = {}
+CACHE_EXPIRY_SECONDS = 3600
+
+def get_session_memory(session_id: str):
+    """Get or create conversation memory for a session"""
+    if session_id not in session_memories:
+        session_memories[session_id] = ConversationBufferWindowMemory(
+            k=8,  # Tune this number: 3=light, 5=default, 8-10=extended, 15+=heavy
+            return_messages=True
+        )
+    return session_memories[session_id]
+
+def format_conversation_context(memory: ConversationBufferWindowMemory) -> str:
+    """Enhanced formatting of conversation history for better context"""
+    if not memory.chat_memory.messages:
+        return "This is the start of the conversation."
+    
+    context_parts = []
+    messages = memory.chat_memory.messages[-10:]  # Last 10 messages
+    
+    for i in range(0, len(messages), 2):
+        if i + 1 < len(messages):
+            human_msg = messages[i]
+            ai_msg = messages[i + 1]
+            
+            human_content = human_msg.content
+            ai_content = ai_msg.content[:300] + "..." if len(ai_msg.content) > 300 else ai_msg.content
+            
+            context_parts.append(f"Previous Q: {human_content}")
+            context_parts.append(f"Previous A: {ai_content}")
+    
+    all_content = " ".join([msg.content for msg in messages])
+    topics = extract_topics_from_context(all_content)
+    
+    if topics:
+        context_parts.append(f"Main topics discussed: {', '.join(topics[:3])}")
+    
+    return "\n".join(context_parts)
+
+def convert_langchain_memory_to_history(memory: ConversationBufferWindowMemory) -> List[Dict]:
+    """
+    Convert LangChain memory messages to the format expected by the RAG system.
+    Returns list of {'question': str, 'answer': str} dictionaries.
+    """
+    try:
+        if not memory or not memory.chat_memory or not memory.chat_memory.messages:
+            return []
+        
+        conversation_history = []
+        messages = memory.chat_memory.messages
+        
+        for i in range(0, len(messages), 2):
+            if i + 1 < len(messages):
+                human_msg = messages[i]
+                ai_msg = messages[i + 1]
+                
+                if (hasattr(human_msg, 'content') and hasattr(ai_msg, 'content') and
+                    human_msg.content and ai_msg.content):
+                    conversation_history.append({
+                        'question': str(human_msg.content),
+                        'answer': str(ai_msg.content)
+                    })
+        
+        logger.info(f"[LANGCHAIN] Converted {len(messages)} messages to {len(conversation_history)} conversation pairs")
+        return conversation_history
+    
+    except Exception as e:
+        logger.error(f"[LANGCHAIN] Error converting memory to history: {e}")
+        return []
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("[Startup] App initialized.")
+    yield
+    logger.info("[Shutdown] App shutting down...")
+
+app = FastAPI(lifespan=lifespan)
+
+origins = [
+    "https://agri-annam.vercel.app",
+    "https://agrichat.annam.ai",
+    "https://c455816e214e.ngrok-free.app", 
+    "https://localhost:3000",
+    "https://127.0.0.1:3000",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000"
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+    expose_headers=["*"]
+)
+
+def extract_thinking_process(text: str) -> tuple:
+    """Extract thinking process from <think> tags and return (thinking, clean_answer)"""
+    if not text:
+        return "", text
+    
+    think_pattern = r'<think>(.*?)</think>'
+    matches = re.findall(think_pattern, text, re.DOTALL | re.IGNORECASE)
+    thinking = ""
+    if matches:
+        thinking = matches[0].strip()
+        clean_answer = re.sub(think_pattern, '', text, flags=re.DOTALL | re.IGNORECASE).strip()
+    else:
+        clean_answer = text
+    
+    return thinking, clean_answer
+
+async def get_answer(question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None, session_id: str = None, db_config: DatabaseConfig = None) -> Dict:
+    """Get answer using rag_main.get_answer to match main.py structure"""
+    try:
+        question_lower = question.lower().strip()
+        greetings = ['hi', 'hello', 'hey', 'namaste', 'good morning', 'good afternoon', 'good evening', 'how are you']
+        if any(g in question_lower for g in greetings):
+            return {
+                'answer': ("Hello! I'm your agricultural assistant specializing in Indian farming. "
+                           "I can help you with crop management, soil health, pest control, fertilizers, "
+                           "irrigation, farming techniques, and agricultural practices. What would you like to know?"),
+                'source': 'Greeting',
+                'confidence': 1.0,
+                'thinking': ''
+            }
+
+        if not is_agricultural_query(question):
+            return {
+                'answer': ("I'm an agricultural assistant focused on Indian farming. I can only help with agriculture-related questions. "
+                           "Please ask about crops, farming practices, soil management, pest control, or other agricultural topics."),
+                'source': 'Non-Agricultural',
+                'confidence': 1.0,
+                'thinking': ''
+            }
+    except Exception:
+        pass
+
+    try:
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(None, lambda: rag_main.get_answer(question, conversation_history or [], user_state))
+
+        if isinstance(result, dict):
+            answer_text = result.get('answer', '')
+            thinking, clean_answer = extract_thinking_process(answer_text)
+            
+            response = {
+                'answer': clean_answer,
+                'thinking': thinking,
+                'source': result.get('source', 'Unknown'),
+                'confidence': result.get('confidence', result.get('similarity', 0.0)),
+                'research_data': result.get('research_data', []),
+                'reasoning_steps': result.get('reasoning_steps', []),
+                'metadata': result.get('metadata', {})
+            }
+        else:
+            thinking, clean_answer = extract_thinking_process(str(result))
+            response = {
+                'answer': clean_answer,
+                'thinking': thinking,
+                'source': 'Unknown',
+                'confidence': 0.0,
+                'research_data': [],
+                'reasoning_steps': [],
+                'metadata': {}
+            }
+
+        return response
+    except Exception as e:
+        logger.error(f"[RAG] rag_main.get_answer failed: {e}")
+        return {
+            'answer': "Service temporarily unavailable: internal error.",
+            'thinking': '',
+            'source': 'Error',
+            'confidence': 0.0,
+            'research_data': [],
+            'reasoning_steps': [],
+            'metadata': {}
+        }
+
+def resolve_context_question(question: str, context: str) -> str:
+    """
+    Enhanced context resolution for agricultural follow-up questions
+    """
     question_lower = question.lower().strip()
-    simple_greetings = [
-        'hi', 'hello', 'hey', 'namaste', 'namaskaram', 'vanakkam', 
-        'good morning', 'good afternoon', 'good evening', 'good day',
-        'howdy', 'greetings', 'salaam', 'adaab', 'hi there', 'hello there'
+    context_lower = context.lower()
+    
+    context_patterns = [
+        "how do i cure it", "how to cure it", "cure it", "treat it", "how to treat it",
+        "what should i do", "how to fix it", "fix it", "prevent it", "how to prevent it",
+        "what medicine", "which medicine", "what treatment", "what chemical", "what spray",
+        "how much", "when to apply", "when should i", "how often", "what dosage",
+        "side effects", "precautions", "what about", "tell me more", "more details",
+        "how to grow it", "grow it", "plant it", "sow it", "when to sow", "when to plant",
+        "what fertilizer", "which fertilizer", "fertilizer for it", "nutrients needed",
+        "watering schedule", "how much water", "irrigation", "harvest time", "when to harvest",
+        "what variety", "which variety", "best variety", "seed rate", "spacing",
+        "market price", "selling price", "profit", "yield", "production"
     ]
     
-    if len(question_lower) < 20 and any(greeting in question_lower for greeting in simple_greetings):
-        logger.info(f"[GREETING] Detected simple greeting: {question}")
-        logger.info(f"[SOURCE] Fast pattern matching used for greeting: {question}")
-        state_context = f" in {user_state}" if user_state and user_state.lower() != "unknown" else " in India"
-        if 'namaste' in question_lower:
-            return f"Namaste! Welcome to AgriChat, your trusted agricultural assistant for Indian farming{state_context}. I specialize in crop management, soil health, weather patterns, and farming practices specific to Indian conditions. What agricultural challenge can I help you with today?"
-        elif 'namaskaram' in question_lower:
-            return f"Namaskaram! I'm your specialized agricultural assistant for Indian farmers{state_context}. Feel free to ask me about Indian crop varieties, monsoon farming, soil management, or any farming techniques suited to Indian climate and conditions."
-        elif 'vanakkam' in question_lower:
-            return f"Vanakkam! I'm here to assist you with Indian farming and agriculture{state_context}. What regional agricultural topic would you like to discuss - from rice cultivation to spice farming, I'm here to help with India-specific guidance!"
-        elif any(time in question_lower for time in ['morning', 'afternoon', 'evening']):
-            time_word = next(time for time in ['morning', 'afternoon', 'evening'] if time in question_lower)
-            return f"Good {time_word}! I'm your agricultural assistant specializing in Indian farming practices{state_context}. How can I help you with your crop management, seasonal farming, or any agriculture-related questions specific to Indian conditions today?"
-        else:
-            return f"Hello! I'm your agricultural assistant specializing in Indian farming and crop management{state_context}. I'm here to help with crops, farming techniques, and agricultural practices tailored to Indian soil, climate, and regional conditions. What would you like to know?"
-    
-    if conversation_history:
-        logger.info(f"[DEBUG] Using conversation context with {len(conversation_history)} previous interactions")
-    if user_state:
-        logger.info(f"[DEBUG] Using frontend-detected state: {user_state}")
-    
-    try:
-        rag_crew = Crew(
-            agents=[
-                Retriever_Agent
-            ],
-            tasks=[
-                retriever_task
-            ],
-            verbose=True,
-        )
+    if any(pattern in question_lower for pattern in context_patterns):
+        recent_topics = extract_topics_from_context(context)
         
-        inputs = {
-            "question": question,
-            "conversation_history": conversation_history or []
-        }
-        
-        result = rag_crew.kickoff(inputs=inputs)
-        logger.info(f"[DEBUG] CrewAI result: {result}")
-        
-        result_str = str(result).strip()
-        if "Source: RAG Database" in result_str:
-            logger.info(f"[SOURCE] RAG Database used for question: {question[:50]}...")
-            result_str = result_str.replace("Source: RAG Database", "").strip()
-        if "Source: Local LLM" in result_str:
-            logger.info(f"[SOURCE] Local LLM used for question: {question[:50]}...")
-            result_str = result_str.replace("Source: Local LLM", "").strip()
-        
-        return result_str
+        if recent_topics:
+            topic = recent_topics[0]
             
+            if "cure" in question_lower or "treat" in question_lower:
+                if "disease" in topic or "blight" in topic or "spot" in topic or "rot" in topic:
+                    return f"How to cure {topic}?"
+                elif "pest" in topic or "insect" in topic or "worm" in topic:
+                    return f"How to control {topic}?"
+                else:
+                    return f"How to treat {topic}?"
+            
+            elif "prevent" in question_lower:
+                return f"How to prevent {topic}?"
+            
+            elif "medicine" in question_lower or "chemical" in question_lower or "spray" in question_lower:
+                return f"What medicines or chemicals to use for {topic}?"
+            
+            elif "fertilizer" in question_lower or "nutrient" in question_lower:
+                return f"What fertilizer is best for {topic}?"
+            
+            elif "grow" in question_lower or "cultivation" in question_lower:
+                return f"How to grow {topic}?"
+            
+            elif "plant" in question_lower or "sow" in question_lower:
+                return f"When and how to plant {topic}?"
+            
+            elif "water" in question_lower or "irrigation" in question_lower:
+                return f"Watering schedule and irrigation for {topic}?"
+            
+            elif "harvest" in question_lower:
+                return f"When to harvest {topic} and harvesting methods?"
+            
+            elif "variety" in question_lower or "seed" in question_lower:
+                return f"Best varieties and seeds for {topic}?"
+            
+            elif "price" in question_lower or "market" in question_lower or "profit" in question_lower:
+                return f"Market price and profitability of {topic}?"
+            
+            elif "yield" in question_lower or "production" in question_lower:
+                return f"How to increase yield and production of {topic}?"
+            
+            elif "dosage" in question_lower or "how much" in question_lower or "quantity" in question_lower:
+                return f"Dosage and application rates for {topic}?"
+            
+            else:
+                return f"{question} for {topic}"
+    
+    return question
+
+def extract_topics_from_context(context: str) -> List[str]:
+    """Enhanced extraction of agricultural topics from conversation context"""
+    topics = []
+    context_lower = context.lower()
+    
+    disease_patterns = [
+        "late blight", "early blight", "powdery mildew", "downy mildew", 
+        "bacterial wilt", "fungal infection", "leaf spot", "root rot", "stem rot",
+        "collar rot", "blast", "sheath blight", "rust", "smut", "mosaic virus",
+        "yellowing", "wilting", "damping off", "canker", "scab"
+    ]
+    
+    crop_patterns = [
+        "potato", "tomato", "wheat", "rice", "cotton", "sugarcane", "maize", "corn",
+        "onion", "garlic", "chili", "pepper", "brinjal", "eggplant", "okra", "cucumber",
+        "cabbage", "cauliflower", "carrot", "radish", "beans", "peas", "groundnut",
+        "soybean", "mustard", "sesame", "sunflower", "mango", "banana", "guava",
+        "papaya", "coconut", "tea", "coffee", "spices", "turmeric", "ginger"
+    ]
+    
+    pest_patterns = [
+        "aphid", "thrips", "whitefly", "bollworm", "stem borer", "fruit borer",
+        "leaf miner", "scale insect", "mealybug", "spider mite", "nematode",
+        "caterpillar", "grub", "weevil", "beetle", "locust", "grasshopper"
+    ]
+    
+    problem_patterns = [
+        "nutrient deficiency", "nitrogen deficiency", "phosphorus deficiency",
+        "potassium deficiency", "iron deficiency", "zinc deficiency", "magnesium deficiency",
+        "water stress", "drought stress", "waterlogging", "poor growth", "stunted growth",
+        "low yield", "poor germination", "flower drop", "fruit drop"
+    ]
+    
+    practice_patterns = [
+        "organic farming", "crop rotation", "intercropping", "mulching", "pruning",
+        "grafting", "seed treatment", "soil preparation", "land preparation",
+        "transplanting", "direct sowing", "drip irrigation", "sprinkler irrigation"
+    ]
+    
+    for disease in disease_patterns:
+        if disease in context_lower:
+            for crop in crop_patterns:
+                if crop in context_lower:
+                    topics.append(f"{disease} in {crop}")
+                    break
+            else:
+                topics.append(disease)
+            break
+    
+    if not topics:
+        for pest in pest_patterns:
+            if pest in context_lower:
+                for crop in crop_patterns:
+                    if crop in context_lower:
+                        topics.append(f"{pest} in {crop}")
+                        break
+                else:
+                    topics.append(pest)
+                break
+    
+    if not topics:
+        for problem in problem_patterns:
+            if problem in context_lower:
+                for crop in crop_patterns:
+                    if crop in context_lower:
+                        topics.append(f"{problem} in {crop}")
+                        break
+                else:
+                    topics.append(problem)
+                break
+    
+    if not topics:
+        for practice in practice_patterns:
+            if practice in context_lower:
+                for crop in crop_patterns:
+                    if crop in context_lower:
+                        topics.append(f"{practice} for {crop}")
+                        break
+                else:
+                    topics.append(practice)
+                break
+    
+    if not topics:
+        for crop in crop_patterns:
+            if crop in context_lower:
+                topics.append(crop)
+                break
+    
+    return topics
+
+async def get_fast_answer(question: str, conversation_history: Optional[List[Dict]] = None, user_state: str = None, db_config: DatabaseConfig = None) -> Dict:
+    """
+    Fast mode using enhanced FastResponseHandler with source attribution.
+    Returns complete result object.
+    """
+    logger.info(f"[FAST] Processing question with enhanced fast handler: {question}")
+    try:
+        if db_config:
+            database_selection = db_config.get_enabled_databases()
+        else:
+            database_selection = ["rag", "pops", "llm"]  # default
+        
+        result = await get_answer(question, conversation_history, user_state, None, db_config)
+
+        try:
+            if isinstance(result, dict) and 'ragas_score' in result:
+                logger.info(f"[RAGAS] Fast mode produced ragas_score={result['ragas_score']}")
+        except Exception:
+            pass
+
+        try:
+            if isinstance(result, dict) and result.get('source') == 'Fallback LLM':
+                candidate_paths = [
+                    os.path.abspath(os.path.join(current_dir, '..', 'fallback_queries.csv')),
+                    os.path.abspath(os.path.join(current_dir, 'fallback_queries.csv')),
+                    '/tmp/fallback_queries.csv'
+                ]
+
+                timestamp = datetime.now(IST).strftime('%Y-%m-%d %H:%M:%S')
+                question_text = question.replace('\n', ' ').replace(',', ' ').strip()
+                answer_text = result.get('answer', '').replace('\n', ' ').replace(',', ' ').strip()
+                fallback_reason = 'Database search failed - using LLM fallback (Source: Fallback LLM)'
+
+                wrote = False
+                header = 'timestamp,question,answer,fallback_reason\n'
+                for csv_path in candidate_paths:
+                    try:
+                        file_exists = os.path.exists(csv_path)
+                        parent_dir = os.path.dirname(csv_path)
+                        if parent_dir and not os.path.exists(parent_dir):
+                            os.makedirs(parent_dir, exist_ok=True)
+
+                        with open(csv_path, 'a', encoding='utf-8') as fh:
+                            if not file_exists:
+                                fh.write(header)
+                            fh.write(f"{timestamp},{question_text},{answer_text},{fallback_reason}\n")
+                        logger.info(f"[FALLBACK LOG] Written fallback query to {csv_path}")
+                        wrote = True
+                        break
+                    except Exception:
+                        continue
+
+                if not wrote:
+                    logger.warning('[FALLBACK LOG] All candidate paths failed for writing fallback_queries.csv')
+        except Exception as e:
+            logger.warning(f"[FALLBACK LOG] Failed to write fallback query to CSV: {e}")
+
+        return result
     except Exception as e:
-        logger.error(f"[DEBUG] Error in CrewAI execution: {e}")
-        return "I apologize, but I'm experiencing technical difficulties. Please try again later."
+        logger.error(f"[FAST] Error in fast mode: {e}")
+        logger.info("[FAST] Falling back to full RAG pipeline")
+        try:
+            return query_handler.get_answer_with_source(
+                question=question,
+                conversation_history=conversation_history,
+                user_state=user_state,
+                database_selection=(db_config.get_enabled_databases() if db_config else ["rag", "pops", "llm"])
+            )
+        except Exception:
+            return { 'answer': "I couldn't process your question right now.", 'source': 'Error' }
+
 
 def preprocess_question(question: str) -> str:
     """
@@ -167,171 +589,288 @@ def preprocess_question(question: str) -> str:
     question = re.sub(r'\s+', ' ', question).strip()
     return question
 
-def get_question_recommendations(user_question: str, user_state: str = None, limit: int = 2) -> List[Dict]:
+def get_question_recommendations(user_question: str, user_state: str = None, limit: int = 4) -> List[Dict]:
     """
     Get question recommendations based on similarity to user's question and state
     Only returns recommendations for agriculture-related questions
+    Optimized for performance with caching and reduced database queries
     
     Args:
         user_question: The user's current question
         user_state: User's state for state-specific recommendations
-        limit: Number of recommendations to return (default 2)
+        limit: Number of recommendations to return (default 4)
     
     Returns:
         List of recommended questions with their details (empty if not agriculture-related)
     """
     try:
+        cache_key = hashlib.md5(f"{user_question.lower()}_{user_state}_{limit}".encode()).hexdigest()
+        current_time = time.time()
+        
+        if cache_key in recommendations_cache:
+            cached_data, timestamp = recommendations_cache[cache_key]
+            if current_time - timestamp < CACHE_EXPIRY_SECONDS:
+                logger.info(f"[CACHE] Returning cached recommendations for: {user_question[:50]}...")
+                return cached_data
+            else:
+                del recommendations_cache[cache_key]
+        
         question_category = query_handler.classify_query(user_question)
+        logger.info(f"[REC] Question classified as: {question_category} for: {user_question[:50]}...")
         if question_category != "AGRICULTURE":
-            logger.info(f"Question classified as {question_category}, skipping recommendations: {user_question}")
+            logger.info(f"[REC] Question classified as {question_category}, skipping recommendations: {user_question}")
+            recommendations_cache[cache_key] = ([], current_time)
             return []
         
         pipeline = [
             {"$unwind": "$messages"},
+            {"$match": {
+                "state": {"$exists": True},
+                "messages.question": {"$exists": True, "$ne": "", "$type": "string"},
+                "messages.answer": {"$exists": True, "$type": "string"}
+            }},
             {"$group": {
                 "_id": {
                     "question": "$messages.question",
                     "state": "$state"
                 },
                 "count": {"$sum": 1},
-                "sample_answer": {"$first": "$messages.answer"}
+                "sample_answer": {"$first": "$messages.answer"},  # Keep full answer, truncate in Python
+                "sample_source": {"$first": "$messages.source"}
             }},
             {"$match": {"count": {"$gte": 1}}},
             {"$project": {
                 "question": "$_id.question",
                 "state": "$_id.state",
                 "count": 1,
-                "sample_answer": 1
+                "sample_answer": 1,
+                "sample_source": 1
             }},
-            {"$limit": 200}
+            {"$sort": {"count": -1}},
+            {"$limit": 100} 
         ]
         
-        questions_data = list(sessions_collection.aggregate(pipeline))
+        try:
+            questions_data = list(sessions_collection.aggregate(pipeline))
+            logger.info(f"[REC] Found {len(questions_data)} questions in database for recommendations")
+        except Exception as db_error:
+            logger.error(f"[REC] Database aggregation failed: {db_error}")
+            try:
+                logger.info("[REC] Attempting fallback simple query...")
+                simple_docs = list(sessions_collection.find(
+                    {"state": {"$exists": True}, "messages.question": {"$exists": True}},
+                    {"messages.question": 1, "state": 1}
+                ).limit(50))
+                
+                questions_data = []
+                for doc in simple_docs:
+                    for msg in doc.get("messages", []):
+                        if msg.get("question"):
+                            questions_data.append({
+                                "question": msg["question"],
+                                "state": doc.get("state", "unknown"),
+                                "count": 1,
+                                "sample_answer": "Answer available on request..."
+                            })
+                
+                logger.info(f"[REC] Fallback query found {len(questions_data)} questions")
+            except Exception as fallback_error:
+                logger.error(f"[REC] Fallback query also failed: {fallback_error}")
+                recommendations_cache[cache_key] = ([], current_time)
+                return []
         
         if not questions_data:
-            logger.info("No questions found in database for recommendations")
+            logger.info("[REC] No questions found in database for recommendations")
+            recommendations_cache[cache_key] = ([], current_time)
             return []
         
         processed_user_question = preprocess_question(user_question)
-        
-        questions_list = []
-        metadata_list = []
-        
+
+        candidates = []
+
         for item in questions_data:
             question = item['question']
-            question_category = query_handler.classify_query(question)
-            if question_category != "AGRICULTURE":
-                continue
-                
             processed_question = preprocess_question(question)
-            
+
             if processed_question == processed_user_question:
                 continue
-                
-            questions_list.append(processed_question)
-            metadata_list.append({
+
+            candidates.append({
                 'original_question': question,
+                'processed_question': processed_question,
                 'state': item.get('state', 'unknown'),
                 'count': item['count'],
-                'sample_answer': item['sample_answer']
+                'sample_answer': item['sample_answer'][:200] + "..." if len(item['sample_answer']) > 200 else item['sample_answer'],
+                'source': item.get('source', 'unknown') if isinstance(item, dict) else 'unknown'
             })
-        
-        if not questions_list:
-            logger.info("No suitable questions found for recommendations")
+
+            if len(candidates) >= 200:
+                break
+
+        if not candidates:
+            logger.info("[REC] No suitable questions found for recommendations after filtering")
+            recommendations_cache[cache_key] = ([], current_time)
             return []
-        
-        vectorizer = TfidfVectorizer(
-            max_features=1000,
-            stop_words='english',
-            ngram_range=(1, 2)
-        )
-        
-        all_questions = [processed_user_question] + questions_list
-        tfidf_matrix = vectorizer.fit_transform(all_questions)
-        
-        similarities = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:]).flatten()
-        
-        recommendations = []
-        for i, similarity_score in enumerate(similarities):
-            if similarity_score > 0.1:
-                rec = {
-                    'question': metadata_list[i]['original_question'],
-                    'state': metadata_list[i]['state'],
-                    'similarity_score': float(similarity_score),
-                    'popularity': metadata_list[i]['count'],
-                    'sample_answer': metadata_list[i]['sample_answer'][:200] + "..." 
-                }
-                recommendations.append(rec)
-        
+
+        processed_questions = [c['original_question'] for c in candidates]
+        try:
+            tfidf_prefilter = TfidfVectorizer(max_features=300, stop_words='english', ngram_range=(1,2))
+            tfidf_matrix_pref = tfidf_prefilter.fit_transform([user_question] + processed_questions)
+            pref_similarities = cosine_similarity(tfidf_matrix_pref[0:1], tfidf_matrix_pref[1:]).flatten()
+            top_n = min(50, len(candidates))
+            top_idx = pref_similarities.argsort()[::-1][:top_n]
+            prefiltered = [candidates[i] for i in top_idx]
+            logger.info(f"[REC] Prefiltered {len(prefiltered)} candidates for embedding from {len(candidates)} total")
+        except Exception as e:
+            logger.warning(f"[REC] Prefilter TF-IDF failed, falling back to full candidate set: {e}")
+            prefiltered = candidates
+
+        try:
+            user_emb = np.array(local_embeddings.embed_query(user_question))
+        except Exception as e:
+            logger.error(f"[REC] Failed to compute user embedding: {e}")
+            recommendations_cache[cache_key] = ([], current_time)
+            return []
+
+        if not hasattr(get_question_recommendations, "_emb_cache"):
+            get_question_recommendations._emb_cache = {}
+
+        for cand in prefiltered:
+            key = cand['processed_question']
+            if key in get_question_recommendations._emb_cache:
+                cand_emb = get_question_recommendations._emb_cache[key]
+            else:
+                try:
+                    cand_emb = np.array(local_embeddings.embed_query(cand['original_question']))
+                    get_question_recommendations._emb_cache[key] = cand_emb
+                except Exception as e:
+                    logger.warning(f"[REC] Failed to embed candidate question '{cand['original_question'][:50]}': {e}")
+                    cand_emb = None
+            cand['embedding'] = cand_emb
+
+        def cosine(a, b):
+            try:
+                return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)))
+            except Exception:
+                return 0.0
+
+        ranked = []
+        for cand in prefiltered:
+            if cand.get('embedding') is None:
+                continue
+            sim = cosine(user_emb, cand['embedding'])
+            if sim >= 0.90 or sim < 0.15:
+                continue
+            ranked.append({
+                'question': cand['original_question'],
+                'processed_question': cand['processed_question'],
+                'state': cand['state'],
+                'similarity_score': sim,
+                'popularity': cand['count'],
+                'sample_answer': cand['sample_answer'],
+                'source': cand.get('sample_source', cand.get('source', 'unknown'))
+            })
+
+        unique_by_processed = {}
+        for r in ranked:
+            key = r.get('processed_question') or preprocess_question(r.get('question', ''))
+            existing = unique_by_processed.get(key)
+            if not existing:
+                unique_by_processed[key] = r
+            else:
+                if r['similarity_score'] > existing['similarity_score'] or (
+                    r['similarity_score'] == existing['similarity_score'] and r.get('popularity', 0) > existing.get('popularity', 0)
+                ):
+                    unique_by_processed[key] = r
+
+        ranked = list(unique_by_processed.values())
+
+        if not ranked:
+            logger.info("[REC] No candidates passed semantic filtering")
+            recommendations_cache[cache_key] = ([], current_time)
+            return []
+
+        rag_candidates = [r for r in ranked if 'rag' in (r.get('source') or '').lower() or 'golden' in (r.get('source') or '').lower()]
+        other_candidates = [r for r in ranked if r not in rag_candidates]
+
+        rag_candidates.sort(key=lambda x: x['similarity_score'], reverse=True)
+        other_candidates.sort(key=lambda x: x['similarity_score'], reverse=True)
+
+        final_recs = []
+        for r in rag_candidates:
+            final_recs.append(r)
+            if len(final_recs) >= limit:
+                break
+        if len(final_recs) < limit:
+            for r in other_candidates:
+                final_recs.append(r)
+                if len(final_recs) >= limit:
+                    break
+
         if user_state:
-            def sort_key(rec):
-                state_boost = 0.2 if rec['state'].lower() == user_state.lower() else 0
-                return rec['similarity_score'] + state_boost
-            recommendations.sort(key=sort_key, reverse=True)
+            for rec in final_recs:
+                rec['boosted_score'] = rec['similarity_score'] + (0.12 if rec['state'].lower() == user_state.lower() else 0)
+            final_recs.sort(key=lambda x: x['boosted_score'], reverse=True)
         else:
-            recommendations.sort(key=lambda x: x['similarity_score'], reverse=True)
-        
-        top_recommendations = recommendations[:limit]
-        
-        logger.info(f"Found {len(top_recommendations)} recommendations for question: {user_question[:50]}...")
-        
+            final_recs.sort(key=lambda x: x['similarity_score'], reverse=True)
+
+        def canonicalize(q: str) -> str:
+            q = (q or "").lower()
+            q = re.sub(r"[^a-z0-9\s]", "", q)
+            q = re.sub(r"\s+", " ", q).strip()
+            return q
+
+        top_recommendations = []
+        seen = set()
+        for rec in final_recs:
+            canon = canonicalize(rec.get('question', ''))
+            if canon in seen:
+                continue
+            seen.add(canon)
+            top_recommendations.append(rec)
+            if len(top_recommendations) >= limit:
+                break
+
+        logger.info(f"[REC] Generated {len(top_recommendations)} recommendations from {len(prefiltered)} candidates for question: {user_question[:50]}...")
+        if top_recommendations:
+            logger.info(f"[REC] Top recommendation similarity scores: {[rec['similarity_score'] for rec in top_recommendations]}")
+
+        recommendations_cache[cache_key] = (top_recommendations, current_time)
+
+        if len(recommendations_cache) > 100:
+            sorted_cache = sorted(recommendations_cache.items(), key=lambda x: x[1][1])
+            for old_key, _ in sorted_cache[:50]:  # Remove 50 oldest entries
+                del recommendations_cache[old_key]
+
         return top_recommendations
         
     except Exception as e:
-        logger.error(f"Error generating recommendations: {e}")
+        logger.error(f"[REC] get_question_recommendations failed: {e}")
+        try:
+            recommendations_cache[cache_key] = ([], current_time)
+        except Exception:
+            pass
         return []
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    print("[Startup] App initialized.")
-    yield
-    print("[Shutdown] App shutting down...")
 
-app = FastAPI(lifespan=lifespan)
+async def get_question_recommendations_async(user_question: str, user_state: str = None, limit: int = 4):
+    """Async wrapper to run `get_question_recommendations` in a thread pool for `await` usage."""
+    loop = asyncio.get_event_loop()
+    try:
+        return await loop.run_in_executor(None, get_question_recommendations, user_question, user_state, limit)
+    except Exception as e:
+        logger.error(f"[REC] Async recommendations failed: {e}")
+        return []
+def ensure_database_indexes():
+    try:
+        sessions_collection.create_index([("state", 1)])
+        sessions_collection.create_index([("state", 1), ("messages.question", 1)])
+        sessions_collection.create_index([("timestamp", -1)])
+        logger.info("[PERF] Database indexes ensured for optimal performance")
+    except Exception as e:
+        logger.error(f"[PERF] Failed to create indexes: {e}")
 
-origins = [
-    "https://agri-annam.vercel.app",
-    "https://0cd4f335a197.ngrok-free.app",
-    "https://localhost:3000",
-    "https://127.0.0.1:3000",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000"
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"]
-)
-
-@app.middleware("http")
-async def add_ngrok_headers(request: Request, call_next):
-    origin = request.headers.get("origin")
-    if request.method == "OPTIONS":
-        response = JSONResponse(content={})
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "*"
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers["Access-Control-Max-Age"] = "86400"
-        response.headers["ngrok-skip-browser-warning"] = "true"
-        return response
-    response = await call_next(request)
-    response.headers["ngrok-skip-browser-warning"] = "true"
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "*"
-    response.headers["Access-Control-Allow-Credentials"] = "true"
-    return response
-
-MONGO_URI = os.getenv("MONGO_URI")
-ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
-client = MongoClient(MONGO_URI) if ENVIRONMENT == "development" else MongoClient(MONGO_URI, tlsCAFile=certifi.where())
-db = client["agrichat"]
-sessions_collection = db["sessions"]
+ensure_database_indexes()
 
 def clean_session(s):
     s["_id"] = str(s["_id"])
@@ -347,15 +886,48 @@ async def health():
 
 @app.options("/{full_path:path}")
 async def options_handler(request: Request):
+    origin = request.headers.get("origin")
+    allowed_origin = origin if origin in origins else origins[0]
+    
     return JSONResponse(
         content={},
         headers={
-            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Origin": allowed_origin,
             "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
             "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
             "Access-Control-Max-Age": "86400"
         }
     )
+
+@app.post("/api/auth/login")
+async def login(request: LoginRequest):
+    """Authenticate user with CSV-based credentials"""
+    try:
+        auth_result = authenticate_user(request.username, request.password)
+        
+        if auth_result['authenticated']:
+            logger.info(f"[AUTH] Successful login for user: {request.username}")
+            return AuthResponse(
+                authenticated=True,
+                username=auth_result['username'],
+                role=auth_result['role'],
+                full_name=auth_result['full_name'],
+                message="Login successful"
+            )
+        else:
+            logger.warning(f"[AUTH] Failed login attempt for user: {request.username}")
+            return AuthResponse(
+                authenticated=False,
+                message="Invalid username or password"
+            )
+    
+    except Exception as e:
+        logger.error(f"[AUTH] Login error: {e}")
+        return AuthResponse(
+            authenticated=False,
+            message="Authentication service unavailable"
+        )
 
 @app.get("/api/sessions")
 async def list_sessions(request: Request):
@@ -371,50 +943,161 @@ async def list_sessions(request: Request):
     return {"sessions": [clean_session(s) for s in sessions]}
 
 @app.post("/api/query")
-async def new_session(question: str = Form(...), device_id: str = Form(...), state: str = Form(...), language: str = Form(...)):
+async def new_session(request: QueryRequest):
+    api_start_time = time.time()
     session_id = str(uuid4())
+    logger.info(f"[TIMING] API endpoint started for question: {request.question[:50]}...")
+    
+    db_config = None
+    if request.database_config:
+        db_config = DatabaseConfig(**request.database_config)
+        logger.info(f"[DB_CONFIG] Received database configuration: {db_config.get_enabled_databases()}")
+    
+    async def process_answer():
+        try:
+            answer_processing_start = time.time()
+            logger.info(f"[DEBUG] Starting get_answer call...")
+            
+            memory = get_session_memory(session_id)
+            logger.info(f"[LANGCHAIN] Initialized new memory for session {session_id}")
+
+            memory.chat_memory.add_user_message(request.question)
+
+            loop = asyncio.get_event_loop()
+            try:
+                raw_answer = await loop.run_in_executor(
+                    None,
+                    rag_main.get_answer,
+                    request.question,
+                    [],
+                    request.state
+                )
+            except Exception as e:
+                logger.error(f"[PIPELINE] rag_main.get_answer failed: {e}")
+                raise
+            
+            if isinstance(raw_answer, dict) and raw_answer.get('answer'):
+                memory.chat_memory.add_ai_message(raw_answer['answer'])
+                logger.info(f"[LANGCHAIN] Added AI response to new session memory {session_id}")
+            else:
+                memory.chat_memory.add_ai_message(str(raw_answer))
+                logger.info(f"[LANGCHAIN] Added AI response (string) to new session memory {session_id}")
+            
+            answer_processing_time = time.time() - answer_processing_start
+            logger.info(f"[TIMING] Answer processing took: {answer_processing_time:.3f}s")
+            logger.info(f"[DEBUG] Raw answer received: {str(raw_answer.get('answer', ''))[:100]}...")
+            
+            return raw_answer
+            
+        except Exception as e:
+            logger.error(f"[DEBUG] Error in get_answer: {e}")
+            logger.error(f"[DEBUG] Exception type: {type(e)}")
+            raise e
+    
+    tasks = [process_answer()]
+    
+    if not DISABLE_RECOMMENDATIONS and PARALLEL_RECOMMENDATIONS:
+        tasks.append(get_question_recommendations_async(request.question, request.state, 4))
+    
     try:
-        raw_answer = get_answer(question, conversation_history=None, user_state=state)
-        logger.info(f"[DEBUG] Raw answer: {raw_answer}")
-        logger.info(f"[DEBUG] Raw answer type: {type(raw_answer)}")
-        
-        answer_only = str(raw_answer).strip()
-        
+        if len(tasks) > 1:
+            parallel_start = time.time()
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            parallel_time = time.time() - parallel_start
+            logger.info(f"[TIMING] Parallel processing took: {parallel_time:.3f}s")
+            
+            answer_result = results[0]
+            if isinstance(answer_result, Exception):
+                raise answer_result
+                
+            recommendations = results[1] if len(results) > 1 and not isinstance(results[1], Exception) else []
+            if isinstance(results[1], Exception):
+                logger.error(f"Parallel recommendations failed: {results[1]}")
+                recommendations = []
+        else:
+            answer_result = await tasks[0]
+            recommendations = []
     except Exception as e:
-        logger.error(f"[DEBUG] Error in get_answer: {e}")
+        logger.error(f"[DEBUG] Error in parallel processing: {e}")
         return JSONResponse(status_code=500, content={"error": "LLM processing failed."})
 
-    logger.info(f"[DEBUG] Answer after processing: {answer_only}")
-    html_answer = markdown.markdown(answer_only, extensions=["extra", "nl2br"])
-    logger.info(f"[DEBUG] HTML answer: {html_answer}")
+    answer_only = answer_result.get('answer', '') if isinstance(answer_result, dict) else str(answer_result)
 
+    markdown_processing_start = time.time()
+    html_answer = markdown.markdown(answer_only, extensions=["extra", "nl2br"])
+    markdown_processing_time = time.time() - markdown_processing_start
+    logger.info(f"[TIMING] Markdown processing took: {markdown_processing_time:.3f}s")
+
+    session_creation_start = time.time()
+    
+    message = {
+        "question": request.question,
+        "thinking": answer_result.get('thinking', '') if isinstance(answer_result, dict) else '',
+        "final_answer": html_answer,
+        "answer": html_answer,
+        "rating": None
+    }
+    
+    if isinstance(answer_result, dict):
+        if 'research_data' in answer_result:
+            message['research_data'] = answer_result['research_data']
+        if 'source' in answer_result:
+            message['source'] = answer_result['source']
+        if 'ragas_score' in answer_result:
+            message['ragas_score'] = answer_result['ragas_score']
+        sources = []
+        if answer_result.get('research_data'):
+            for d in answer_result.get('research_data'):
+                src = d.get('source') or d.get('collection_type') or 'unknown'
+                preview = d.get('content_preview') or (d.get('page_content') or '')[:300]
+                sources.append({"source": src, "preview": preview, "metadata": d.get('metadata', {})})
+        elif answer_result.get('source'):
+            sources.append({"source": answer_result.get('source'), "preview": ''})
+        if sources:
+            message['sources'] = sources
+    
     session = {
         "session_id": session_id,
         "timestamp": datetime.now(IST).isoformat(),
-        "messages": [{"question": question, "answer": html_answer, "rating": None}],
+        "messages": [message],
         "crop": "unknown",
-        "state": state,
+        "state": request.state,
         "status": "active",
-        "language": language,
+        "language": request.language,
         "has_unread": True,
-        "device_id": device_id
+        "device_id": request.device_id
     }
 
     sessions_collection.insert_one(session)
     session.pop("_id", None)
+    session_creation_time = time.time() - session_creation_start
+    logger.info(f"[TIMING] Session creation took: {session_creation_time:.3f}s")
     
-    # Get recommendations for this question
-    try:
-        recommendations = get_question_recommendations(
-            user_question=question,
-            user_state=state,
-            limit=2
-        )
+    recommendations_start = time.time()
+    if not DISABLE_RECOMMENDATIONS:
+        if not PARALLEL_RECOMMENDATIONS:
+            try:
+                recommendations = get_question_recommendations(
+                    user_question=request.question,
+                    user_state=request.state,
+                    limit=4
+                )
+                logger.info(f"Added {len(recommendations)} recommendations to session response (sequential)")
+            except Exception as e:
+                logger.error(f"Failed to get sequential recommendations: {e}")
+                recommendations = []
+        else:
+            logger.info(f"Added {len(recommendations)} recommendations to session response (parallel)")
+        
         session["recommendations"] = recommendations
-        logger.info(f"Added {len(recommendations)} recommendations to session response")
-    except Exception as e:
-        logger.error(f"Failed to get recommendations: {e}")
+    else:
         session["recommendations"] = []
+        logger.info(f"[PERFORMANCE] Recommendations disabled for speed optimization")
+    recommendations_time = time.time() - recommendations_start
+    logger.info(f"[TIMING] Recommendations handling took: {recommendations_time:.3f}s")
+    
+    total_api_time = time.time() - api_start_time
+    logger.info(f"[TIMING] TOTAL API processing took: {total_api_time:.3f}s")
     
     return {"session": session}
 
@@ -428,71 +1111,259 @@ async def get_session(session_id: str):
     return {"session": session}
 
 @app.post("/api/session/{session_id}/query")
-async def continue_session(session_id: str, question: str = Form(...), device_id: str = Form(...), state: str = Form("")):
+async def continue_session(session_id: str, request: SessionQueryRequest):
     session = sessions_collection.find_one({"session_id": session_id})
-    if not session or session.get("status") == "archived" or session.get("device_id") != device_id:
+    if not session or session.get("status") == "archived" or session.get("device_id") != request.device_id:
         return JSONResponse(status_code=403, content={"error": "Session is archived, missing or unauthorized"})
 
+    db_config = None
+    if request.database_config:
+        db_config = DatabaseConfig(**request.database_config)
+        logger.info(f"[DB_CONFIG] Received database configuration for session: {db_config.get_enabled_databases()}")
+
+    async def process_session_answer():
+        try:
+            memory = get_session_memory(session_id)
+            logger.info(f"[LANGCHAIN] Retrieved memory for session {session_id}: {len(memory.chat_memory.messages)} messages")
+            
+            conversation_history = convert_langchain_memory_to_history(memory)
+            logger.info(f"[LANGCHAIN] Using {len(conversation_history)} conversation pairs from memory")
+            
+            current_state = request.state or session.get("state", "unknown")
+            
+            memory.chat_memory.add_user_message(request.question)
+            loop = asyncio.get_event_loop()
+            try:
+                raw_answer = await loop.run_in_executor(None, rag_main.get_answer, request.question, conversation_history, current_state)
+            except Exception as e:
+                logger.error(f"[PIPELINE] rag_main.get_answer failed for session: {e}")
+                raise
+
+            if isinstance(raw_answer, dict) and raw_answer.get('answer'):
+                memory.chat_memory.add_ai_message(raw_answer['answer'])
+                logger.info(f"[LANGCHAIN] Added AI response to memory for session {session_id}")
+            else:
+                memory.chat_memory.add_ai_message(str(raw_answer))
+                logger.info(f"[LANGCHAIN] Added AI response (string) to memory for session {session_id}")
+
+            return raw_answer
+            
+        except Exception as e:
+            logger.error(f"[DEBUG] Error in get_answer: {e}")
+            raise e
+    
+    tasks = [process_session_answer()]
+    
+    current_state = request.state or session.get("state", "unknown")
+    if not DISABLE_RECOMMENDATIONS and PARALLEL_RECOMMENDATIONS:
+        logger.info("[PARALLEL] Starting session recommendations in parallel with answer processing")
+    tasks.append(get_question_recommendations_async(request.question, current_state, 4))
+    
     try:
-        conversation_history = []
-        messages = session.get("messages", [])
-        
-        for msg in messages[-5:]:
-            if "question" in msg and "answer" in msg:
-                from bs4 import BeautifulSoup
-                clean_answer = BeautifulSoup(msg["answer"], "html.parser").get_text()
-                conversation_history.append({
-                    "question": msg["question"],
-                    "answer": clean_answer
-                })
-        
-        logger.info(f"[DEBUG] Using conversation context: {len(conversation_history)} previous interactions")
-        
-        current_state = state or session.get("state", "unknown")
-        raw_answer = get_answer(question, conversation_history=conversation_history, user_state=current_state)
+        if len(tasks) > 1:
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            answer_result = results[0]
+            if isinstance(answer_result, Exception):
+                raise answer_result
+                
+            recommendations = results[1] if len(results) > 1 and not isinstance(results[1], Exception) else []
+            if isinstance(results[1], Exception):
+                logger.error(f"Parallel session recommendations failed: {results[1]}")
+                recommendations = []
+        else:
+            answer_result = await tasks[0]
+            recommendations = []
+            
     except Exception as e:
-        logger.error(f"[DEBUG] Error in get_answer: {e}")
+        logger.error(f"[DEBUG] Error in parallel session processing: {e}")
         return JSONResponse(status_code=500, content={"error": "LLM processing failed."})
 
-    answer_only = str(raw_answer).strip()
+    answer_only = answer_result.get('answer', '') if isinstance(answer_result, dict) else str(answer_result)
     html_answer = markdown.markdown(answer_only, extensions=["extra", "nl2br"])
 
+    new_message = {
+        "question": request.question,
+        "thinking": answer_result.get('thinking', '') if isinstance(answer_result, dict) else '',
+        "final_answer": html_answer,
+        "answer": html_answer,
+        "rating": None
+    }
+    
+    if isinstance(answer_result, dict):
+        if 'research_data' in answer_result:
+            new_message['research_data'] = answer_result['research_data']
+        if 'source' in answer_result:
+            new_message['source'] = answer_result['source']
+        if 'ragas_score' in answer_result:
+            new_message['ragas_score'] = answer_result['ragas_score']
+
+        sources = []
+        if answer_result.get('research_data'):
+            for d in answer_result.get('research_data'):
+                src = d.get('source') or d.get('collection_type') or 'unknown'
+                preview = d.get('content_preview') or (d.get('page_content') or '')[:300]
+                sources.append({"source": src, "preview": preview, "metadata": d.get('metadata', {})})
+        elif answer_result.get('source'):
+            sources.append({"source": answer_result.get('source'), "preview": ''})
+        if sources:
+            new_message['sources'] = sources
+
     crop = session.get("crop", "unknown")
-    state = state or session.get("state", "unknown")
+    current_state = request.state or session.get("state", "unknown")
 
     sessions_collection.update_one(
         {"session_id": session_id},
         {
-            "$push": {"messages": {"question": question, "answer": html_answer, "rating": None}},
+            "$push": {"messages": new_message},
             "$set": {
                 "has_unread": True,
                 "crop": crop,
-                "state": state,
+                "state": current_state,
                 "timestamp": datetime.now(IST).isoformat()
             },
-        },
+        }
     )
-
     updated = sessions_collection.find_one({"session_id": session_id})
     if updated:
         updated.pop("_id", None)
         
-        # Get recommendations for the latest question
-        try:
-            recommendations = get_question_recommendations(
-                user_question=question,
-                user_state=state,
-                limit=2
-            )
-            updated["recommendations"] = recommendations
-            logger.info(f"Added {len(recommendations)} recommendations to continue session response")
-        except Exception as e:
-            logger.error(f"Failed to get recommendations: {e}")
+        if not DISABLE_RECOMMENDATIONS:
+            if not PARALLEL_RECOMMENDATIONS:
+                try:
+                    recommendations = get_question_recommendations(
+                        user_question=request.question,
+                        user_state=current_state,
+                        limit=4
+                    )
+                    updated["recommendations"] = recommendations
+                    logger.info(f"Added {len(recommendations)} session recommendations (sequential)")
+                except Exception as e:
+                    logger.error(f"Failed to get sequential session recommendations: {e}")
+                    updated["recommendations"] = []
+            else:
+                updated["recommendations"] = recommendations
+                logger.info(f"Added {len(recommendations)} session recommendations (parallel)")
+        else:
             updated["recommendations"] = []
+            logger.info(f"[PERFORMANCE] Session recommendations disabled for speed optimization")
     
     return {"session": updated}
 
-# Streaming endpoint for better UX
+@app.post("/api/query/thinking-stream")
+async def thinking_stream_query(request: QueryRequest):
+    """
+    Streaming endpoint that shows real-time thinking process followed by answer
+    """
+    async def generate_stream():
+        import json
+        import asyncio
+        
+        session_id = str(uuid4())
+        try:
+            yield f"data: {json.dumps({'type': 'session_start', 'session_id': session_id})}\n\n"
+            
+            if USE_FAST_MODE and fast_handler:
+                # Start thinking phase
+                yield f"data: {json.dumps({'type': 'thinking_start'})}\n\n"
+                
+                # Stream thinking tokens in real-time
+                thinking_content = ''
+                if fast_handler.reasoner_llm:
+                    try:
+                        reasoner_prompt = (
+                            f"Think step-by-step about this agricultural question. Consider what information would be needed "
+                            f"from the database and what factors are important. Keep your thinking concise and focused.\n\nQuestion: {request.question}\n"
+                        )
+                        
+                        # Stream thinking directly from LLM
+                        current_text = ''
+                        for ev in fast_handler.reasoner_llm.stream_generate(reasoner_prompt, model=fast_handler.reasoner_llm.model_name, temperature=0.1):
+                            if ev.get('type') == 'token':
+                                token = ev.get('text', '')
+                                current_text += token
+                                yield f"data: {json.dumps({'type': 'thinking_token', 'token': token, 'text': current_text})}\n\n"
+                        
+                        thinking_content = current_text.strip()
+                        
+                    except Exception as e:
+                        logger.debug(f"[STREAM] Reasoner streaming failed: {e}")
+                        thinking_content = ''
+                
+                # Mark thinking complete
+                yield f"data: {json.dumps({'type': 'thinking_complete', 'thinking': thinking_content})}\n\n"
+                
+                # Now get the actual answer
+                yield f"data: {json.dumps({'type': 'answer_start'})}\n\n"
+                
+                loop = asyncio.get_event_loop()
+                result = await loop.run_in_executor(
+                    None,
+                    lambda: rag_main.get_answer(request.question, [], request.state)
+                )
+                
+                if isinstance(result, dict):
+                    answer_text = result.get('answer', '')
+                    clean_answer = answer_text  # Don't extract thinking since we already streamed it
+                    
+                    # Send final answer
+                    yield f"data: {json.dumps({'type': 'answer', 'answer': clean_answer, 'source': result.get('source', ''), 'confidence': result.get('confidence', 0.0)})}\n\n"
+                    
+                    # Create session record
+                    html_answer = markdown.markdown(clean_answer, extensions=["extra", "nl2br"])
+                    
+                    message = {
+                        "question": request.question,
+                        "thinking": thinking_content,
+                        "final_answer": html_answer,
+                        "answer": html_answer,
+                        "rating": None
+                    }
+                    
+                    if 'research_data' in result:
+                        message['research_data'] = result['research_data']
+                    if 'source' in result:
+                        message['source'] = result['source']
+                    
+                    session = {
+                        "session_id": session_id,
+                        "timestamp": datetime.now(IST).isoformat(),
+                        "messages": [message],
+                        "crop": "unknown",
+                        "state": request.state,
+                        "status": "active",
+                        "language": request.language,
+                        "has_unread": True,
+                        "device_id": request.device_id
+                    }
+                    
+                    sessions_collection.insert_one(session)
+                    session.pop("_id", None)
+                    
+                    # Send session info
+                    yield f"data: {json.dumps({'type': 'session_complete', 'session': session})}\n\n"
+                else:
+                    yield f"data: {json.dumps({'type': 'error', 'message': 'Failed to get response'})}\n\n"
+            else:
+                yield f"data: {json.dumps({'type': 'error', 'message': 'Fast mode not available'})}\n\n"
+                
+        except Exception as e:
+            logger.error(f"[STREAM] Error in thinking stream: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'message': 'Processing failed'})}\n\n"
+        
+        yield f"data: {json.dumps({'type': 'stream_end'})}\n\n"
+    
+    return StreamingResponse(
+        generate_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )
+
 @app.post("/api/query/stream")
 async def stream_query(question: str = Form(...), device_id: str = Form(...), state: str = Form(...), language: str = Form(...)):
     """
@@ -502,7 +1373,6 @@ async def stream_query(question: str = Form(...), device_id: str = Form(...), st
         import json
         import asyncio
         
-        # Send thinking states
         thinking_states = [
             "Understanding your question...",
             "Searching agricultural database...", 
@@ -512,33 +1382,393 @@ async def stream_query(question: str = Form(...), device_id: str = Form(...), st
         
         for i, state in enumerate(thinking_states):
             yield f"data: {json.dumps({'type': 'thinking', 'message': state, 'progress': (i + 1) * 25})}\n\n"
-            await asyncio.sleep(0.5)  # Small delay for better UX
+            await asyncio.sleep(0.5)
         
         try:
-            # Get the actual answer
-            raw_answer = get_answer(question, conversation_history=None, user_state=state)
-            answer_only = str(raw_answer).strip()
-            html_answer = markdown.markdown(answer_only, extensions=["extra", "nl2br"])
-            
-            # Send final response
             session_id = str(uuid4())
-            session = {
-                "session_id": session_id,
-                "timestamp": datetime.now(IST).isoformat(),
-                "messages": [{"question": question, "answer": html_answer, "rating": None}],
-                "crop": "unknown",
-                "state": state,
-                "status": "active",
-                "language": language,
-                "has_unread": True,
-                "device_id": device_id
-            }
+            memory = get_session_memory(session_id)
+            memory.chat_memory.add_user_message(question)
+            logger.info(f"[STREAM] Streaming session {session_id} started for question: {question[:80]}")
+
+
+            classifier_prompt = f"""You are an agricultural expert assistant. Analyze this farmer's question for completeness and classify it.
+
+Current Question: "{question}"
+
+CRITICAL GUIDELINES FOR COMPLETENESS:
+
+MARK AS COMPLETE if the question is:
+1. **Direct Facts**: "What is the seed rate of [crop]?", "How to control [pest/disease]?", "When to harvest [crop]?"
+2. **General Practices**: "How to grow [crop]?", "What fertilizer for [crop]?", "Best varieties of [crop]?"
+3. **Technical Questions**: "What causes [disease] in [crop]?", "How to prepare soil for [crop]?"
+
+MARK AS INCOMPLETE only if:
+1. **Vague Questions**: "What should I grow?", "Help with my crop problem" (no specific crop mentioned)
+2. **Personal Advice Needing Context**: "What's best for my farm?" (no location/conditions given)
+
+EXAMPLES:
+- "What is seed rate of bitter gourd?" → COMPLETE (direct fact)
+- "How to control aphids in cotton?" → COMPLETE (specific pest + crop)
+- "When to plant tomatoes?" → COMPLETE (can give general timing)
+- "What should I grow?" → INCOMPLETE (needs location/conditions)
+- "My crop is dying, help!" → INCOMPLETE (vague, no crop specified)
+
+Current Question: "{question}"
+
+Respond in this format:
+COMPLETENESS: [COMPLETE/INCOMPLETE]  
+QUERY_TYPE: [direct_fact/complex_reasoning/personalized_advice]
+CONFIDENCE: [0.0-1.0]
+MISSING_INFO: [only list if question is truly vague and needs critical context]
+AGRICULTURAL_RELEVANCE: [0.0-1.0]
+REASONING: [brief explanation]"""
+
+            classifier_output = []
+            for event in local_llm.stream_generate(classifier_prompt, model=os.getenv('OLLAMA_MODEL_CLASSIFIER', 'qwen3:1.7b'), temperature=0.0):
+                etype = event.get('type')
+                if etype == 'model':
+                    yield f"data: {json.dumps({'type': 'model', 'model': event.get('model'), 'source': event.get('source')})}\n\n"
+                    continue
+                if etype == 'token':
+                    text = event.get('text')
+                    classifier_output.append(text)
+                    yield f"data: {json.dumps({'type': 'research', 'source': event.get('source'), 'model': event.get('model'), 'chunk': text})}\n\n"
+                elif etype == 'raw':
+                    yield f"data: {json.dumps({'type': 'research_raw', 'source': event.get('source'), 'model': event.get('model'), 'data': event.get('data')})}\n\n"
+                elif etype == 'error':
+                    yield f"data: {json.dumps({'type': 'research_error', 'message': event.get('message')})}\n\n"
+
+            classifier_text = ''.join(classifier_output).strip()
+            logger.info(f"[STREAM] Classifier output length={len(classifier_text)}")
+
+
+            is_incomplete = False
+            completeness_status = "COMPLETE"  # Default to complete for lenient approach
             
-            sessions_collection.insert_one(session)
-            session.pop("_id", None)
+
+            for line in classifier_text.split('\n'):
+                if 'COMPLETENESS:' in line.upper():
+                    if 'INCOMPLETE' in line.upper():
+                        completeness_status = "INCOMPLETE"
+                        is_incomplete = True
+                    break
             
-            yield f"data: {json.dumps({'type': 'complete', 'session': session})}\n\n"
-            
+
+            if 'MISSING_INFO' in classifier_text.upper() and completeness_status == "INCOMPLETE":
+                is_incomplete = True
+
+            try:
+                try_enhanced_query = question
+                try:
+                    recent = memory.chat_memory.messages[-4:]
+                    recent_text = ' '.join([m.content if hasattr(m, 'content') else str(m) for m in recent])
+                    if recent_text:
+                        try_enhanced_query = f"{question} {recent_text[:400]}"
+                except Exception:
+                    pass
+
+                early_docs = []
+                try:
+                    early_docs = query_handler.db.similarity_search_with_score(try_enhanced_query, k=6)
+                except Exception:
+                    early_docs = []
+
+                for d, dist in early_docs:
+                    try:
+                        def _norm_text(t: str) -> str:
+                            return re.sub(r"\s+", " ", (t or '').strip().lower())
+
+                        stored_q = None
+                        try:
+                            stored_q = query_handler._extract_stored_question(d)
+                        except Exception:
+                            stored_q = None
+
+                        stored_q_norm = _norm_text(stored_q) if stored_q else None
+                        question_norm = _norm_text(question)
+
+                        similarity = None
+                        try:
+                            if dist is not None:
+                                similarity = max(0.0, 1.0 - float(dist)) if float(dist) <= 1.0 else float(dist)
+                        except Exception:
+                            similarity = None
+
+                        is_stored_exact = False
+                        if stored_q_norm and question_norm:
+                            if stored_q_norm == question_norm or query_handler._is_exact_question_match(question, stored_q, threshold=0.95):
+                                is_stored_exact = True
+
+                        high_conf_similarity = (similarity is not None and similarity >= 0.85)
+
+                        if is_stored_exact or high_conf_similarity:
+                            doc_state = ''
+                            try:
+                                doc_state = (d.metadata.get('State') or d.metadata.get('state') or '').strip().lower()
+                            except Exception:
+                                doc_state = ''
+
+                            user_state_norm = (state or '').strip().lower() if state is not None else ''
+                            if (not user_state_norm) or (doc_state and user_state_norm and doc_state == user_state_norm) or (not doc_state and not user_state_norm):
+                                answer_text = ''
+                                try:
+                                    content_lines = d.page_content.split('\n') if hasattr(d, 'page_content') else []
+                                    capturing = False
+                                    for line in content_lines:
+                                        if line.strip().lower().startswith('answer:'):
+                                            answer_text = line.split(':', 1)[1].strip()
+                                            capturing = True
+                                        elif capturing and line.strip():
+                                            answer_text += ' ' + line.strip()
+                                        elif capturing and not line.strip():
+                                            break
+                                except Exception:
+                                    answer_text = getattr(d, 'page_content', '')[:2000]
+
+                                final_text = answer_text or getattr(d, 'page_content', '')
+
+                                source_name = 'Golden FAQ' if stored_q_norm else 'RAG Database'
+                                conf_val = None
+                                if similarity is not None:
+                                    conf_val = similarity
+                                else:
+                                    conf_val = 0.95 if is_stored_exact else (0.8 if high_conf_similarity else 0.7)
+
+                                confidence = 'High' if conf_val >= 0.8 else 'Medium' if conf_val >= 0.6 else 'Low'
+
+                                try:
+                                    formatted = response_formatter.format_simple_answer(final_text, source=source_name, similarity=conf_val)
+                                except Exception:
+                                    formatted = f"{final_text}\n\n---\n*Source: {source_name} (Confidence: {confidence})*"
+
+
+                                try:
+                                    formatted_clean = re.sub(r"(Direct Answer:|Answer:|Response:)\s*", "", formatted, flags=re.IGNORECASE).strip()
+                                except Exception:
+                                    formatted_clean = formatted.strip()
+
+                                yield f"data: {json.dumps({'type': 'answer', 'chunk': formatted_clean})}\n\n"
+
+                                html_answer = markdown.markdown(formatted, extensions=["extra", "nl2br"])
+                                memory.chat_memory.add_ai_message(formatted)
+                                session = {"session_id": session_id, "timestamp": datetime.now(IST).isoformat(), "messages": [{"question": question, "answer": html_answer, "rating": None}], "crop": "unknown", "state": state, "status": "active", "language": language, "has_unread": True, "device_id": device_id}
+                                try:
+                                    if sessions_collection:
+                                        sessions_collection.insert_one(session)
+                                        session.pop("_id", None)
+                                except Exception:
+                                    logger.warning("[STREAM] Failed to persist golden-match session to DB")
+
+                                yield f"data: {json.dumps({'type': 'complete', 'session': session})}\n\n"
+                                return
+                    except Exception:
+                        logger.debug("[STREAM] Early golden-match check failed for a doc, continuing")
+                        continue
+            except Exception:
+                pass
+
+            if is_incomplete:
+                query_lower = question.lower()
+                crop_mentioned = None
+                crops = ['rice', 'wheat', 'cotton', 'tomato', 'potato', 'maize', 'corn', 'sugarcane', 'onion', 'soybean']
+                for crop in crops:
+                    if crop in query_lower:
+                        crop_mentioned = crop
+                        break
+                
+                missing_info = []
+                if 'location' in classifier_text.lower() or 'state' in classifier_text.lower():
+                    missing_info.append('location')
+                if 'soil' in classifier_text.lower():
+                    missing_info.append('soil type')
+                if 'season' in classifier_text.lower():
+                    missing_info.append('season')  
+                if 'space' in classifier_text.lower() or 'size' in classifier_text.lower():
+                    missing_info.append('space')
+                
+                recommendations = []
+                if 'location' in missing_info:
+                    recommendations.append("• **Location**: Which state/region are you in?")
+                if 'soil type' in missing_info:
+                    recommendations.append("• **Soil Type**: What type of soil do you have?")
+                if 'season' in missing_info:
+                    recommendations.append("• **Season**: Which season are you planning to grow?")
+                if 'space' in missing_info:
+                    recommendations.append("• **Space**: How much area do you have available?")
+                
+                if not recommendations:
+                    recommendations = [
+                        "• **Location**: Which state/region are you in?",
+                        "• **Space**: How much area do you have available?"
+                    ]
+                
+                recommendations_text = "\n".join(recommendations)
+                
+                if crop_mentioned:
+                    intro = f"I need some additional information to give you the best advice about {crop_mentioned} cultivation."
+                else:
+                    intro = "I need some additional information to give you the best agricultural advice."
+                
+                clarification = f"""{intro}
+
+**To provide accurate recommendations, please tell me:**
+{recommendations_text}
+
+**Why this helps:**
+Agricultural recommendations vary based on your location, available space, and growing conditions. With these details, I can provide specific advice for your situation."""
+                
+                chunk_size = 100
+                for i in range(0, len(clarification), chunk_size):
+                    chunk = clarification[i:i+chunk_size]
+                    yield f"data: {json.dumps({'type': 'answer', 'chunk': chunk})}\n\n"
+                    await asyncio.sleep(0.1)  # Small delay for streaming effect
+
+                final_text = clarification
+                html_answer = markdown.markdown(final_text, extensions=["extra", "nl2br"])
+                memory.chat_memory.add_ai_message(final_text)
+                session = {"session_id": session_id, "timestamp": datetime.now(IST).isoformat(), "messages": [{"question": question, "answer": html_answer, "rating": None}], "crop": "unknown", "state": state, "status": "active", "language": language, "has_unread": True, "device_id": device_id}
+                try:
+                    sessions_collection.insert_one(session)
+                    session.pop("_id", None)
+                except Exception:
+                    logger.warning("[STREAM] Failed to persist clarification session to DB")
+
+                yield f"data: {json.dumps({'type': 'complete', 'session': session})}\n\n"
+                return
+
+            try:
+                enhanced_query = question
+                try:
+                    recent = memory.chat_memory.messages[-4:]
+                    recent_text = ' '.join([m.content if hasattr(m, 'content') else str(m) for m in recent])
+                    if recent_text:
+                        enhanced_query = f"{question} {recent_text[:400]}"
+                except Exception:
+                    pass
+
+                docs = []
+                try:
+                    docs = query_handler.db.similarity_search_with_score(enhanced_query, k=5)
+                except Exception as e:
+                    logger.warning(f"[STREAM] Direct Chroma query failed: {e}")
+
+                best_doc = None
+                best_score = 0.0
+                if docs:
+                    for d, dist in docs:
+                        score = 1.0 - dist if dist is not None else 0.0
+                        if score > best_score:
+                            best_score = score
+                            best_doc = (d, dist)
+
+                if best_doc and best_score > 0.6:
+                    doc, distance = best_doc
+                    meta = doc.metadata if hasattr(doc, 'metadata') else {}
+                    yield f"data: {json.dumps({'type': 'research', 'source': 'rag_direct', 'metadata': meta, 'similarity': best_score})}\n\n"
+                    raw_snippet = (doc.page_content[:1000] + '...') if hasattr(doc, 'page_content') else ''
+                    yield f"data: {json.dumps({'type': 'research_raw', 'source': 'rag_direct', 'data': raw_snippet})}\n\n"
+
+                    struct_prompt = query_handler.STRUCTURED_PROMPT.format(context=doc.page_content, question=question, region_instruction=query_handler.REGION_INSTRUCTION, current_month=datetime.now(IST).strftime('%B'))
+
+                    answer_chunks = []
+                    for event in local_llm.stream_generate(struct_prompt, model=os.getenv('OLLAMA_MODEL_STRUCTURER', 'gemma:latest'), temperature=0.2):
+                        etype = event.get('type')
+                        if etype == 'model':
+                            yield f"data: {json.dumps({'type': 'model', 'model': event.get('model'), 'source': event.get('source')})}\n\n"
+                            continue
+                        if etype == 'token':
+                            chunk = event.get('text')
+                            answer_chunks.append(chunk)
+                            yield f"data: {json.dumps({'type': 'answer', 'chunk': chunk, 'model': event.get('model'), 'source': event.get('source')})}\n\n"
+                        elif etype == 'raw':
+                            yield f"data: {json.dumps({'type': 'research_raw', 'source': event.get('source'), 'model': event.get('model'), 'data': event.get('data')})}\n\n"
+
+                    final_text = ''.join(answer_chunks)
+
+                    eval_prompt = f"Evaluate this response for the question: {question}\nResponse: {final_text}\nProvide QUALITY_SCORE: [1-10] and SATISFACTORY: [YES/NO]"
+                    eval_stream = []
+                    for e in local_llm.stream_generate(eval_prompt, model=os.getenv('OLLAMA_MODEL_CLASSIFIER', 'qwen3:1.7b'), temperature=0.1):
+                        etype = e.get('type')
+                        if etype == 'model':
+                            yield f"data: {json.dumps({'type': 'model', 'model': e.get('model'), 'source': e.get('source')})}\n\n"
+                            continue
+                        if etype == 'token':
+                            yield f"data: {json.dumps({'type': 'research', 'source': e.get('source'), 'model': e.get('model'), 'chunk': e.get('text')})}\n\n"
+                            eval_stream.append(e.get('text'))
+                        elif etype == 'raw':
+                            yield f"data: {json.dumps({'type': 'research_raw', 'source': e.get('source'), 'model': e.get('model'), 'data': e.get('data')})}\n\n"
+
+                    eval_text = ''.join(eval_stream)
+                    quality_score = 0.7
+                    satisfactory = True
+                    if 'QUALITY_SCORE' in eval_text.upper():
+                        try:
+                            score_line = [l for l in eval_text.splitlines() if 'QUALITY_SCORE' in l.upper()]
+                            if score_line:
+                                val = ''.join([c for c in score_line[0] if (c.isdigit() or c=='.') or c==' '])
+                                quality_score = float(val.strip()[:4]) / 10.0 if val.strip() else 0.7
+                        except Exception:
+                            quality_score = 0.7
+                    if 'SATISFACTORY' in eval_text.upper() and 'NO' in eval_text.upper():
+                        satisfactory = False
+
+                    if not satisfactory or quality_score < 0.6:
+                        fallback_prompt = f"The previous structured response didn't fully satisfy the question: {question}\nPrevious response: {final_text}\nPlease provide a complete, accurate, and actionable agricultural response."
+                        for ev in local_llm.stream_generate(fallback_prompt, model=os.getenv('OLLAMA_MODEL_FALLBACK', 'gpt-oss:20b'), temperature=0.3):
+                            etype = ev.get('type')
+                            if etype == 'model':
+                                yield f"data: {json.dumps({'type': 'model', 'model': ev.get('model'), 'source': ev.get('source')})}\n\n"
+                                continue
+                            if etype == 'token':
+                                yield f"data: {json.dumps({'type': 'answer', 'chunk': ev.get('text'), 'model': ev.get('model'), 'source': ev.get('source')})}\n\n"
+                            elif etype == 'raw':
+                                yield f"data: {json.dumps({'type': 'research_raw', 'source': ev.get('source'), 'model': ev.get('model'), 'data': ev.get('data')})}\n\n"
+
+                        persisted_text = final_text
+                    else:
+                        persisted_text = final_text
+
+                    html_answer = markdown.markdown(persisted_text, extensions=["extra", "nl2br"])
+                    memory.chat_memory.add_ai_message(persisted_text)
+                    session = {"session_id": session_id, "timestamp": datetime.now(IST).isoformat(), "messages": [{"question": question, "answer": html_answer, "rating": None}], "crop": "unknown", "state": state, "status": "active", "language": language, "has_unread": True, "device_id": device_id}
+                    try:
+                        sessions_collection.insert_one(session)
+                        session.pop("_id", None)
+                    except Exception:
+                        logger.warning("[STREAM] Failed to persist session to DB")
+
+                    yield f"data: {json.dumps({'type': 'complete', 'session': session})}\n\n"
+                    return
+
+                else:
+                    fallback_prompt = f"No direct database match was found. Answer this agricultural question comprehensively: {question}"
+                    for ev in local_llm.stream_generate(fallback_prompt, model=os.getenv('OLLAMA_MODEL_FALLBACK', 'gpt-oss:20b'), temperature=0.3):
+                        etype = ev.get('type')
+                        if etype == 'model':
+                            yield f"data: {json.dumps({'type': 'model', 'model': ev.get('model'), 'source': ev.get('source')})}\n\n"
+                            continue
+                        if etype == 'token':
+                            yield f"data: {json.dumps({'type': 'answer', 'chunk': ev.get('text'), 'model': ev.get('model'), 'source': ev.get('source')})}\n\n"
+                        elif etype == 'raw':
+                            yield f"data: {json.dumps({'type': 'research_raw', 'source': ev.get('source'), 'model': ev.get('model'), 'data': ev.get('data')})}\n\n"
+
+                    final_text = ''
+                    html_answer = markdown.markdown(final_text, extensions=["extra", "nl2br"])
+                    memory.chat_memory.add_ai_message(final_text)
+                    session = {"session_id": session_id, "timestamp": datetime.now(IST).isoformat(), "messages": [{"question": question, "answer": html_answer, "rating": None}], "crop": "unknown", "state": state, "status": "active", "language": language, "has_unread": True, "device_id": device_id}
+                    try:
+                        sessions_collection.insert_one(session)
+                        session.pop("_id", None)
+                    except Exception:
+                        logger.warning("[STREAM] Failed to persist fallback session to DB")
+
+                    yield f"data: {json.dumps({'type': 'complete', 'session': session})}\n\n"
+                    return
+
+            except Exception as e:
+                logger.error(f"[STREAM] Pipeline error: {e}")
+                yield f"data: {json.dumps({'type': 'error', 'message': 'Processing failed. Please try again.'})}\n\n"
+
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'message': 'Processing failed. Please try again.'})}\n\n"
     
@@ -635,10 +1865,9 @@ async def transcribe_audio(file: UploadFile = File(...), language: str = Form("E
 
         logger.info(f"Using language: {language} (Local Whisper)")
 
-        # Transcribe using Local Whisper (GPU-accelerated)
-        transcript = local_whisper.transcribe_audio(contents, file.filename)
+        whisper_instance = get_whisper_instance()
+        transcript = whisper_instance.transcribe_audio(contents, file.filename)
 
-        # Check if transcription failed
         if transcript.startswith("Error:"):
             logger.error(f"Local Whisper transcription failed: {transcript}")
             return JSONResponse(
@@ -677,11 +1906,10 @@ async def get_recommendations(data: dict = Body(...)):
                 content={"error": "Question is required"}
             )
         
-        # Get recommendations
         recommendations = get_question_recommendations(
             user_question=user_question,
             user_state=user_state,
-            limit=min(limit, 5)  # Max 5 recommendations
+            limit=min(limit, 5)
         )
         
         return {
@@ -700,193 +1928,62 @@ async def get_recommendations(data: dict = Body(...)):
             content={"error": "Failed to generate recommendations"}
         )
 
-# OLD TRANSCRIBE-AUDIO
-# HF_API_URL = "https://api-inference.huggingface.co/models/openai/whisper-large-v3" # using this whisper model
-# HF_API_URL = "https://api-inference.huggingface.co/models/openai/whisper-tiny"
-# HF_API_TOKEN = os.getenv("HF_API_TOKEN")  
 
-# @app.post("/api/transcribe-audio")
-# async def transcribe_audio(file: UploadFile = File(...)):
-#     try:
-#         logger.info(f"Received file: {file.filename}")
 
-#         contents = await file.read()
-#         logger.info(f"File size: {len(contents)} bytes")
 
-#         content_type = file.content_type
-#         if file.filename:
-#             if file.filename.lower().endswith('.wav'):
-#                 content_type = "audio/wav"
-#             elif file.filename.lower().endswith('.mp3'):
-#                 content_type = "audio/mpeg"
-#             elif file.filename.lower().endswith('.flac'):
-#                 content_type = "audio/flac"
-#             elif file.filename.lower().endswith('.ogg'):
-#                 content_type = "audio/ogg"
-#             elif file.filename.lower().endswith('.m4a'):
-#                 content_type = "audio/m4a"
-#             elif file.filename.lower().endswith('.webm'):
-#                 content_type = "audio/webm"
 
-#         logger.info(f"Using content type: {content_type}")
 
-#         headers = {
-#             "Content-Type": content_type,
-#         }
 
-#         if HF_API_TOKEN and HF_API_TOKEN.strip():
-#             headers["Authorization"] = f"Bearer {HF_API_TOKEN}"
-#             logger.info("Using authenticated request")
-#         else:
-#             logger.info("Trying without authentication (public model)")
 
-#         logger.info(f"Transcribing with whisper-tiny model")
 
-#         response = requests.post(HF_API_URL, headers=headers, data=contents, timeout=60)
 
-#         logger.info(f"HF Status: {response.status_code}")
-#         logger.info(f"HF Response: {response.text[:500]}...")
 
-#         if response.status_code == 200:
-#             try:
-#                 result = response.json()
-#                 transcript = result.get("text") or result.get("generated_text")
 
-#                 if transcript and transcript.strip():
-#                     logger.info(f"Transcription successful: {transcript[:100]}...")
-#                     return {"transcript": transcript.strip()}
-#                 else:
-#                     logger.warning(f"No transcript in response: {result}")
-#                     return JSONResponse(
-#                         status_code=500,
-#                         content={"error": "No transcript found in response", "raw": str(result)}
-#                     )
-#             except Exception as json_error:
-#                 logger.error(f"Failed to parse JSON response: {json_error}")
-#                 return JSONResponse(
-#                     status_code=500,
-#                     content={"error": "Invalid JSON response from Hugging Face", "raw_response": response.text[:500]}
-#                 )
 
-#         elif response.status_code == 503:
-#             return JSONResponse(
-#                 status_code=200,
-#                 content={
-#                     "transcript": f"Audio Processing in Progress! Your audio file '{file.filename}' has been received. Our speech recognition service is currently starting up. Please wait 30-60 seconds and try uploading your audio again. Thank you for your patience!",
-#                     "demo_mode": True,
-#                     "api_status": "working",
-#                     "model_status": "loading_503",
-#                     "file_info": {
-#                         "filename": file.filename,
-#                         "size_bytes": len(contents),
-#                         "content_type": content_type
-#                     },
-#                     "retry_suggestion": "Please wait 30-60 seconds and try again"
-#                 }
-#             )
 
-#         elif response.status_code == 404:
-#             logger.warning("Whisper model returned 404 - not available")
-#             return JSONResponse(
-#                 status_code=200,
-#                 content={
-#                     "transcript": f"Audio Successfully Received! Your audio file '{file.filename}' has been uploaded and processed. However, our speech-to-text service is temporarily unavailable. Please try again in a few minutes, or contact support if the issue persists. We apologize for the inconvenience!",
-#                     "demo_mode": True,
-#                     "api_status": "working",
-#                     "model_status": "unavailable_404", 
-#                     "file_info": {
-#                         "filename": file.filename,
-#                         "size_bytes": len(contents),
-#                         "content_type": content_type
-#                     },
-#                     "debug_info": {
-#                         "hf_status_code": response.status_code,
-#                         "hf_response": response.text[:100],
-#                         "model_url": HF_API_URL,
-#                         "token_provided": bool(HF_API_TOKEN and HF_API_TOKEN.strip())
-#                     },
-#                     "next_steps": "The speech recognition service is temporarily unavailable. Please try again in a few minutes."
-#                 }
-#             )
 
-#         elif response.status_code == 429:
-#             return JSONResponse(
-#                 status_code=200,
-#                 content={
-#                     "transcript": f"Processing Limit Reached! Your audio file '{file.filename}' has been received successfully. However, we're currently processing many requests. Please wait a few minutes and try again. We appreciate your patience!",
-#                     "demo_mode": True,
-#                     "api_status": "working",
-#                     "model_status": "rate_limited_429",
-#                     "file_info": {
-#                         "filename": file.filename,
-#                         "size_bytes": len(contents),
-#                         "content_type": content_type
-#                     },
-#                     "retry_suggestion": "Please wait 3-5 minutes before trying again"
-#                 }
-#             )
 
-#         else:
-#             logger.error(f"Unexpected status code: {response.status_code}")
-#             logger.error(f"Response content: {response.text}")
-#             return JSONResponse(
-#                 status_code=502,
-#                 content={
-#                     "error": f"Hugging Face API error: {response.status_code}",
-#                     "details": response.text[:300],
-#                     "debug_info": f"Headers sent: {dict(headers)}"
-#                 }
-#             )
 
-#     except requests.exceptions.Timeout:
-#         logger.error("Request timed out")
-#         return JSONResponse(
-#             status_code=200,
-#             content={
-#                 "transcript": f"Processing Timeout! Your audio file '{file.filename}' was received, but the transcription service is taking longer than expected. This might be due to high server load. Please try again in a few minutes.",
-#                 "demo_mode": True,
-#                 "api_status": "timeout",
-#                 "model_status": "timeout_504",
-#                 "file_info": {
-#                     "filename": file.filename,
-#                     "size_bytes": len(contents),
-#                     "content_type": content_type if 'content_type' in locals() else "unknown"
-#                 },
-#                 "retry_suggestion": "Please try again in 2-3 minutes"
-#             }
-#         )
-#     except requests.exceptions.ConnectionError:
-#         logger.error("Connection error")
-#         return JSONResponse(
-#             status_code=200,
-#             content={
-#                 "transcript": f"Connection Issue! Your audio file '{file.filename}' was received, but we're having trouble connecting to our speech recognition service. Please check your internet connection and try again.",
-#                 "demo_mode": True,
-#                 "api_status": "connection_error",
-#                 "model_status": "connection_failed_503",
-#                 "file_info": {
-#                     "filename": file.filename,
-#                     "size_bytes": len(contents),
-#                     "content_type": content_type if 'content_type' in locals() else "unknown"
-#                 },
-#                 "retry_suggestion": "Please check your internet connection and try again"
-#             }
-#         )
-#     except Exception as e:
-#         logger.exception("Transcription failed with unexpected error")
-#         return JSONResponse(
-#             status_code=200, 
-#             content={
-#                 "transcript": f"Unexpected Error! Your audio file '{file.filename}' was received, but we encountered an unexpected issue during processing. Our technical team has been notified. Please try again later.",
-#                 "demo_mode": True,
-#                 "api_status": "error",
-#                 "model_status": "internal_error_500",
-#                 "file_info": {
-#                     "filename": file.filename if 'file' in locals() and hasattr(file, 'filename') else "unknown",
-#                     "size_bytes": len(contents) if 'contents' in locals() else 0,
-#                     "content_type": content_type if 'content_type' in locals() else "unknown"
-#                 },
-#                 "error_details": str(e),
-#                 "retry_suggestion": "Please try again later or contact support if the issue persists"
-#             }
-#         )
+
+@app.post("/api/test-database-toggle")
+async def test_database_toggle(
+    question: str = Form(...),
+    golden_db: bool = Form(False),
+    rag_db: bool = Form(False), 
+    pops_db: bool = Form(False),
+    llm_fallback: bool = Form(False)
+):
+    """Test endpoint for database toggle functionality"""
+    db_config = DatabaseConfig(
+        golden_db_enabled=golden_db,
+        rag_db_enabled=rag_db,
+        pops_db_enabled=pops_db,
+        llm_fallback_enabled=llm_fallback
+    )
+    
+    try:
+        response = await get_answer(question, None, "unknown", None, db_config if not db_config.is_traditional_mode() else None)
+        
+        return {
+            "question": question,
+            "answer": response,
+            "database_config": {
+                "golden_db_enabled": golden_db,
+                "rag_db_enabled": rag_db,
+                "pops_db_enabled": pops_db,
+                "llm_fallback_enabled": llm_fallback,
+                "mode": "traditional" if db_config.is_traditional_mode() else "selective",
+                "enabled_databases": db_config.get_enabled_databases()
+            }
+        }
+    except Exception as e:
+        logger.error(f"[TEST] Error in database toggle test: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Database toggle test failed: {str(e)}"}
+        )
+
+
+if __name__ == '__main__':
+    import uvicorn
+    uvicorn.run("app:app", host="0.0.0.0", port=8000, log_level="info")

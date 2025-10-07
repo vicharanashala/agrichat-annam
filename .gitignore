@@ -1,7 +1,14 @@
 # Environment variables
+*.env
 .env
 agrichat-backend/Agentic_RAG/.env
 agrichat-backend/Agentic_RAG/data/
+agrichat-backend/Agentic_RAG/new_structure/
+
+# Excluded folders
+new_structure/
+Package_of_practice/
+chromaDb/
 
 agri_text_classification.ipynb
 bad_text_classifier.ipynb

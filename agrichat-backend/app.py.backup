@@ -38,15 +38,7 @@ agentic_rag_path = os.path.join(current_dir, "Agentic_RAG")
 sys.path.insert(0, agentic_rag_path)
 load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
 
-from crewai import Crew
-from Agentic_RAG.crew_agents import (
-    Retriever_Agent, Grader_agent,
-    hallucination_grader, answer_grader
-)
-from Agentic_RAG.crew_tasks import (
-    retriever_task, grader_task,
-    hallucination_task, answer_task
-)
+# CrewAI has been archived. Use the unified RAG + FastResponseHandler pipeline instead.
 
 chroma_db_path = os.path.join(current_dir, "Agentic_RAG", "chromaDb")
 logger.info(f"[DEBUG] ChromaDB path: {chroma_db_path}")
