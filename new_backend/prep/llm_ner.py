@@ -6,7 +6,7 @@ from llm_clients.wrapper import LLMWrapper
 
 
 
-def llm_ner(text, labels, model_name='gemini-2.5-flash'):
+def llm_ner(text, labels, model_name='llama3.1'):
     """
     Identifies named entities, their types, and relations from text using an LLM.
 
@@ -58,9 +58,9 @@ def llm_ner(text, labels, model_name='gemini-2.5-flash'):
         {text}
         """
 
-    llm_client = LLMWrapper(client_type='gemini') 
+    llm_client = LLMWrapper(client_type='ollama') 
     
-    raw_response = llm_client.generate_text(prompt=system_prompt, model=model_name) 
+    raw_response = llm_client.invoke(system_prompt, model=model_name) 
     
     # Extract the JSON part of the response
     try:
