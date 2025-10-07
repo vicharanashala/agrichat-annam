@@ -85,6 +85,7 @@ body.sidebar-collapsed {
   display: flex;
   gap: 10px;
   margin-top: 15px;
+  align-items: center;
 }
 
 .btn {
@@ -98,12 +99,24 @@ body.sidebar-collapsed {
   text-decoration: none;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
+  height: 36px;
+  min-width: fit-content;
+  line-height: 1;
+}
+
+.btn i {
+  font-size: 12px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
 }
 
 .btn-new {
   background: #8da961;
   color: var(--white);
+  flex: 1;
 }
 
 .btn-new:hover {
@@ -115,6 +128,7 @@ body.sidebar-collapsed {
   background: rgba(255, 255, 255, 0.2);
   color: var(--white);
   border: 1px solid rgba(255, 255, 255, 0.3);
+  flex: 1;
 }
 
 .btn-toggle:hover {
@@ -2225,7 +2239,7 @@ select option:checked {
 }
 
 .bot-answer blockquote::before {
-  content: "💡";
+  content: "";
   position: absolute;
   top: 0.5em;
   right: 0.8em;
@@ -2573,6 +2587,129 @@ select option:checked {
   }
 }
 
+/* ===== THINKING STREAM ANIMATIONS AND STYLES ===== */
+
+/* Blinking cursor animation */
+@keyframes blink {
+
+  0%,
+  50% {
+    opacity: 1;
+  }
+
+  51%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Spinner animation */
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Completion pulse animation */
+@keyframes completePulse {
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.02);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Thinking container styles */
+.thinking-message {
+  animation: slideInFromLeft 0.4s ease-out;
+}
+
+@keyframes slideInFromLeft {
+  0% {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Thinking content animations */
+.thinking-content {
+  transition: all 0.3s ease;
+}
+
+.thinking-cursor {
+  font-weight: bold;
+  color: #7dd87d;
+  animation: blink 1s infinite;
+}
+
+/* Header hover effects */
+.thinking-header:hover {
+  background: linear-gradient(135deg, #2d4a34, #3a5a41) !important;
+  transform: scale(1.01);
+}
+
+.thinking-header:active {
+  transform: scale(0.99);
+}
+
+/* Content wrapper transitions */
+.thinking-content-wrapper {
+  transition: max-height 0.4s ease-in-out, padding 0.4s ease;
+  overflow: hidden;
+}
+
+/* Toggle button animations */
+.thinking-toggle {
+  transition: transform 0.3s ease, color 0.3s ease;
+}
+
+/* Smooth scroll for auto-expansion */
+.thinking-section.auto-expand {
+  scroll-behavior: smooth;
+}
+
+/* Enhanced contrast for thinking text */
+.thinking-content strong {
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* Mobile responsiveness for thinking sections */
+@media (max-width: 768px) {
+  .thinking-section {
+    margin-bottom: 10px;
+  }
+
+  .thinking-header {
+    padding: 10px 12px !important;
+    font-size: 0.9em;
+  }
+
+  .thinking-content {
+    padding: 12px !important;
+    font-size: 0.85em;
+  }
+
+  .thinking-content-wrapper {
+    max-height: 200px !important;
+  }
+}
+
 /* For smaller mobile devices */
 @media (max-width: 415px) {
 
@@ -2719,4 +2856,144 @@ select option:checked {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* Answer section specific styling */
+.answer-header:hover {
+  background: linear-gradient(135deg, #34ce57, #28a745) !important;
+  transform: translateY(-1px);
+}
+
+.answer-header:active {
+  transform: translateY(0px);
+}
+
+.answer-content-wrapper {
+  transition: max-height 0.4s ease, overflow 0.4s ease, padding 0.4s ease;
+}
+
+.answer-section .message-source {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-left: 3px solid rgba(255, 255, 255, 0.3) !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.answer-section .action-btn {
+  transition: all 0.2s ease !important;
+}
+
+.answer-section .action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* ===== ANSWER SECTION MARKDOWN STYLING ===== */
+
+/* Ensure all markdown elements in answer sections have proper white text */
+.answer-section .bot-answer h1,
+.answer-section .bot-answer h2,
+.answer-section .bot-answer h3,
+.answer-section .bot-answer h4,
+.answer-section .bot-answer h5,
+.answer-section .bot-answer h6 {
+  color: var(--white) !important;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.answer-section .bot-answer p {
+  color: var(--white);
+  margin-bottom: 0.8em;
+  line-height: 1.6;
+}
+
+.answer-section .bot-answer ul,
+.answer-section .bot-answer ol {
+  color: var(--white);
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+.answer-section .bot-answer li {
+  color: var(--white);
+  margin-bottom: 0.3em;
+  line-height: 1.5;
+}
+
+.answer-section .bot-answer strong,
+.answer-section .bot-answer b {
+  color: var(--white);
+  font-weight: 600;
+}
+
+.answer-section .bot-answer em,
+.answer-section .bot-answer i {
+  color: var(--white);
+  font-style: italic;
+}
+
+.answer-section .bot-answer code {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--white);
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+.answer-section .bot-answer pre {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--white);
+  padding: 1em;
+  border-radius: 5px;
+  overflow-x: auto;
+  margin: 0.5em 0;
+}
+
+.answer-section .bot-answer blockquote {
+  border-left: 3px solid rgba(255, 255, 255, 0.3);
+  padding-left: 1em;
+  margin: 0.5em 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-style: italic;
+}
+
+.answer-section .bot-answer table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5em 0;
+}
+
+.answer-section .bot-answer th,
+.answer-section .bot-answer td {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 0.5em;
+  text-align: left;
+  color: var(--white);
+}
+
+.answer-section .bot-answer th {
+  background: rgba(255, 255, 255, 0.1);
+  font-weight: 600;
+}
+
+/* Thinking box scrollbar styling */
+.thinking-content-wrapper::-webkit-scrollbar {
+  width: 6px;
+}
+
+.thinking-content-wrapper::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.thinking-content-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+.thinking-content-wrapper::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
 }

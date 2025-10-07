@@ -39,7 +39,7 @@ services:
       - CUDA_VISIBLE_DEVICES=0,1
       - OLLAMA_NUM_PARALLEL=4
       - OLLAMA_MAX_LOADED_MODELS=2
-      # Enhanced Context Manager Configuration
+      # Context Manager Configuration
       - CONTEXT_MEMORY_STRATEGY=${CONTEXT_MEMORY_STRATEGY:-auto}
       - CONTEXT_MAX_PAIRS=${CONTEXT_MAX_PAIRS:-5}
       - CONTEXT_MAX_TOKENS=${CONTEXT_MAX_TOKENS:-800}
@@ -74,7 +74,7 @@ services:
       timeout: 30s
       retries: 5
       start_period: 180s
-    # Optimized command for production with memory efficiency
+    # Production command with memory efficiency
     command: >
       sh -c "
         echo 'Starting AgriChat Backend with Enhanced Context Manager...' &&

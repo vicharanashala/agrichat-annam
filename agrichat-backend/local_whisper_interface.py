@@ -37,16 +37,16 @@ class LocalWhisperInterface:
             
             # Load model directly without checking cache (model should already be cached)
             self.model = whisper.load_model(self.model_size, download_root=cache_dir)
-            print(f"✅ Whisper {self.model_size} model loaded successfully from cache!")
+            print(f"Whisper {self.model_size} model loaded successfully from cache")
             
             import torch
             if torch.cuda.is_available():
-                print(f"🚀 Using GPU acceleration with {torch.cuda.get_device_name()}")
+                print(f"Using GPU acceleration with {torch.cuda.get_device_name()}")
             else:
                 print("💻 Using CPU inference (GPU not available)")
                 
         except Exception as e:
-            print(f"❌ Failed to load Whisper model: {e}")
+            print(f"Failed to load Whisper model: {e}")
             self.model = None
     
     def transcribe_audio(self, audio_data: bytes, filename: str = "audio") -> str:

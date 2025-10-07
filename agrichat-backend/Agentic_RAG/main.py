@@ -113,14 +113,12 @@ if __name__ == "__main__":
                         print(f"Metadata: {meta_preview}")
                     print('-' * 40)
 
-            # If reasoning steps are present, show them for transparency
             reasoning = result.get('reasoning_steps') or []
             if reasoning:
                 print("\n--- Reasoning Steps ---")
                 for step in reasoning:
                     print(f"- {step}")
 
-            # Print sources footer when present
             src = result.get('source')
             sim = result.get('similarity') or result.get('confidence') or 0.0
             meta = result.get('metadata') or {}
@@ -129,7 +127,6 @@ if __name__ == "__main__":
                 footer_lines.append(f"Source: {src}")
             footer_lines.append(f"Confidence/Similarity: {sim:.2f}")
             if meta:
-                # show a compact metadata preview
                 meta_preview = ', '.join([f"{k}={v}" for k, v in list(meta.items())[:5]])
                 footer_lines.append(f"Metadata: {meta_preview}")
 

@@ -246,7 +246,7 @@ app = FastAPI(lifespan=lifespan)
 origins = [
     "https://agri-annam.vercel.app",
     "https://agrichat.annam.ai",
-    "https://c455816e214e.ngrok-free.app", 
+    "https://739ae417d6b1.ngrok-free.app", 
     "https://localhost:3000",
     "https://127.0.0.1:3000",
     "http://localhost:3000",
@@ -1250,6 +1250,81 @@ async def continue_session(session_id: str, request: SessionQueryRequest):
     
     return {"session": updated}
 
+async def enhance_answer_with_context_questions(question: str, answer: str, user_state: str, thinking: str) -> str:
+    """
+    Enhance answer with contextual questions when more context is needed
+    """
+    # Check if the answer is generic or indicates missing information
+    generic_indicators = [
+        "depends on", "varies", "generally", "typically", "usually", 
+        "can vary", "it depends", "specific to", "without knowing",
+        "need more information", "requires specific", "can range"
+    ]
+    
+    # Check if thinking process indicates missing context
+    context_indicators = [
+        "need to know", "depends on the", "varies by", "specific variety",
+        "location matters", "soil type", "climate", "season", "region"
+    ]
+    
+    answer_lower = answer.lower()
+    thinking_lower = thinking.lower() if thinking else ""
+    
+    needs_context = (
+        any(indicator in answer_lower for indicator in generic_indicators) or
+        any(indicator in thinking_lower for indicator in context_indicators) or
+        len(answer.split()) < 30  # Very short answers might be generic
+    )
+    
+    if needs_context:
+        # Generate contextual questions based on the topic
+        context_questions = generate_context_questions(question, user_state)
+        
+        if context_questions:
+            enhanced_answer = f"{answer}\n\n**To provide more specific guidance, I'd like to know:**\n"
+            for i, q in enumerate(context_questions, 1):
+                enhanced_answer += f"{i}. {q}\n"
+            enhanced_answer += "\nFeel free to share any of these details for more targeted advice!"
+            return enhanced_answer
+    
+    return answer
+
+def generate_context_questions(question: str, user_state: str) -> List[str]:
+    """
+    Generate relevant context questions based on the agricultural topic
+    """
+    question_lower = question.lower()
+    questions = []
+    
+    # Crop-specific questions
+    if any(crop in question_lower for crop in ['rice', 'wheat', 'maize', 'sugarcane', 'cotton', 'soybean']):
+        questions.append("What variety of the crop are you planning to grow?")
+        questions.append("What's your soil type (clay, sandy, loamy)?")
+        
+    # Timing questions
+    if any(word in question_lower for word in ['sowing', 'planting', 'harvest', 'when']):
+        questions.append("Which season/month are you planning this activity?")
+        if not user_state or user_state == "unknown":
+            questions.append("Which state/region are you located in?")
+            
+    # Fertilizer/nutrient questions
+    if any(word in question_lower for word in ['fertilizer', 'nutrient', 'manure', 'compost']):
+        questions.append("What's your current soil pH and nutrient status?")
+        questions.append("What's the size of your field (in acres/hectares)?")
+        
+    # Disease/pest questions
+    if any(word in question_lower for word in ['disease', 'pest', 'insect', 'fungus', 'virus']):
+        questions.append("Can you describe the symptoms you're seeing?")
+        questions.append("What stage is your crop currently in?")
+        
+    # Water/irrigation questions
+    if any(word in question_lower for word in ['water', 'irrigation', 'drought', 'flood']):
+        questions.append("What's your current irrigation method?")
+        questions.append("What's the rainfall pattern in your area?")
+        
+    # Limit to 3-4 most relevant questions
+    return questions[:4]
+
 @app.post("/api/query/thinking-stream")
 async def thinking_stream_query(request: QueryRequest):
     """
@@ -1260,20 +1335,30 @@ async def thinking_stream_query(request: QueryRequest):
         import asyncio
         
         session_id = str(uuid4())
+        logger.info(f"[THINKING_STREAM] Starting stream for question: {request.question[:50]}...")
+        
         try:
             yield f"data: {json.dumps({'type': 'session_start', 'session_id': session_id})}\n\n"
             
             if USE_FAST_MODE and fast_handler:
+                logger.info("[THINKING_STREAM] Using fast mode with fast_handler")
                 # Start thinking phase
                 yield f"data: {json.dumps({'type': 'thinking_start'})}\n\n"
                 
                 # Stream thinking tokens in real-time
                 thinking_content = ''
                 if fast_handler.reasoner_llm:
+                    logger.info("[THINKING_STREAM] Reasoner LLM available, starting thinking generation")
                     try:
                         reasoner_prompt = (
-                            f"Think step-by-step about this agricultural question. Consider what information would be needed "
-                            f"from the database and what factors are important. Keep your thinking concise and focused.\n\nQuestion: {request.question}\n"
+                            f"You are an expert agricultural assistant. Analyze this question step-by-step.\n\n"
+                            f"Question: {request.question}\n"
+                            f"User State: {request.state if request.state else 'Not specified'}\n\n"
+                            f"Think about:\n"
+                            f"1. Is this question specific enough to provide a detailed answer?\n"
+                            f"2. What context is missing (location, crop variety, soil type, season, etc.)?\n"
+                            f"3. Can I provide a helpful general answer while identifying what additional context would be valuable?\n\n"
+                            f"Keep your thinking concise and focused on what information is needed."
                         )
                         
                         # Stream thinking directly from LLM
@@ -1282,32 +1367,71 @@ async def thinking_stream_query(request: QueryRequest):
                             if ev.get('type') == 'token':
                                 token = ev.get('text', '')
                                 current_text += token
-                                yield f"data: {json.dumps({'type': 'thinking_token', 'token': token, 'text': current_text})}\n\n"
+                                try:
+                                    # Ensure JSON serialization works properly
+                                    json_data = json.dumps({'type': 'thinking_token', 'token': token, 'text': current_text}, ensure_ascii=False)
+                                    yield f"data: {json_data}\n\n"
+                                except (TypeError, ValueError) as json_error:
+                                    logger.error(f"[THINKING_STREAM] JSON serialization error: {json_error}")
+                                    # Send a sanitized version
+                                    sanitized_text = current_text.encode('utf-8', errors='ignore').decode('utf-8')
+                                    json_data = json.dumps({'type': 'thinking_token', 'token': token, 'text': sanitized_text}, ensure_ascii=False)
+                                    yield f"data: {json_data}\n\n"
                         
                         thinking_content = current_text.strip()
                         
                     except Exception as e:
-                        logger.debug(f"[STREAM] Reasoner streaming failed: {e}")
+                        logger.error(f"[THINKING_STREAM] Reasoner streaming failed: {e}")
                         thinking_content = ''
+                else:
+                    logger.warning("[THINKING_STREAM] No reasoner LLM available, skipping thinking generation")
+                    thinking_content = ''
                 
                 # Mark thinking complete
-                yield f"data: {json.dumps({'type': 'thinking_complete', 'thinking': thinking_content})}\n\n"
+                logger.info(f"[THINKING_STREAM] Thinking complete, content length: {len(thinking_content)}")
+                try:
+                    json_data = json.dumps({'type': 'thinking_complete', 'thinking': thinking_content}, ensure_ascii=False)
+                    yield f"data: {json_data}\n\n"
+                except (TypeError, ValueError) as json_error:
+                    logger.error(f"[THINKING_STREAM] JSON serialization error for thinking_complete: {json_error}")
+                    sanitized_thinking = thinking_content.encode('utf-8', errors='ignore').decode('utf-8')
+                    json_data = json.dumps({'type': 'thinking_complete', 'thinking': sanitized_thinking}, ensure_ascii=False)
+                    yield f"data: {json_data}\n\n"
                 
-                # Now get the actual answer
+                # Now get the actual answer using SAME pipeline as thinking
+                logger.info("[THINKING_STREAM] Starting answer generation with consistent pipeline")
                 yield f"data: {json.dumps({'type': 'answer_start'})}\n\n"
                 
-                loop = asyncio.get_event_loop()
-                result = await loop.run_in_executor(
-                    None,
-                    lambda: rag_main.get_answer(request.question, [], request.state)
-                )
+                try:
+                    # Use fast_handler directly to maintain consistency with thinking process
+                    loop = asyncio.get_event_loop()
+                    result = await loop.run_in_executor(
+                        None,
+                        lambda: fast_handler.get_answer(request.question, [], request.state)
+                    )
+                    logger.info(f"[THINKING_STREAM] Got consistent answer result type: {type(result)}")
+                except Exception as e:
+                    logger.error(f"[THINKING_STREAM] Answer generation failed: {e}")
+                    yield f"data: {json.dumps({'type': 'error', 'message': 'Failed to generate answer'})}\n\n"
+                    return
                 
                 if isinstance(result, dict):
                     answer_text = result.get('answer', '')
-                    clean_answer = answer_text  # Don't extract thinking since we already streamed it
+                    
+                    # Check if answer indicates missing context and enhance it
+                    enhanced_answer = await enhance_answer_with_context_questions(
+                        request.question, answer_text, request.state, thinking_content
+                    )
                     
                     # Send final answer
-                    yield f"data: {json.dumps({'type': 'answer', 'answer': clean_answer, 'source': result.get('source', ''), 'confidence': result.get('confidence', 0.0)})}\n\n"
+                    try:
+                        json_data = json.dumps({'type': 'answer', 'answer': enhanced_answer, 'source': result.get('source', ''), 'confidence': result.get('confidence', 0.0)}, ensure_ascii=False)
+                        yield f"data: {json_data}\n\n"
+                    except (TypeError, ValueError) as json_error:
+                        logger.error(f"[THINKING_STREAM] JSON serialization error for answer: {json_error}")
+                        sanitized_answer = clean_answer.encode('utf-8', errors='ignore').decode('utf-8')
+                        json_data = json.dumps({'type': 'answer', 'answer': sanitized_answer, 'source': result.get('source', ''), 'confidence': result.get('confidence', 0.0)}, ensure_ascii=False)
+                        yield f"data: {json_data}\n\n"
                     
                     # Create session record
                     html_answer = markdown.markdown(clean_answer, extensions=["extra", "nl2br"])
@@ -1713,7 +1837,7 @@ Agricultural recommendations vary based on your location, available space, and g
                         satisfactory = False
 
                     if not satisfactory or quality_score < 0.6:
-                        fallback_prompt = f"The previous structured response didn't fully satisfy the question: {question}\nPrevious response: {final_text}\nPlease provide a complete, accurate, and actionable agricultural response."
+                        fallback_prompt = f"The previous response didn't fully address: {question}\nPrevious response: {final_text}\nProvide a complete agricultural response."
                         for ev in local_llm.stream_generate(fallback_prompt, model=os.getenv('OLLAMA_MODEL_FALLBACK', 'gpt-oss:20b'), temperature=0.3):
                             etype = ev.get('type')
                             if etype == 'model':

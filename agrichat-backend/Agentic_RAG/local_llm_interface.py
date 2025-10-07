@@ -9,12 +9,11 @@ import os
 from typing import List, Dict, Optional
 
 class OllamaLLMInterface:
-    """Interface for Ollama-hosted models with dual-model support"""
+    """Optimized interface for Ollama-hosted models"""
     
-    def __init__(self, ollama_endpoint: str = None, model_name: str = None, fallback_model: str = None):
+    def __init__(self, ollama_endpoint: str = None, model_name: str = None):
         self.ollama_endpoint = ollama_endpoint or f"http://{os.getenv('OLLAMA_HOST', 'localhost:11434')}"
-        self.model_name = model_name or os.getenv('OLLAMA_MODEL', 'llama3.1:latest')
-        self.fallback_model = fallback_model or os.getenv('OLLAMA_FALLBACK_MODEL', 'llama3.1:latest')
+        self.model_name = model_name or os.getenv('OLLAMA_MODEL', 'llama3.1:8b')
         self.session = requests.Session()
 
     def stream_generate(self, prompt: str, model: str = None, temperature: float = 0.3):
@@ -79,40 +78,28 @@ class OllamaLLMInterface:
         except Exception as e:
             yield {'type': 'error', 'message': f'Unexpected error: {e}'}
 
-    def generate_content(self, prompt: str, temperature: float = 0.3, max_tokens: int = 2048, use_fallback: bool = False) -> str:
+    def generate_content(self, prompt: str, temperature: float = 0.3, max_tokens: int = 2048) -> str:
         """
-        Generate content using Ollama with dual-model support
-        - Primary model (fast): Llama 3.1 8B for RAG pipeline
-        - Fallback model (powerful): Gemma 3 27B for complex queries
+        Generate content using optimized single model approach
         """
         try:
-            selected_model = self.fallback_model if use_fallback else self.model_name
-            
             print(f"[LLM_DEBUG] ==========================================")
-            print(f"[LLM_DEBUG] Model Selection:")
-            print(f"[LLM_DEBUG] - Primary model: {self.model_name}")
-            print(f"[LLM_DEBUG] - Fallback model: {self.fallback_model}")
-            print(f"[LLM_DEBUG] - Use fallback: {use_fallback}")
-            print(f"[LLM_DEBUG] - Selected model: {selected_model}")
+            print(f"[LLM_DEBUG] Optimized Model Generation:")
+            print(f"[LLM_DEBUG] - Model: {self.model_name}")
             print(f"[LLM_DEBUG] - Ollama endpoint: {self.ollama_endpoint}")
             print(f"[LLM_DEBUG] - Temperature: {temperature}")
             print(f"[LLM_DEBUG] - Max tokens: {max_tokens}")
             print(f"[LLM_DEBUG] ==========================================")
             
-            if use_fallback:
-                print(f"[LLM] Using fallback model: {selected_model}")
-            else:
-                print(f"[LLM] Using primary model: {selected_model}")
-            
             payload = {
-                "model": selected_model,
+                "model": self.model_name,
                 "prompt": prompt,
                 "stream": False,
                 "options": {
                     "temperature": temperature,
                     "num_predict": max_tokens,
                     "num_ctx": 32768,
-                    "num_batch": 4096 if not use_fallback else 2048,
+                    "num_batch": 4096,
                     "num_gpu": 99,
                     "num_thread": 48
                 }
@@ -138,14 +125,14 @@ class OllamaLLMInterface:
                 return generated_response
             else:
                 print(f"[ERROR] Ollama API returned status {response.status_code}: {response.text}")
-                return "I apologize, but I'm having trouble generating a response right now."
+                return "Unable to generate response."
                 
         except requests.exceptions.RequestException as e:
             print(f"[ERROR] Failed to connect to Ollama: {e}")
-            return "I apologize, but I'm having trouble connecting to the model right now. Make sure Ollama is running."
+            return "Connection error. Check if Ollama is running."
         except Exception as e:
             print(f"[ERROR] Unexpected error during inference: {e}")
-            return "I apologize, but an error occurred while processing your request."
+            return "Processing error occurred."
 
 class OllamaEmbeddings:
     """Ollama embedding interface"""
@@ -189,10 +176,10 @@ class OllamaEmbeddings:
             return [0.0] * 768
 
 
-# Create named interfaces for multi-model pipelines
+# Create pipeline: qwen3 reasoning → structured flow → gpt-oss numerical fallback
 reasoner_llm = OllamaLLMInterface(model_name=os.getenv('OLLAMA_MODEL_REASONER', 'qwen3:1.7b'))
-structurer_llm = OllamaLLMInterface(model_name=os.getenv('OLLAMA_MODEL_STRUCTURER', 'gemma:latest'))
-fallback_llm = OllamaLLMInterface(model_name=os.getenv('OLLAMA_MODEL_FALLBACK', 'llama3.1:latest'))
+structurer_llm = OllamaLLMInterface(model_name=os.getenv('OLLAMA_MODEL_STRUCTURER', 'llama3.1:8b'))
+fallback_llm = OllamaLLMInterface(model_name=os.getenv('OLLAMA_MODEL_FALLBACK', 'gpt-oss:latest'))
 
 # Keep embedding interface (used by similarity checks)
 local_embeddings = OllamaEmbeddings(embedding_model=os.getenv('OLLAMA_EMBEDDING_MODEL', 'nomic-embed-text'))
@@ -246,7 +233,7 @@ def run_local_llm(prompt: str, temperature: float = 0.1, max_tokens: int = 1024,
 
     except Exception as e:
         print(f"[RUN_LLM_ERROR] {e}")
-        return "I apologize, I'm unable to generate a response right now."
+        return "Unable to generate response."
     
 class LocalLLMCompatibility:
     """Compatibility proxy exposing stream_generate and generate_content

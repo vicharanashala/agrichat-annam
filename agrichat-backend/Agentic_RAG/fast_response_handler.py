@@ -35,13 +35,22 @@ class FastResponseHandler:
         self.rag_tool = RAGTool(chroma_path=chroma_db_path)
         self.fallback_tool = FallbackAgriTool()
 
-        # Initialize named LLMs (best-effort)
+        # 3-model architecture: qwen3 reasoning + structured fallback flow
         try:
+            # qwen3: reasoning, classification, safety analysis
             self.reasoner_llm = OllamaLLMInterface(model_name=os.getenv('OLLAMA_MODEL_REASONER', 'qwen3:1.7b'))
-            self.structurer_llm = OllamaLLMInterface(model_name=os.getenv('OLLAMA_MODEL_STRUCTURER', 'gemma:latest'))
-            self.fallback_llm = OllamaLLMInterface(model_name=os.getenv('OLLAMA_MODEL_FALLBACK', 'llama3.1:8b'))
+            
+            # For structuring RAG/PoPs content (lighter model for formatting)
+            self.structurer_llm = OllamaLLMInterface(model_name=os.getenv('OLLAMA_MODEL_STRUCTURER', 'llama3.1:8b'))
+            
+            # gpt-oss: direct answers for numerical/technical questions
+            fallback_model = os.getenv('OLLAMA_MODEL_FALLBACK', 'gpt-oss:latest')
+            self.fallback_llm = OllamaLLMInterface(model_name=fallback_model)
+            
+            logger.info(f"[FAST] 3-model pipeline: Reasoner={self.reasoner_llm.model_name}, Structurer={self.structurer_llm.model_name}, Fallback={fallback_model}")
+            logger.info(f"[FAST] RAG → PoPs → Fallback flow with numerical analysis")
         except Exception as e:
-            logger.debug(f"[FAST] Failed to initialize some LLMs: {e}")
+            logger.error(f"[FAST] Failed to initialize pipeline LLMs: {e}")
             self.reasoner_llm = None
             self.structurer_llm = None
             self.fallback_llm = None
@@ -168,17 +177,31 @@ class FastResponseHandler:
                 'metadata': pops_result.get('document_metadata') or pops_result.get('metadata') or {}
             }
 
+        # Fallback with gpt-oss for numerical/technical questions
         try:
             if self.fallback_llm:
-                prompt = self.fallback_tool.SYSTEM_PROMPT.format(question=question)
+                # Prompt for numerical analysis
+                enhanced_prompt = f"""You are an agricultural expert specializing in numerical analysis and technical data. 
+Be direct and specific with numerical values, rates, and measurements. Don't assume typos - treat numbers as given.
+
+If the question contains specific numerical values (like kg/ha, ppm, percentages), analyze them directly and provide:
+1. Whether the value is appropriate/excessive/insufficient
+2. Typical ranges for comparison  
+3. Practical recommendations
+
+Question: {question}
+
+Provide a direct, technical answer:"""
+                
+                logger.info(f"[FAST] Using gpt-oss fallback for numerical/technical analysis")
                 full = []
-                for ev in self.fallback_llm.stream_generate(prompt, model=self.fallback_llm.model_name, temperature=0.1):
+                for ev in self.fallback_llm.stream_generate(enhanced_prompt, model=self.fallback_llm.model_name, temperature=0.1):
                     if ev.get('type') == 'token':
                         t = ev.get('text')
                         print(t, end='', flush=True)
                         full.append(t)
                 print('\n')
-                return {'answer': ''.join(full).strip(), 'source': 'llm_fallback', 'similarity': 0.0, 'metadata': {'model': self.fallback_llm.model_name}}
+                return {'answer': ''.join(full).strip(), 'source': 'gpt_oss_fallback', 'similarity': 0.0, 'metadata': {'model': self.fallback_llm.model_name, 'type': 'numerical_analysis'}}
         except Exception as e:
             logger.debug(f"[FAST] Fallback LLM failed: {e}")
 
@@ -187,7 +210,7 @@ class FastResponseHandler:
             fb = self.fallback_tool._run(question, conversation_history)
             return {'answer': fb, 'source': 'fallback_tool', 'similarity': 0.0, 'metadata': {}}
         except Exception:
-            return {'answer': "I'm having trouble right now. Please try again.", 'source': 'error', 'similarity': 0.0, 'metadata': {}}
+            return {'answer': "Unable to process request. Please try again.", 'source': 'error', 'similarity': 0.0, 'metadata': {}}
 
     def get_answer_with_thinking_stream(self, question: str, conversation_history: Optional[List[Dict]] = None,
                     user_state: Optional[str] = None, db_config: Optional[DatabaseConfig] = None) -> Dict:
@@ -286,7 +309,7 @@ class FastResponseHandler:
             }
         except Exception:
             return {
-                'answer': "I'm having trouble right now. Please try again.", 
+                'answer': "Unable to process request. Please try again.", 
                 'thinking': chain_of_thought,
                 'source': 'error', 
                 'similarity': 0.0, 

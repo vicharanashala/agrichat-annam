@@ -6,6 +6,9 @@ class AuthManager {
   }
 
   init() {
+    // Clear any invalid or test user data from localStorage
+    this.clearInvalidUserData();
+
     // Check if user is already logged in
     const savedUser = localStorage.getItem('agrichat_user');
     if (savedUser) {
@@ -17,6 +20,23 @@ class AuthManager {
       // setTimeout(() => this.showWelcomeMessage(), 100);
     } else {
       this.showLoginForm();
+    }
+  }
+
+  clearInvalidUserData() {
+    const savedUser = localStorage.getItem('agrichat_user');
+    if (savedUser) {
+      try {
+        const user = JSON.parse(savedUser);
+        // Remove any test user data or data without proper authentication structure
+        if (!user.username || !user.role || user.full_name === 'Punjab' || user.username === 'test') {
+          localStorage.removeItem('agrichat_user');
+          console.log('[AUTH] Cleared invalid user data from localStorage');
+        }
+      } catch (error) {
+        localStorage.removeItem('agrichat_user');
+        console.log('[AUTH] Cleared corrupted user data from localStorage');
+      }
     }
   }
 
@@ -82,7 +102,7 @@ class AuthManager {
   showAccountDropdown(user) {
     const usernameElem = document.getElementById('usernameDisplay');
     if (user && usernameElem) {
-      usernameElem.textContent = `Hello, ${user.full_name}`;
+      usernameElem.textContent = `Hello, ${user.full_name}!`;
     }
 
     // Attach Logout action if not already present
@@ -271,6 +291,54 @@ if (!deviceId) {
 }
 let currentSession = null;
 let showingArchived = false;
+
+// Enhanced source display formatting
+function formatSourceDisplay(source) {
+  if (source === 'Golden Database') {
+    return 'Golden Database';
+  } else if (source === 'RAG Database') {
+    return 'RAG Database';
+  } else if (source === 'PoPs Database') {
+    return 'PoPs Database (Package of Practices)';
+  } else if (source === 'Fallback LLM') {
+    return 'AI Reasoning Engine (gpt-oss pipeline)';
+  } else {
+    return source;
+  }
+}
+
+// Markdown processing helper function
+function processMarkdown(text) {
+  if (!text) return '';
+
+  if (typeof marked !== 'undefined') {
+    marked.setOptions({
+      breaks: true,
+      gfm: true,
+      sanitize: false,
+      smartLists: true,
+      highlight: function (code, lang) {
+        if (typeof hljs !== 'undefined' && lang) {
+          try {
+            return hljs.highlight(code, { language: lang }).value;
+          } catch (e) {
+            return hljs.highlightAuto(code).value;
+          }
+        }
+        return code;
+      }
+    });
+
+    try {
+      return marked.parse(text);
+    } catch (e) {
+      console.warn('Markdown parsing failed:', e);
+      return text; // Return original text if parsing fails
+    }
+  }
+
+  return text; // Return original text if marked is not available
+}
 
 // Database Toggle State Management
 let databaseToggles = {
@@ -611,27 +679,8 @@ function appendMessage(sender, text, index = null, rating = null, thinking = nul
   } else {
     let botAnswerHtml = text || '';
 
-    if (typeof marked !== 'undefined') {
-      marked.setOptions({
-        breaks: true,
-        gfm: true,
-        sanitize: false,
-        smartLists: true,
-        highlight: function (code, lang) {
-          if (typeof hljs !== 'undefined' && lang) {
-            try {
-              return hljs.highlight(code, { language: lang }).value;
-            } catch (e) {
-              return hljs.highlightAuto(code).value;
-            }
-          }
-          return code;
-        }
-      });
-
-      // Render markdown to HTML
-      botAnswerHtml = marked.parse(botAnswerHtml);
-    }
+    // Process markdown using the helper function
+    botAnswerHtml = processMarkdown(botAnswerHtml);
 
     let youtubeUrl = null;
     try {
@@ -696,14 +745,14 @@ function appendMessage(sender, text, index = null, rating = null, thinking = nul
 
     if (hasThinking) {
       const thinkingHtml = `
-        <div class="thinking-section" style="margin-bottom: 15px; padding: 12px; background: #e8f5e8; border-left: 4px solid #28a745; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-          <div class="thinking-header" style="font-weight: 600; color: #2d5a2d; margin-bottom: 8px; display: flex; align-items: center; font-size: 0.95em;">
+        <div class="thinking-section" style="margin-bottom: 15px; padding: 12px; background: #243b24; border-left: 4px solid #7e9d85; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+          <div class="thinking-header" style="font-weight: 600; color: #e8f5e8; margin-bottom: 8px; display: flex; align-items: center; font-size: 0.95em;">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="margin-right: 8px;">
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="#28a745"/>
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="#7e9d85"/>
             </svg>
-            🧠 Thinking Process
+            Thinking Process
           </div>
-          <div class="thinking-content" style="color: #4a6a4a; font-size: 0.9em; line-height: 1.5; font-style: italic;">
+          <div class="thinking-content" style="color: #e8f5e8; font-size: 0.9em; line-height: 1.5; font-style: italic;">
             ${thinking.replace(/\n/g, '<br>')}
           </div>
         </div>
@@ -712,6 +761,7 @@ function appendMessage(sender, text, index = null, rating = null, thinking = nul
       div.innerHTML = `
         ${thinkingHtml}
         <div class="bot-answer">${botAnswerHtml}</div>
+        ${source ? `<div style="margin-top: 8px; font-size: 0.85em; color: #666;">Source: ${formatSourceDisplay(source)}${confidence ? ` | Confidence: ${(confidence * 100).toFixed(0)}%` : ''}</div>` : ''}
         <div class="message-actions">
           <button class="copy-btn" onclick="copyToClipboard(this)" title="Copy">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 448 512">
@@ -729,12 +779,12 @@ function appendMessage(sender, text, index = null, rating = null, thinking = nul
             </svg>
           </button>
         </div>
-        ${source ? `<div style="margin-top: 8px; font-size: 0.85em; color: #666;">Source: ${source}${confidence ? ` | Confidence: ${(confidence * 100).toFixed(0)}%` : ''}</div>` : ''}
       `;
     } else {
       // Default rendering when no structured data
       div.innerHTML = `
       <div class="bot-answer">${botAnswerHtml}</div>
+      ${source ? `<div style="margin-top: 8px; font-size: 0.85em; color: #666;">Source: ${formatSourceDisplay(source)}${confidence ? ` | Confidence: ${(confidence * 100).toFixed(0)}%` : ''}</div>` : ''}
       <div class="message-actions">
         <button class="copy-btn" onclick="copyToClipboard(this)" title="Copy">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 448 512">
@@ -752,7 +802,6 @@ function appendMessage(sender, text, index = null, rating = null, thinking = nul
           </svg>
         </button>
       </div>
-      ${source ? `<div style="margin-top: 8px; font-size: 0.85em; color: #666;">Source: ${source}${confidence ? ` | Confidence: ${(confidence * 100).toFixed(0)}%` : ''}</div>` : ''}
     `;
     }
   }
@@ -1042,7 +1091,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       question: question,
       device_id: deviceId,
       state: localStorage.getItem("agrichat_user_state") || "",
-      language: selectedLanguage,
+      language: localStorage.getItem("agrichat_user_language") || "English",
       database_config: {
         rag_enabled: databaseToggles.rag,
         pops_enabled: databaseToggles.pops,
@@ -1056,6 +1105,8 @@ window.addEventListener("DOMContentLoaded", async () => {
     let currentThinkingText = '';
 
     try {
+      console.log('[THINKING] Starting thinking stream query:', requestData);
+
       const response = await apiCall(`${API_BASE}/query/thinking-stream`, {
         method: "POST",
         headers: {
@@ -1064,6 +1115,11 @@ window.addEventListener("DOMContentLoaded", async () => {
         body: JSON.stringify(requestData),
       });
 
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      console.log('[THINKING] Got response, starting to read stream');
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
 
@@ -1076,13 +1132,32 @@ window.addEventListener("DOMContentLoaded", async () => {
 
         for (const line of lines) {
           if (line.startsWith('data: ')) {
+            const jsonStr = line.slice(6).trim();
+            if (!jsonStr) continue; // Skip empty data lines
+
             try {
-              const data = JSON.parse(line.slice(6));
+              // Try to parse the JSON, but be more robust about it
+              let data;
+              try {
+                data = JSON.parse(jsonStr);
+              } catch (parseError) {
+                // If JSON parsing fails, try to sanitize and parse again
+                console.warn('[THINKING] JSON parse failed, attempting to sanitize:', parseError.message);
+
+                // Skip this malformed chunk and continue
+                continue;
+              }
+
+              console.log('[THINKING] Stream data:', data);
 
               switch (data.type) {
                 case 'thinking_start':
+                  console.log('[THINKING] Starting thinking section');
                   // Create thinking section
                   thinkingContainer = createThinkingContainer();
+                  if (!thinkingContainer) {
+                    console.error('[THINKING] Failed to create thinking container');
+                  }
                   break;
 
                 case 'thinking_token':
@@ -1090,10 +1165,13 @@ window.addEventListener("DOMContentLoaded", async () => {
                   if (thinkingContainer) {
                     currentThinkingText = data.text; // This is the cumulative text
                     updateThinkingDisplay(thinkingContainer, currentThinkingText);
+                  } else {
+                    console.warn('[THINKING] No thinking container for token update');
                   }
                   break;
 
                 case 'thinking_complete':
+                  console.log('[THINKING] Thinking complete');
                   // Mark thinking as complete
                   if (thinkingContainer) {
                     finalizeThinkingDisplay(thinkingContainer);
@@ -1101,14 +1179,22 @@ window.addEventListener("DOMContentLoaded", async () => {
                   break;
 
                 case 'answer_start':
+                  console.log('[THINKING] Starting answer section');
                   // Create answer section
                   answerContainer = createAnswerContainer();
+                  if (!answerContainer) {
+                    console.error('[THINKING] Failed to create answer container');
+                  }
                   break;
 
                 case 'answer':
+                  console.log('[THINKING] Displaying final answer');
                   // Display final answer
                   if (answerContainer) {
                     displayFinalAnswer(answerContainer, data.answer, data.source, data.confidence);
+                  } else {
+                    console.warn('[THINKING] No answer container, falling back to appendMessage');
+                    appendMessage("bot", data.answer, null, null, currentThinkingText, data.source, data.confidence);
                   }
                   break;
 
@@ -1127,73 +1213,264 @@ window.addEventListener("DOMContentLoaded", async () => {
                   break;
               }
             } catch (e) {
-              console.error('Error parsing stream data:', e);
+              console.error('[THINKING] Error parsing stream data:', e, 'Raw data:', jsonStr);
+              // Continue processing other lines instead of stopping
             }
           }
         }
       }
     } catch (error) {
-      console.error('Stream error:', error);
+      console.error('[THINKING] Stream error:', error);
       hideLoader();
-      appendMessage("bot", "Sorry, I encountered an error processing your question.", null, null, null, null, null);
+      appendMessage("bot", "Error processing question. Please try again.", null, null, null, null, null);
+    } finally {
+      hideLoader();
     }
   }
 
   function createThinkingContainer() {
-    const messagesDiv = document.getElementById("messages");
+    const messagesDiv = document.getElementById("chatWindow");
+    if (!messagesDiv) {
+      console.error("[THINKING] chatWindow element not found!");
+      return null;
+    }
+
+    const thinkingId = 'thinking-' + Date.now();
     const thinkingDiv = document.createElement("div");
-    thinkingDiv.className = "message bot-message";
+    thinkingDiv.className = "message bot thinking-message";
     thinkingDiv.innerHTML = `
-      <div class="thinking-section" style="margin-bottom: 15px; padding: 12px; background: #f8f9fa; border-left: 4px solid #007bff; border-radius: 6px;">
-        <div class="thinking-header" style="font-weight: 600; color: #495057; margin-bottom: 8px; display: flex; align-items: center;">
-          <div class="thinking-spinner" style="margin-right: 8px; width: 16px; height: 16px; border: 2px solid #e9ecef; border-top: 2px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-          Thinking...
+      <div class="thinking-section" id="${thinkingId}" style="margin-bottom: 15px; background: #4f7c5b; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        
+        <!-- Clickable Header for Expand/Collapse -->
+        <div class="thinking-header" onclick="toggleThinking('${thinkingId}')" style="
+          padding: 12px 16px; 
+          background: linear-gradient(135deg, #3a5a41, #4f7c5b); 
+          color: var(--white); 
+          font-weight: 600; 
+          display: flex; 
+          align-items: center; 
+          justify-content: space-between;
+          cursor: pointer;
+          user-select: none;
+          transition: all 0.3s ease;
+          border-bottom: 1px solid rgba(255,255,255,0.1);
+        ">
+          <div style="display: flex; align-items: center;">
+            <div class="thinking-spinner" style="
+              margin-right: 10px; 
+              width: 18px; 
+              height: 18px; 
+              border: 2px solid rgba(255,255,255,0.3); 
+              border-top: 2px solid var(--white); 
+              border-radius: 50%; 
+              animation: spin 1s linear infinite;
+            "></div>
+            <span class="thinking-status">Thinking...</span>
+          </div>
+          <div class="thinking-toggle" style="
+            font-size: 1.2em; 
+            transition: transform 0.3s ease;
+            color: rgba(255,255,255,0.8);
+          ">▼</div>
         </div>
-        <div class="thinking-content" style="color: #6c757d; font-size: 0.9em; line-height: 1.4; min-height: 20px; font-family: monospace;">
-          <span class="thinking-cursor">|</span>
+        
+        <!-- Expandable Content -->
+        <div class="thinking-content-wrapper" style="
+          max-height: 300px;
+          overflow-y: auto;
+          overflow-x: hidden;
+          transition: max-height 0.4s ease, padding 0.4s ease;
+          background: rgba(255,255,255,0.05);
+          scrollbar-width: thin;
+          scrollbar-color: rgba(255,255,255,0.3) transparent;
+        ">
+          <div class="thinking-content" style="
+            padding: 16px; 
+            color: var(--white); 
+            font-size: 0.9em; 
+            line-height: 1.6; 
+            font-family: 'Courier New', monospace;
+            min-height: 30px;
+            word-wrap: break-word;
+            background: rgba(0,0,0,0.1);
+            border-radius: 4px;
+            margin: 12px;
+          ">
+            <span class="thinking-cursor" style="
+              animation: blink 1s infinite;
+              color: #7dd87d;
+              font-weight: bold;
+            ">▋</span>
+          </div>
         </div>
       </div>
     `;
+
     messagesDiv.appendChild(thinkingDiv);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    return thinkingDiv.querySelector('.thinking-content');
+
+    // Store reference to the thinking container for easy access
+    thinkingDiv.dataset.thinkingId = thinkingId;
+
+    return {
+      container: thinkingDiv.querySelector('.thinking-content'),
+      wrapper: thinkingDiv.querySelector('.thinking-content-wrapper'),
+      header: thinkingDiv.querySelector('.thinking-header'),
+      section: thinkingDiv.querySelector('.thinking-section')
+    };
   }
 
-  function updateThinkingDisplay(container, text) {
-    if (container) {
-      container.innerHTML = `${text.replace(/\n/g, '<br>')}<span class="thinking-cursor" style="animation: blink 1s infinite;">|</span>`;
-      container.closest('#messages').scrollTop = container.closest('#messages').scrollHeight;
+  function updateThinkingDisplay(containerObj, text) {
+    if (containerObj && containerObj.container) {
+      // Format the text with proper styling
+      const formattedText = text.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+      // Update with typing cursor
+      containerObj.container.innerHTML = `
+        <div style="word-wrap: break-word; white-space: pre-wrap;">
+          ${formattedText}
+          <span class="thinking-cursor" style="
+            animation: blink 1s infinite;
+            color: #7dd87d;
+            font-weight: bold;
+            margin-left: 2px;
+          ">▋</span>
+        </div>
+      `;
+
+      // Auto-scroll to bottom
+      const chatWindow = document.getElementById("chatWindow");
+      if (chatWindow) {
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+      }
+
+      // Auto-expand if collapsed during streaming
+      if (containerObj.wrapper && containerObj.wrapper.style.maxHeight === '0px') {
+        containerObj.wrapper.style.maxHeight = '300px';
+        const toggle = containerObj.section.querySelector('.thinking-toggle');
+        if (toggle) {
+          toggle.style.transform = 'rotate(0deg)';
+          toggle.textContent = '▼';
+        }
+      }
     }
   }
 
-  function finalizeThinkingDisplay(container) {
-    if (container) {
-      const cursor = container.querySelector('.thinking-cursor');
+  function finalizeThinkingDisplay(containerObj) {
+    if (containerObj && containerObj.container) {
+      // Remove the blinking cursor
+      const cursor = containerObj.container.querySelector('.thinking-cursor');
       if (cursor) cursor.remove();
 
-      const header = container.closest('.thinking-section').querySelector('.thinking-header');
-      header.innerHTML = `
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="#28a745" style="margin-right: 6px;">
-          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-        </svg>
-        Thinking Complete
-      `;
-      header.closest('.thinking-section').style.borderLeftColor = '#28a745';
+      // Update header to show completion
+      const header = containerObj.section.querySelector('.thinking-header');
+      const statusSpan = header.querySelector('.thinking-status');
+      const spinner = header.querySelector('.thinking-spinner');
+
+      if (statusSpan) {
+        statusSpan.innerHTML = 'Thinking Complete';
+      }
+
+      if (spinner) {
+        spinner.style.animation = 'none';
+        spinner.innerHTML = '✓';
+        spinner.style.border = 'none';
+        spinner.style.background = '#28a745';
+        spinner.style.color = 'white';
+        spinner.style.display = 'flex';
+        spinner.style.alignItems = 'center';
+        spinner.style.justifyContent = 'center';
+        spinner.style.fontSize = '12px';
+        spinner.style.fontWeight = 'bold';
+      }
+
+      // Update header background to indicate completion
+      header.style.background = 'linear-gradient(135deg, #28a745, #34ce57)';
+
+      // Add subtle completion animation
+      containerObj.section.style.animation = 'completePulse 0.6s ease-out';
+
+      // Auto-collapse thinking section after completion to save space
+      setTimeout(() => {
+        const contentWrapper = containerObj.section.querySelector('.thinking-content-wrapper');
+        const toggleIcon = header.querySelector('.thinking-toggle');
+        if (contentWrapper && toggleIcon && containerObj.section) {
+          // Smooth transition for collapse
+          contentWrapper.style.transition = 'max-height 0.3s ease-out, padding 0.3s ease-out';
+          contentWrapper.style.maxHeight = '0px';
+          contentWrapper.style.paddingTop = '0px';
+          contentWrapper.style.paddingBottom = '0px';
+          toggleIcon.innerHTML = '▶';
+          containerObj.section.dataset.expanded = 'false';
+
+          console.log('[THINKING] Auto-collapsed thinking section');
+        }
+      }, 2000); // Wait 2 seconds before auto-collapse for better UX
     }
   }
 
   function createAnswerContainer() {
-    const messagesDiv = document.getElementById("messages");
+    const messagesDiv = document.getElementById("chatWindow");
+    if (!messagesDiv) {
+      console.error("[THINKING] chatWindow element not found for answer container!");
+      return null;
+    }
     const answerDiv = document.createElement("div");
     answerDiv.className = "message bot-message";
+    const answerId = 'answer-' + Date.now();
     answerDiv.innerHTML = `
-      <div class="answer-section" style="padding: 12px; background: #fff; border-radius: 6px; border: 1px solid #e9ecef;">
-        <div class="answer-header" style="font-weight: 600; color: #495057; margin-bottom: 8px; display: flex; align-items: center;">
-          <div class="answer-spinner" style="margin-right: 8px; width: 16px; height: 16px; border: 2px solid #e9ecef; border-top: 2px solid #28a745; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-          Generating Answer...
+      <div class="answer-section" id="${answerId}" style="margin-bottom: 15px; background: #2d5a35; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        
+        <!-- Clickable Header for Expand/Collapse -->
+        <div class="answer-header" onclick="toggleAnswer('${answerId}')" style="
+          padding: 12px 16px; 
+          background: linear-gradient(135deg, #2d5a35, #3a7043); 
+          color: var(--white); 
+          font-weight: 600; 
+          display: flex; 
+          align-items: center; 
+          justify-content: space-between;
+          cursor: pointer;
+          user-select: none;
+          transition: all 0.3s ease;
+          border-bottom: 1px solid rgba(255,255,255,0.1);
+        ">
+          <div style="display: flex; align-items: center;">
+            <div class="answer-spinner" style="
+              margin-right: 10px; 
+              width: 18px; 
+              height: 18px; 
+              border: 2px solid rgba(255,255,255,0.3); 
+              border-top: 2px solid var(--white); 
+              border-radius: 50%; 
+              animation: spin 1s linear infinite;
+            "></div>
+            <span class="answer-status">Generating Answer...</span>
+          </div>
+          <div class="answer-toggle" style="
+            font-size: 1.2em; 
+            transition: transform 0.3s ease;
+            color: rgba(255,255,255,0.8);
+          ">▼</div>
         </div>
-        <div class="answer-content" style="min-height: 20px;">
-          <!-- Answer will be populated here -->
+        
+        <!-- Expandable Content -->
+        <div class="answer-content-wrapper" style="
+          max-height: none;
+          overflow: visible;
+          transition: max-height 0.4s ease, padding 0.4s ease, overflow 0.4s ease;
+          background: rgba(255,255,255,0.05);
+        ">
+          <div class="answer-content" style="
+            padding: 16px; 
+            color: var(--white); 
+            font-size: 0.95em; 
+            line-height: 1.6; 
+            min-height: 30px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.08));
+          ">
+            <!-- Answer will be populated here -->
+          </div>
         </div>
       </div>
     `;
@@ -1204,25 +1481,89 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   function displayFinalAnswer(container, answer, source, confidence) {
     if (container) {
-      const header = container.closest('.answer-section').querySelector('.answer-header');
-      header.innerHTML = `
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="#28a745" style="margin-right: 6px;">
-          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-        </svg>
-        Answer
-      `;
+      const answerSection = container.closest('.answer-section');
+      const header = answerSection.querySelector('.answer-header');
+
+      // Update header to show completion (similar to thinking completion)
+      const statusSpan = header.querySelector('.answer-status');
+      const spinner = header.querySelector('.answer-spinner');
+
+      if (statusSpan) {
+        statusSpan.innerHTML = 'Answer';
+      }
+
+      if (spinner) {
+        spinner.style.animation = 'none';
+        spinner.innerHTML = '✓';
+        spinner.style.border = 'none';
+        spinner.style.background = '#28a745';
+        spinner.style.color = 'white';
+        spinner.style.display = 'flex';
+        spinner.style.alignItems = 'center';
+        spinner.style.justifyContent = 'center';
+        spinner.style.fontSize = '12px';
+        spinner.style.fontWeight = 'bold';
+      }
+
+      // Update header background to indicate completion
+      header.style.background = 'linear-gradient(135deg, #28a745, #34ce57)';
 
       container.innerHTML = `
-        <div class="bot-answer">${answer}</div>
-        ${source ? `<div class="message-source" style="margin-top: 10px; font-size: 0.8em; color: #6c757d;">Source: ${source}</div>` : ''}
-        <div class="message-actions" style="margin-top: 10px;">
-          <button class="action-btn copy-btn" onclick="copyToClipboard(this)" title="Copy answer">
+        <div class="bot-answer" style="
+          color: var(--white); 
+          font-size: 0.95em; 
+          line-height: 1.6;
+          margin-bottom: 12px;
+        ">${processMarkdown(answer)}</div>
+        ${source ? `<div class="message-source" style="
+          margin-top: 12px; 
+          padding: 8px 12px; 
+          background: rgba(255,255,255,0.1); 
+          border-radius: 4px; 
+          font-size: 0.8em; 
+          color: rgba(255,255,255,0.8);
+          border-left: 3px solid rgba(255,255,255,0.3);
+        ">Source: ${formatSourceDisplay(source)}</div>` : ''}
+        <div class="message-actions" style="
+          margin-top: 12px; 
+          padding-top: 8px; 
+          border-top: 1px solid rgba(255,255,255,0.1); 
+          display: flex; 
+          gap: 8px;
+        ">
+          <button class="action-btn copy-btn" onclick="copyToClipboard(this)" title="Copy answer" style="
+            background: rgba(255,255,255,0.1); 
+            border: 1px solid rgba(255,255,255,0.2); 
+            color: var(--white); 
+            padding: 6px 8px; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            display: flex; 
+            align-items: center;
+            transition: all 0.2s ease;
+          " onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
               <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
             </svg>
           </button>
-          <button class="action-btn rate-btn" onclick="rateMessage(this, 1)" title="Good answer">👍</button>
-          <button class="action-btn rate-btn" onclick="rateMessage(this, -1)" title="Bad answer">👎</button>
+          <button class="action-btn rate-btn" onclick="rateMessage(this, 1)" title="Good answer" style="
+            background: rgba(255,255,255,0.1); 
+            border: 1px solid rgba(255,255,255,0.2); 
+            color: var(--white); 
+            padding: 6px 8px; 
+            border-radius: 4px; 
+            cursor: pointer;
+            transition: all 0.2s ease;
+          " onmouseover="this.style.background='rgba(40,167,69,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">👍</button>
+          <button class="action-btn rate-btn" onclick="rateMessage(this, -1)" title="Bad answer" style="
+            background: rgba(255,255,255,0.1); 
+            border: 1px solid rgba(255,255,255,0.2); 
+            color: var(--white); 
+            padding: 6px 8px; 
+            border-radius: 4px; 
+            cursor: pointer;
+            transition: all 0.2s ease;
+          " onmouseover="this.style.background='rgba(220,53,69,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">👎</button>
         </div>
       `;
 
@@ -1230,6 +1571,101 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
+
+
+  function formatSourceDisplay(source) {
+    if (!source) return 'Unknown';
+
+    // Enhanced source display mapping
+    const sourceMap = {
+      'Fallback LLM': 'AI Reasoning Engine (gpt-oss pipeline)',
+      'RAG': 'Knowledge Base (RAG)',
+      'PoPs': 'Package of Practices (PoPs)',
+      'rag': 'Knowledge Base (RAG)',
+      'pops': 'Package of Practices (PoPs)',
+      'llm': 'AI Reasoning Engine (gpt-oss)',
+      'fallback': 'AI Reasoning Engine (gpt-oss pipeline)'
+    };
+
+    const lowerSource = source.toLowerCase();
+    for (const [key, value] of Object.entries(sourceMap)) {
+      if (lowerSource.includes(key.toLowerCase())) {
+        return value;
+      }
+    }
+
+    return source;
+  }
+
+  // Global function for thinking toggle (accessible from onclick)
+  window.toggleThinking = function (thinkingId) {
+    const section = document.getElementById(thinkingId);
+    if (!section) return;
+
+    const wrapper = section.querySelector('.thinking-content-wrapper');
+    const toggle = section.querySelector('.thinking-toggle');
+    const header = section.querySelector('.thinking-header');
+
+    if (!wrapper || !toggle) return;
+
+    const isCollapsed = wrapper.style.maxHeight === '0px';
+
+    if (isCollapsed) {
+      // Expand
+      wrapper.style.maxHeight = '300px';
+      wrapper.style.padding = '';
+      toggle.style.transform = 'rotate(0deg)';
+      toggle.textContent = '▼';
+      header.style.background = header.style.background.replace('rgba(0,0,0,0.1)', 'rgba(0,0,0,0.05)');
+    } else {
+      // Collapse
+      wrapper.style.maxHeight = '0px';
+      wrapper.style.padding = '0 12px';
+      toggle.style.transform = 'rotate(-90deg)';
+      toggle.textContent = '▶';
+      header.style.background = header.style.background.replace('rgba(0,0,0,0.05)', 'rgba(0,0,0,0.1)');
+    }
+
+    // Add visual feedback
+    header.style.transform = 'scale(0.98)';
+    setTimeout(() => {
+      header.style.transform = 'scale(1)';
+    }, 150);
+  }
+
+  // Global function for answer toggle (accessible from onclick)
+  window.toggleAnswer = function (answerId) {
+    const section = document.getElementById(answerId);
+    if (!section) return;
+
+    const wrapper = section.querySelector('.answer-content-wrapper');
+    const toggle = section.querySelector('.answer-toggle');
+    const header = section.querySelector('.answer-header');
+
+    if (!wrapper || !toggle) return;
+
+    const isCollapsed = wrapper.style.maxHeight === '100px';
+
+    if (isCollapsed) {
+      // Expand
+      wrapper.style.maxHeight = 'none';
+      wrapper.style.overflow = 'visible';
+      toggle.style.transform = 'rotate(0deg)';
+      toggle.textContent = '▼';
+    } else {
+      // Collapse
+      wrapper.style.maxHeight = '100px';
+      wrapper.style.overflow = 'hidden';
+      toggle.style.transform = 'rotate(-90deg)';
+      toggle.textContent = '▶';
+    }
+
+    // Add visual feedback
+    header.style.transform = 'scale(0.98)';
+    setTimeout(() => {
+      header.style.transform = 'scale(1)';
+    }, 150);
+  }
 
   // ...existing code... (streaming functionality removed by user request)
 
@@ -1256,7 +1692,8 @@ function showLoader() {
     thinkingText = document.createElement("div");
     thinkingText.id = "thinkingText";
     thinkingText.style.cssText = `
-      color: #4CAF50;
+      color: var(--white);
+      background-color: #3f6445;
       font-size: 16px;
       margin-top: 20px;
       text-align: center;

@@ -332,15 +332,12 @@ REASONING: User asked about neem tree spacing and answer provides specific spaci
                 elif line.startswith('REASONING:'):
                     reasoning = line.split(':', 1)[1].strip()
             
-            # If parsing failed or the verifier returned unstructured output (e.g., includes '<think>'),
-            # fall back to semantic similarity between question and answer to decide relevance.
             parsed_ok = (reasoning != "Failed to parse response") and (confidence and confidence > 0)
             if (not parsed_ok) or ('<think>' in llm_response.lower()):
                 try:
                     q_emb = self.embedding_function.embed_query(question)
                     a_emb = self.embedding_function.embed_query(answer)
                     sem_sim = self.cosine_similarity(q_emb, a_emb)
-                    # use semantic sim as a confidence proxy
                     confidence = float(sem_sim)
                     is_relevant = sem_sim >= 0.45
                     reasoning = f"Fallback semantic-similarity used: {sem_sim:.3f}"
@@ -606,7 +603,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
 
 ### Response:"""
 
-    def __init__(self, chroma_path: str, gemini_api_key: str = None, embedding_model: str = None, chat_model: str = None):
+    def __init__(self, chroma_path: str):
         self.embedding_function = local_embeddings
         
         self.local_llm = local_llm
@@ -1066,6 +1063,52 @@ IMPORTANT: Always respond in the same language in which the query has been asked
 
     def cosine_sim(self, a, b):
         return np.dot(a, b) / (norm(a) * norm(b))
+    
+    def _prioritize_by_state(self, state_results: List, general_results: List, user_state: str, max_results: int = 6) -> List:
+        """
+        Combine state-specific and general results, giving priority to state matches
+        """
+        print(f"[STATE_PRIORITY] Prioritizing results for state: {user_state}")
+        
+        # Create a set to track unique documents
+        seen_content = set()
+        prioritized_results = []
+        
+        # First, add all state-specific results
+        for doc, distance in state_results:
+            if doc.page_content not in seen_content:
+                prioritized_results.append((doc, distance))
+                seen_content.add(doc.page_content)
+                print(f"[STATE_PRIORITY] Added state-specific result: {doc.metadata.get('State', 'N/A')} (distance: {distance:.4f})")
+        
+        # Then add general results that match user state or don't have state info
+        for doc, distance in general_results:
+            if len(prioritized_results) >= max_results:
+                break
+                
+            if doc.page_content not in seen_content:
+                doc_state = doc.metadata.get('State', '').lower()
+                user_state_lower = user_state.lower()
+                
+                # Prioritize documents that mention the user's state or are general
+                if (not doc_state or doc_state == user_state_lower or 
+                    user_state_lower in doc.page_content.lower()):
+                    prioritized_results.append((doc, distance))
+                    seen_content.add(doc.page_content)
+                    print(f"[STATE_PRIORITY] Added general result with state relevance: {doc.metadata.get('State', 'N/A')} (distance: {distance:.4f})")
+        
+        # Fill remaining slots with any other relevant general results
+        for doc, distance in general_results:
+            if len(prioritized_results) >= max_results:
+                break
+                
+            if doc.page_content not in seen_content:
+                prioritized_results.append((doc, distance))
+                seen_content.add(doc.page_content)
+                print(f"[STATE_PRIORITY] Added general result: {doc.metadata.get('State', 'N/A')} (distance: {distance:.4f})")
+        
+        print(f"[STATE_PRIORITY] Final prioritized results: {len(prioritized_results)} documents")
+        return prioritized_results[:max_results]
 
     def extract_crop_from_query(self, query: str) -> Optional[str]:
         """
@@ -1417,7 +1460,6 @@ IMPORTANT: Always respond in the same language in which the query has been asked
         current_month = datetime.now(IST).strftime('%B')
         prompt = self.CLASSIFIER_PROMPT.format(question=question, region_instruction=self.REGION_INSTRUCTION, current_month=current_month)
         try:
-            # Use qwen3:1.7b for classification to get crisp category and thinking trace
             os.environ['OLLAMA_MODEL'] = os.getenv('OLLAMA_MODEL', 'qwen3:1.7b')
             response_text = run_local_llm(
                 prompt,
@@ -1477,8 +1519,34 @@ IMPORTANT: Always respond in the same language in which the query has been asked
         
         try:
             print(f"[POPS FALLBACK] Searching PoPs database for: '{question}'")
+            print(f"[POPS FALLBACK] User location: {effective_location}")
             
-            pops_results = self.pops_db.similarity_search_with_score(question, k=5, filter=None)
+            # Try state-prioritized search if location is provided
+            if effective_location:
+                print(f"[POPS STATE] Trying state-specific PoPs search for: {effective_location}")
+                
+                # First try with state filter
+                state_filter = {"State": effective_location} if effective_location else None
+                state_results = []
+                
+                try:
+                    if state_filter:
+                        state_results = self.pops_db.similarity_search_with_score(question, k=10, filter=state_filter)
+                        print(f"[POPS STATE] Found {len(state_results)} state-specific results")
+                except Exception as e:
+                    print(f"[POPS STATE] State filter failed: {e}")
+                    state_results = []
+                
+                # Get general results
+                general_results = self.pops_db.similarity_search_with_score(question, k=10, filter=None)
+                print(f"[POPS STATE] Found {len(general_results)} general results")
+                
+                # Prioritize state-specific results
+                pops_results = self._prioritize_by_state(state_results, general_results, effective_location, max_results=5)
+                print(f"[POPS STATE] Using {len(pops_results)} prioritized results")
+            else:
+                pops_results = self.pops_db.similarity_search_with_score(question, k=5, filter=None)
+                print(f"[POPS FALLBACK] No location provided, using general search")
             
             if not pops_results:
                 print("[POPS FALLBACK] No results found in PoPs database")
@@ -1493,7 +1561,9 @@ IMPORTANT: Always respond in the same language in which the query has been asked
             print(f"[POPS FALLBACK] Found {len(pops_results)} results in PoPs database")
             
             for i, (doc, score) in enumerate(pops_results[:3]):
-                print(f"   PoPs Result {i+1}: Distance={score:.3f}")
+                doc_state = doc.metadata.get('State', 'N/A') if hasattr(doc, 'metadata') else 'N/A'
+                state_match = doc_state.lower() == (effective_location or '').lower() if effective_location else False
+                print(f"   PoPs Result {i+1}: Distance={score:.3f}, State={doc_state} {'✓' if state_match else ''}")
                 print(f"      Content Preview: {doc.page_content[:100]}...")
             
             best_doc, best_score = pops_results[0]
@@ -1668,7 +1738,6 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 print(f"   Completeness Score: {quality_scores['completeness_score']:.3f}")
                 print(f"   Overall Score: {quality_scores['overall_score']:.3f}")
                 print(f"   Should Fallback: {quality_scores['should_fallback']}")
-                # DEBUG: expose decision variables
                 try:
                     print(f"[POPS DEBUG] best_score={best_score:.3f}, cosine_score={cosine_score:.3f}, is_too_short={is_too_short}, is_refusal={is_refusal}, is_insufficient_info={is_insufficient_info}")
                 except Exception:
@@ -1676,7 +1745,6 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 if cosine_score >= 0.75 and keyword_match:
                     print("[POPS FALLBACK] Strong PoPs match detected (cosine>=0.75 and keyword match). Running quick verification before accepting.")
                     try:
-                        # Run the content quality scorer and an LLM relevance check even for strong matches
                         quick_scores = self.quality_scorer.evaluate_response(question, final_response)
                         relevance_check = self.quality_scorer.check_pops_answer_relevance(question, final_response)
 
@@ -1886,7 +1954,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
         reasoning_steps.append(f"Effective location determined: {user_state or 'India'}")
         
         if not database_selection:
-            print("[DB_COMBINATION] ⚠️ No databases selected, using LLM fallback")
+            print("[DB_COMBINATION] No databases selected, using LLM fallback")
             reasoning_steps.append("No databases selected, using LLM fallback")
             return self._query_llm_only(question, conversation_history, user_state)
         
@@ -1917,31 +1985,31 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                         )
                         
                         if not crop_match:
-                            print(f"[DB_COMBINATION] ⚠️ Cross-crop false positive detected!")
+                            print(f"[DB_COMBINATION] Cross-crop false positive detected!")
                             print(f"[DB_COMBINATION] Query crop: '{query_crop}' vs Document crop: '{doc_crop}'")
                             print(f"[DB_COMBINATION] High similarity ({result['cosine_similarity']:.3f}) but different crops - rejecting")
                             is_crop_relevant = False
                 
                 if not is_no_info and is_good_match and is_crop_relevant:
-                    print(f"[DB_COMBINATION] ✅ RAG database provided good quality answer (source: {result['source']}, score: {result['cosine_similarity']:.3f})")
+                    print(f"[DB_COMBINATION] RAG database provided good quality answer (source: {result['source']}, score: {result['cosine_similarity']:.3f})")
                     return result
                 else:
                     if is_no_info:
-                        print(f"[DB_COMBINATION] ❌ RAG database failed - no information found")
+                        print(f"[DB_COMBINATION] RAG database failed - no information found")
                     else:
-                        print(f"[DB_COMBINATION] ⚠️ RAG database provided low quality answer (score: {result['cosine_similarity']:.3f}), continuing to next database")
+                        print(f"[DB_COMBINATION] RAG database provided low quality answer (score: {result['cosine_similarity']:.3f}), continuing to next database")
                     
             elif db == "pops":
                 print(f"[DB_COMBINATION] → Querying PoPs database...")
                 result = self._query_pops_database_only(question, conversation_history, user_state)
                 print(f"[DEBUG] PoPs result preview: {result['answer'][:100]}...")
                 if result['answer'] != "I don't have enough information to answer that from the PoPs database.":
-                    print(f"[DB_COMBINATION] ✅ PoPs database provided answer (source: {result['source']})")
+                    print(f"[DB_COMBINATION] PoPs database provided answer (source: {result['source']})")
                     return result
                 else:
-                    print(f"[DB_COMBINATION] ❌ PoPs database failed")
-                    print(f"[DB_COMBINATION] ❌ PoPs database failed")
-                    
+                    print(f"[DB_COMBINATION] PoPs database failed")
+                    print(f"[DB_COMBINATION] PoPs database failed")
+                
             elif db == "llm":
                 print(f"[DB_COMBINATION] → Using LLM fallback...")
                 result = self._query_llm_only(question, conversation_history, user_state)
@@ -1996,26 +2064,48 @@ IMPORTANT: Always respond in the same language in which the query has been asked
         
         reasoning_steps.append(f"Final processing query: {processing_query}")
         print(f"[DEBUG] Final processing query: {processing_query}")
-        results = self.db.similarity_search_with_score(processing_query, k=6)
+        # First try state-filtered search if user_state is provided
+        if user_state:
+            reasoning_steps.append(f"Trying state-specific search for: {user_state}")
+            print(f"[STATE_PRIORITY] Trying state-specific search for: {user_state}")
+            
+            metadata_filter = self._create_metadata_filter(processing_query, user_state)
+            state_results = self.db.similarity_search_with_score(processing_query, k=10, filter=metadata_filter)
+            
+            if len(state_results) >= 3:  # If we have enough state-specific results
+                results = state_results[:6]  # Use top 6 state-specific results
+                reasoning_steps.append(f"Found {len(state_results)} state-specific documents, using top {len(results)}")
+                print(f"[STATE_PRIORITY] Using {len(results)} state-specific results from {len(state_results)} found")
+            else:
+                # Mix state-specific and general results with state priority
+                general_results = self.db.similarity_search_with_score(processing_query, k=10)
+                results = self._prioritize_by_state(state_results, general_results, user_state, max_results=6)
+                reasoning_steps.append(f"Mixed search: {len(state_results)} state-specific + general results = {len(results)} total")
+                print(f"[STATE_PRIORITY] Mixed search: {len(state_results)} state + general = {len(results)} total")
+        else:
+            results = self.db.similarity_search_with_score(processing_query, k=6)
+            reasoning_steps.append(f"No state provided, using general search")
+            print(f"[STATE_PRIORITY] No state provided, using general search")
+        
         reasoning_steps.append(f"Retrieved {len(results)} documents from RAG database")
         print(f"[DEBUG] Retrieved {len(results)} documents from RAG database")
         
-        # Collect research data for frontend display
         research_data = []
         
-        # Get query embedding for proper cosine similarity calculation
         query_embedding = self.embedding_function.embed_query(processing_query)
-        reasoning_steps.append("🔢 Calculating cosine similarity scores for each document")
+        reasoning_steps.append("Calculating cosine similarity scores for each document")
         
         for i, (doc, distance) in enumerate(results):
-            # Get document embedding and calculate proper cosine similarity
             doc_embedding = self.embedding_function.embed_query(doc.page_content)
             cosine_score = self.cosine_sim(query_embedding, doc_embedding)
             collection_type = doc.metadata.get('collection', 'rag')
-            print(f"[DEBUG] Doc {i+1}: Distance={distance:.4f}, Score={cosine_score:.3f}, Type={collection_type}, Content preview: {doc.page_content[:100]}...")
+            doc_state = doc.metadata.get('State', 'N/A')
+            state_match = doc_state.lower() == (user_state or '').lower() if user_state else False
+            
+            print(f"[DEBUG] Doc {i+1}: Distance={distance:.4f}, Score={cosine_score:.3f}, Type={collection_type}, State={doc_state} {'✓' if state_match else ''}")
+            print(f"[DEBUG] Doc {i+1} Content preview: {doc.page_content[:100]}...")
             print(f"[DEBUG] Doc {i+1} Metadata: {doc.metadata}")
             
-            # Add to research data
             research_entry = {
                 'rank': i + 1,
                 'distance': round(distance, 4),
@@ -2023,6 +2113,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 'collection_type': collection_type,
                 'content_preview': doc.page_content[:200] + "..." if len(doc.page_content) > 200 else doc.page_content,
                 'metadata': doc.metadata,
+                'state_match': state_match,
                 'selected': False
             }
             
@@ -2044,11 +2135,10 @@ IMPORTANT: Always respond in the same language in which the query has been asked
             distance_ok = distance < 0.35
             cosine_ok = cosine_score >= 0.6
             
-            reasoning_steps.append(f"Doc {i+1}: Distance={distance:.4f} ({'✓' if distance_ok else '❌'}), Similarity={cosine_score:.3f} ({'✓' if cosine_ok else '❌'})")
+            reasoning_steps.append(f"Doc {i+1}: Distance={distance:.4f} ({'OK' if distance_ok else 'FAIL'}), Similarity={cosine_score:.3f} ({'OK' if cosine_ok else 'FAIL'})")
             print(f"[FILTER_DEBUG] Doc: Distance={distance:.4f} (ok: {distance_ok}), Cosine={cosine_score:.3f} (ok: {cosine_ok})")
             
             if distance_ok and cosine_ok:
-                # Add crop-specific validation to prevent cross-crop false positives
                 query_crop = self.extract_crop_from_query(processing_query)
                 is_crop_relevant = True
                 
@@ -2078,13 +2168,11 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                     _maybe_log('relevant_doc', f"Selected document content: {doc.page_content}")
                     _maybe_log('relevant_doc', f"Selected document metadata: {doc.metadata}")
                     
-                    # Mark this document as selected in research data
                     selected_doc_index = doc_idx
                     research_data[doc_idx]['selected'] = True
                     research_data[doc_idx]['selection_reason'] = "Passed distance & cosine filters + crop validation"
                     
                     if cosine_score >= 0.6:
-                        # Attempt to extract a direct 'Answer:' block from the DB document
                         print(f"[DEBUG] High similarity score ({cosine_score:.3f}) - attempting to extract direct answer from database")
                         content_lines = doc.page_content.split('\n')
                         answer_text = ""
@@ -2124,8 +2212,6 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                                 'research_data': research_data
                             }
                         elif answer_text and match_level == 'related':
-                            # Related match: the stored question is semantically related to user's question.
-                            # Use LLM contextualization but accept the outcome as RAG-derived to reduce fallbacks.
                             print(f"[DEBUG] Related stored-question match (semantic). Using contextualized generation and accepting as RAG-related answer.")
                             try:
                                 if collection_type == 'golden':
@@ -2153,7 +2239,6 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                                 }
                             except Exception as e:
                                 print(f"[DEBUG] Related-match contextualization failed: {e}")
-                                # Fall through to normal generation below
                         elif answer_text and match_level == 'none':
                             print(f"[DEBUG] DB answer present but not exact match - generating contextualized response using LLM")
                             if collection_type == 'golden':
@@ -2309,7 +2394,6 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 'reasoning_steps': reasoning_steps
             }
         else:
-            # Agriculture question - use LLM directly
             effective_location = self.determine_effective_location(question, user_state)
             context_info = f"\nUser Location: {effective_location}" if effective_location else ""
             reasoning_steps.append(f"Effective location determined: {effective_location}")
@@ -2340,7 +2424,6 @@ Provide a comprehensive answer focusing on Indian agricultural practices, variet
                 reasoning_steps.append(f"LLM response generated ({len(llm_response)} characters)")
                 print(f"[DEBUG] LLM response preview: {llm_response[:150]}...")
                 
-                # Add source attribution to the response
                 final_response = llm_response.strip()
                 source_text = "\n\n<small><i>Source: Fallback LLM</i></small>"
                 final_response += source_text
@@ -2357,7 +2440,7 @@ Provide a comprehensive answer focusing on Indian agricultural practices, variet
             except Exception as e:
                 reasoning_steps.append(f"LLM error: {str(e)}")
                 print(f"[DB_FILTER] LLM error: {e}")
-                error_response = "I'm sorry, I'm unable to process your request at the moment. Please try again later."
+                error_response = "Unable to process request. Please try again."
                 source_text = "\n\n<small><i>Source: Fallback LLM</i></small>"
                 final_response = error_response + source_text
                 return {
@@ -2395,11 +2478,10 @@ Provide a comprehensive answer focusing on Indian agricultural practices, variet
             ]
             
             if len(question_lower) < 20 and any(greeting in question_lower for greeting in simple_greetings):
-                greeting_time = time.time() - greeting_check_start
                 if 'namaste' in question_lower:
                     fast_response = "Namaste! Welcome to AgriChat. I'm here to help you with all your farming and agriculture questions. What would you like to know about?"
                 elif 'namaskaram' in question_lower:
-                    fast_response = "Namaskaram! I'm your agricultural assistant. Feel free to ask me anything about crops, farming techniques, or agricultural practices."
+                    fast_response = "Namaskaram! I can help with crops, farming techniques, and agricultural practices."
                 elif 'vanakkam' in question_lower:
                     fast_response = "Vanakkam! I'm here to assist you with farming and agriculture. What agricultural topic would you like to discuss today?"
                 elif any(time in question_lower for time in ['morning', 'afternoon', 'evening']):
@@ -2413,7 +2495,6 @@ Provide a comprehensive answer focusing on Indian agricultural practices, variet
                     'cosine_similarity': 0.0,
                     'document_metadata': None
                 }
-            greeting_time = time.time() - greeting_check_start
             
             context_processing_start = time.time()
             processing_query = question
@@ -2449,20 +2530,14 @@ Provide a comprehensive answer focusing on Indian agricultural practices, variet
                     'document_metadata': None
                 }
 
-            database_search_start = time.time()
             try:
-                query_expansion_start = time.time()
                 expanded_queries = self.expand_query(processing_query)
                 primary_query = expanded_queries[0]
-                query_expansion_time = time.time() - query_expansion_start
                 
-                filter_creation_start = time.time()
                 metadata_filter = self._create_metadata_filter(primary_query, effective_location)
-                filter_creation_time = time.time() - filter_creation_start
                 
                 db_query_start = time.time()
                 raw_results = self.db.similarity_search_with_score(primary_query, k=10, filter=metadata_filter)
-                db_query_time = time.time() - db_query_start
                 
                 print(f"\n[RAG SEARCH] Query: '{primary_query}'")
                 print(f"[RAG SEARCH] Database returned {len(raw_results)} results")
@@ -2474,7 +2549,6 @@ Provide a comprehensive answer focusing on Indian agricultural practices, variet
                 
                 if len(raw_results) < 3:
                     print(f"[RAG SEARCH] Few results found, trying unfiltered search...")
-                    unfiltered_search_start = time.time()
                     fallback_results = self.db.similarity_search_with_score(primary_query, k=10, filter=None)
                     
                     for doc, score in fallback_results:
@@ -2605,7 +2679,6 @@ Provide a comprehensive answer focusing on Indian agricultural practices, variet
                 print(f"[DEBUG] Context being sent to LLM: {content[:500]}...")
                 print(f"[DEBUG] User query: {processing_query}")
                 
-                actual_llm_start = time.time()
                 generated_response = run_local_llm(
                     prompt,
                     temperature=0.3,

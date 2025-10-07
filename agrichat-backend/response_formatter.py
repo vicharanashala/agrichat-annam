@@ -228,7 +228,7 @@ class AgriculturalResponseFormatter:
                 tips.append(sentence)
         
         if tips and len(tips) <= 3:  # Don't add if too many tips
-            tips_section = "\n\n### 💡 Key Tips\n\n"
+            tips_section = "\n\n### Key Tips\n\n"
             for tip in tips:
                 tips_section += f"* {tip.strip()}\n"
             return text + tips_section
@@ -338,7 +338,7 @@ class AgriculturalResponseFormatter:
         tips = self._extract_practical_tips(cleaned)
         tips_md = ''
         if tips:
-            tips_md = '\n\n### 💡 Key Tips\n\n'
+            tips_md = '\n\n### Key Tips\n\n'
             for t in tips:
                 tips_md += f"* {t.strip()}\n"
 
