@@ -86,7 +86,20 @@ class FastResponseHandler:
             if (not _is_no_info_answer(ans_text)) and cosine >= 0.6:
                 use_rag = True
         if use_rag:
+            source = rag_result.get('source', 'rag')
             structured_text = rag_result.get('answer')
+            
+            # For Golden Database, return exact answer without any LLM refinement
+            if source == "RAG Database (Golden)":
+                logger.info(f"[FAST] Golden Database exact match - returning raw answer without LLM processing")
+                return {
+                    'answer': structured_text,
+                    'source': source,
+                    'similarity': rag_result.get('similarity_score') or rag_result.get('cosine_similarity') or 1.0,
+                    'metadata': rag_result.get('metadata') or rag_result.get('document_metadata') or {}
+                }
+            
+            # For other RAG sources, apply LLM structuring
             if self.structurer_llm:
                 try:
                     struct_prompt = (
@@ -98,7 +111,7 @@ class FastResponseHandler:
                     structured_text = rag_result.get('answer')
             return {
                 'answer': structured_text,
-                'source': rag_result.get('source', 'rag'),
+                'source': source,
                 'similarity': rag_result.get('similarity_score') or rag_result.get('cosine_similarity') or 1.0,
                 'metadata': rag_result.get('metadata') or rag_result.get('document_metadata') or {}
             }
@@ -194,7 +207,20 @@ Provide a direct, technical answer:"""
             if (not _is_no_info_answer(ans_text)) and cosine >= 0.6:
                 use_rag = True
         if use_rag:
+            source = rag_result.get('source', 'rag')
             structured_text = rag_result.get('answer')
+            
+            
+            if source == "RAG Database (Golden)":
+                logger.info(f"[FAST] Golden Database exact match in thinking stream - returning answer without LLM refinement")
+                return {
+                    'answer': structured_text,
+                    'thinking': chain_of_thought,
+                    'source': source,
+                    'similarity': rag_result.get('similarity_score') or rag_result.get('cosine_similarity') or 1.0,
+                    'metadata': rag_result.get('metadata') or rag_result.get('document_metadata') or {}
+                }
+            
             if self.structurer_llm:
                 try:
                     struct_prompt = (
@@ -207,7 +233,7 @@ Provide a direct, technical answer:"""
             return {
                 'answer': structured_text,
                 'thinking': chain_of_thought,
-                'source': rag_result.get('source', 'rag'),
+                'source': source,
                 'similarity': rag_result.get('similarity_score') or rag_result.get('cosine_similarity') or 1.0,
                 'metadata': rag_result.get('metadata') or rag_result.get('document_metadata') or {}
             }

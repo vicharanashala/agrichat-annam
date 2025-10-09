@@ -1359,13 +1359,16 @@ async def thinking_stream_query(request: QueryRequest):
                 
                 if isinstance(result, dict):
                     answer_text = result.get('answer', '')
+                    source = result.get('source', '')
                     logger.info(f"[THINKING_STREAM] Extracted answer_text length: {len(answer_text)}")
                     logger.info(f"[THINKING_STREAM] Extracted answer_text preview: {answer_text[:100]}...")
+                    logger.info(f"[THINKING_STREAM] Source detected: '{source}' (type: {type(source)})")
                     
-                    if result.get('source') == 'Golden Database':
+                    if source == 'RAG Database (Golden)':
                         logger.info("[THINKING_STREAM] Golden Database answer - skipping enhancement to preserve exact content")
                         enhanced_answer = answer_text  # Use exact Golden Database content
                     else:
+                        logger.info(f"[THINKING_STREAM] Not Golden Database (source: '{source}') - applying enhancement")
                         enhanced_answer = await enhance_answer_with_context_questions(
                             request.question, answer_text, request.state, thinking_content
                         )
@@ -1378,6 +1381,50 @@ async def thinking_stream_query(request: QueryRequest):
                         sanitized_answer = enhanced_answer.encode('utf-8', errors='ignore').decode('utf-8')
                         json_data = json.dumps({'type': 'answer', 'answer': sanitized_answer, 'source': result.get('source', ''), 'confidence': result.get('confidence', 0.0)}, ensure_ascii=False)
                         yield f"data: {json_data}\n\n"
+                    
+                    # Debug metadata processing
+                    logger.info(f"[THINKING_STREAM] Checking metadata - Source: '{source}', Has metadata: {bool(result.get('metadata'))}")
+                    if result.get('metadata'):
+                        logger.info(f"[THINKING_STREAM] Available metadata keys: {list(result.get('metadata', {}).keys())}")
+                    
+                    if source in ['RAG Database', 'RAG Database (Golden)', 'PoPs Database'] and result.get('metadata'):
+                        logger.info(f"[THINKING_STREAM] Processing metadata for source: {source}")
+                        try:
+                            metadata = result.get('metadata', {})
+                            metadata_tags = []
+                            
+                            if 'file_path' in metadata:
+                                metadata_tags.append(f"**File:** {metadata['file_path']}")
+                            
+                            if 'section' in metadata:
+                                metadata_tags.append(f"**Section:** {metadata['section']}")
+                            
+                            if 'document_id' in metadata:
+                                metadata_tags.append(f"**Document ID:** {metadata['document_id']}")
+                            
+                            if 'content_type' in metadata:
+                                metadata_tags.append(f"**Content Type:** {metadata['content_type']}")
+                            
+                            if 'category' in metadata:
+                                metadata_tags.append(f"**Category:** {metadata['category']}")
+                            
+                            if 'subcategory' in metadata:
+                                metadata_tags.append(f"**Subcategory:** {metadata['subcategory']}")
+                            
+                            if result.get('similarity') or result.get('cosine_similarity'):
+                                similarity = result.get('similarity') or result.get('cosine_similarity')
+                                metadata_tags.append(f"**Similarity Score:** {similarity:.3f}")
+                            
+                            if metadata_tags:
+                                metadata_content = "\n".join(metadata_tags)
+                                logger.info(f"[THINKING_STREAM] Sending metadata_tags with {len(metadata_tags)} items")
+                                metadata_json = json.dumps({'type': 'metadata_tags', 'content': metadata_content}, ensure_ascii=False)
+                                yield f"data: {metadata_json}\n\n"
+                            else:
+                                logger.info(f"[THINKING_STREAM] No metadata tags generated from available metadata")
+                                
+                        except Exception as metadata_error:
+                            logger.error(f"[THINKING_STREAM] Error processing metadata: {metadata_error}")
                     
                     html_answer = markdown.markdown(enhanced_answer, extensions=["extra", "nl2br"])
                     

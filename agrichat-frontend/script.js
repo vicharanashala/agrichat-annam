@@ -1178,6 +1178,15 @@ window.addEventListener("DOMContentLoaded", async () => {
                   }
                   break;
 
+                case 'metadata_tags':
+                  console.log('[THINKING] Displaying metadata tags');
+                  if (answerContainer) {
+                    displayMetadataTags(answerContainer, data.content);
+                  } else {
+                    console.warn('[THINKING] No answer container for metadata tags');
+                  }
+                  break;
+
                 case 'session_complete':
                   // Update session info
                   sessionComplete = true;
@@ -1561,7 +1570,52 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
+  function displayMetadataTags(container, metadataContent) {
+    if (container && metadataContent) {
+      // Check if metadata tags already exist to avoid duplicates
+      const existingMetadata = container.querySelector('.metadata-tags');
+      if (existingMetadata) {
+        existingMetadata.remove();
+      }
 
+      // Create metadata tags section
+      const metadataDiv = document.createElement('div');
+      metadataDiv.className = 'metadata-tags';
+      metadataDiv.style.cssText = `
+        margin-top: 15px;
+        padding: 12px;
+        background: rgba(255,255,255,0.05);
+        border-radius: 6px;
+        border-left: 3px solid rgba(255,255,255,0.3);
+        font-size: 0.85em;
+        color: rgba(255,255,255,0.9);
+        line-height: 1.5;
+      `;
+
+      // Add a header for the metadata section
+      const metadataHeader = document.createElement('div');
+      metadataHeader.style.cssText = `
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: rgba(255,255,255,0.95);
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        padding-bottom: 6px;
+      `;
+      metadataHeader.textContent = '📊 Document Metadata';
+
+      const metadataBody = document.createElement('div');
+      metadataBody.innerHTML = processMarkdown(metadataContent);
+
+      metadataDiv.appendChild(metadataHeader);
+      metadataDiv.appendChild(metadataBody);
+
+      // Append to the container
+      container.appendChild(metadataDiv);
+
+      // Scroll to show the new content
+      container.closest('#messages').scrollTop = container.closest('#messages').scrollHeight;
+    }
+  }
 
   function formatSourceDisplay(source) {
     if (!source) return 'Unknown';

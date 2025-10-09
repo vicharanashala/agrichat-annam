@@ -1815,9 +1815,8 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                             match_level = 'none'
                         if answer_text and match_level == 'exact':
                             _maybe_log('relevant_doc', f"Returning verbatim DB answer due to exact stored-question match")
-                            source_info = f"\n\n**Source:** RAG Database (Golden)"
                             return {
-                                'answer': answer_text + source_info,
+                                'answer': answer_text,
                                 'source': "RAG Database (Golden)",
                                 'cosine_similarity': cosine_score,
                                 'distance': distance,
@@ -1878,6 +1877,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                     if collection_type == 'golden':
                         print(f"[DEBUG] Using Golden database - returning exact content without modification")
                         llm_response = doc.page_content.strip()
+                        determined_source = "Golden Database"
                     else:
                         print(f"[DEBUG] Using RAG database response generation")
                         context = f"Context: {doc.page_content}\n\nQuestion: {processing_query}"
@@ -1888,11 +1888,12 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                             max_tokens=1024,
                             model=os.getenv('OLLAMA_MODEL_STRUCTURER', 'gemma:latest')
                         )
+                        determined_source = "RAG Database"
                     reasoning_steps.append(f"Generated response using selected document ({len(llm_response)} characters)")
                     print(f"[DEBUG] Generated response: {llm_response[:150]}...")
                     return {
                         'answer': llm_response,
-                        'source': "RAG Database",
+                        'source': determined_source,
                         'cosine_similarity': cosine_score,
                         'distance': distance,
                         'document_metadata': doc.metadata,
