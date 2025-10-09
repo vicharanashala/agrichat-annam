@@ -242,7 +242,6 @@ REASONING: User asked about neem tree spacing and answer provides specific spaci
                 relevance_prompt,
                 temperature=0.1,
                 max_tokens=150,
-                use_fallback=False,
                 model=os.getenv('OLLAMA_MODEL_CLASSIFIER', 'qwen3:1.7b')
             )
             response_lines = llm_response.strip().split('\n')
@@ -1197,7 +1196,6 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 prompt,
                 temperature=0,
                 max_tokens=20,
-                use_fallback=False,
                 model=os.getenv('OLLAMA_MODEL_CLASSIFIER', 'qwen3:1.7b')
             )
             category = response_text.strip().upper()
@@ -1218,8 +1216,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
             response_text = run_local_llm(
                 prompt,
                 temperature=0.3,
-                max_tokens=512,
-                use_fallback=False
+                max_tokens=512
             )
             return self.filter_response_thinking(response_text.strip())
         except Exception as e:
@@ -1330,8 +1327,8 @@ IMPORTANT: Always respond in the same language in which the query has been asked
             print(f"[POPS FALLBACK] Best result analysis:")
             print(f"   Distance: {best_score:.3f}, Cosine: {cosine_score:.3f}")
             print(f"   Content preview: {content[:150]}...")
-            if best_score > 300.0:
-                print(f"[POPS FALLBACK] Distance too high ({best_score:.3f} > 300.0), proceeding to LLM")
+            if best_score > 500.0:
+                print(f"[POPS FALLBACK] Distance too high ({best_score:.3f} > 500.0), proceeding to LLM")
                 return {
                     'answer': "__FALLBACK__",
                     'source': "Fallback LLM",
@@ -1339,8 +1336,8 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                     'distance': best_score,
                     'document_metadata': None
                 }
-            if cosine_score < 0.4:
-                print(f"[POPS FALLBACK] Cosine similarity too low ({cosine_score:.3f} < 0.4), proceeding to LLM")
+            if cosine_score < 0.25:
+                print(f"[POPS FALLBACK] Cosine similarity too low ({cosine_score:.3f} < 0.25), proceeding to LLM")
                 return {
                     'answer': "__FALLBACK__",
                     'source': "Fallback LLM",
@@ -1378,8 +1375,7 @@ IMPORTANT: Always respond in the same language in which the query has been asked
                 generated_response = run_local_llm(
                     pops_prompt,
                     temperature=0.1,
-                    max_tokens=512,
-                    use_fallback=False,
+                    max_tokens=1024,
                     model=os.getenv('OLLAMA_MODEL_STRUCTURER', 'gemma:latest')
                 )
                 final_response = self.filter_response_thinking(generated_response.strip())
@@ -2005,12 +2001,11 @@ Provide a comprehensive answer focusing on Indian agricultural practices, variet
             print(f"[DEBUG] LLM prompt preview: {prompt[:200]}...")
             try:
                 reasoning_steps.append("Calling LLM with selected model")
-                print(f"[DEBUG] Calling LLM with use_fallback=False (should use llama3.1:latest)")
+                print(f"[DEBUG] Calling LLM (should use gpt-oss:20b)")
                 llm_response = run_local_llm(
                     prompt,
                     temperature=0.3,
                     max_tokens=1024,
-                    use_fallback=False,
                     model=os.getenv('OLLAMA_MODEL_FALLBACK', 'gpt-oss:20b')
                 )
                 reasoning_steps.append(f"LLM response generated ({len(llm_response)} characters)")
@@ -2229,7 +2224,6 @@ Provide a comprehensive answer focusing on Indian agricultural practices, variet
                     prompt,
                     temperature=0.3,
                     max_tokens=1024,
-                    use_fallback=False,
                     model=os.getenv('OLLAMA_MODEL_STRUCTURER', 'gemma:latest')
                 )
                 print(f"[DEBUG] LLM raw response: {generated_response}")

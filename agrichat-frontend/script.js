@@ -358,32 +358,19 @@ function loadDatabasePreferences() {
     }
   }
 
-  // Update UI toggles for BOTH forms
-  ['Start', 'Chat'].forEach(function (suffix) {
-    const rag = document.getElementById(`ragToggle${suffix}`);
-    if (rag) rag.checked = databaseToggles.rag;
-    const pops = document.getElementById(`popsToggle${suffix}`);
-    if (pops) pops.checked = databaseToggles.pops;
-    const llm = document.getElementById(`llmToggle${suffix}`);
-    if (llm) llm.checked = databaseToggles.llm;
-  });
+  // Update UI toggles
+  const ragToggle = document.getElementById("ragToggle");
+  const popsToggle = document.getElementById("popsToggle");
+  const llmToggle = document.getElementById("llmToggle");
+
+  if (ragToggle) ragToggle.checked = databaseToggles.rag;
+  if (popsToggle) popsToggle.checked = databaseToggles.pops;
+  if (llmToggle) llmToggle.checked = databaseToggles.llm;
+
+  console.log('[TOGGLES] Loaded database preferences:', databaseToggles);
 }
 
-// function loadDatabasePreferences() {
-//   const saved = localStorage.getItem("agrichat_database_preferences");
-//   if (saved) {
-//     try {
-//       databaseToggles = { ...databaseToggles, ...JSON.parse(saved) };
-//     } catch (e) {
-//       console.warn("Failed to parse saved database preferences");
-//     }
-//   }
 
-//   // Update UI toggles
-//   document.getElementById("ragToggle").checked = databaseToggles.rag;
-//   document.getElementById("popsToggle").checked = databaseToggles.pops;
-//   document.getElementById("llmToggle").checked = databaseToggles.llm;
-// }
 
 // Save database toggle preferences to localStorage
 function saveDatabasePreferences() {
@@ -410,44 +397,36 @@ function getDatabaseSelection() {
 
 // Initialize database toggle event listeners
 function initializeDatabaseToggles() {
-  ['Start', 'Chat'].forEach(function (suffix) {
-    const ragToggle = document.getElementById(`ragToggle${suffix}`);
-    const popsToggle = document.getElementById(`popsToggle${suffix}`);
-    const llmToggle = document.getElementById(`llmToggle${suffix}`);
+  const ragToggle = document.getElementById("ragToggle");
+  const popsToggle = document.getElementById("popsToggle");
+  const llmToggle = document.getElementById("llmToggle");
 
-    if (ragToggle) {
-      ragToggle.addEventListener("change", () => {
-        databaseToggles.rag = ragToggle.checked;
-        saveDatabasePreferences();
-      });
-    }
-    if (popsToggle) {
-      popsToggle.addEventListener("change", () => {
-        databaseToggles.pops = popsToggle.checked;
-        saveDatabasePreferences();
-      });
-    }
-    if (llmToggle) {
-      llmToggle.addEventListener("change", () => {
-        databaseToggles.llm = llmToggle.checked;
-        saveDatabasePreferences();
-      });
-    }
-  });
+  if (ragToggle) {
+    ragToggle.addEventListener("change", () => {
+      databaseToggles.rag = ragToggle.checked;
+      saveDatabasePreferences();
+      console.log('[TOGGLES] Golden Database toggled:', ragToggle.checked);
+    });
+  }
+
+  if (popsToggle) {
+    popsToggle.addEventListener("change", () => {
+      databaseToggles.pops = popsToggle.checked;
+      saveDatabasePreferences();
+      console.log('[TOGGLES] PoP Database toggled:', popsToggle.checked);
+    });
+  }
+
+  if (llmToggle) {
+    llmToggle.addEventListener("change", () => {
+      databaseToggles.llm = llmToggle.checked;
+      saveDatabasePreferences();
+      console.log('[TOGGLES] AI Reasoning Engine toggled:', llmToggle.checked);
+    });
+  }
 }
 
-// function initializeDatabaseToggles() {
-//   const ragToggle = document.getElementById("ragToggle");
-//   const popsToggle = document.getElementById("popsToggle");
-//   const llmToggle = document.getElementById("llmToggle");
 
-//   ragToggle.addEventListener("change", () => {
-//     databaseToggles.rag = ragToggle.checked;
-//     saveDatabasePreferences();
-//   });
-
-//   popsToggle.addEventListener("change", () => {
-//     databaseToggles.pops = popsToggle.checked;
 //     saveDatabasePreferences();
 //   });
 

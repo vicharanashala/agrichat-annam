@@ -98,65 +98,61 @@
       </div>
 
       <!-- Database Selection Toggles -->
-      <!-- <div class="database-toggles" id="databaseToggles">
-        <div class="toggles-header">
-          <i class="fas fa-database"></i>
-          <span>Database Sources</span>
-        </div>
-        <div class="toggles-container">
-          <div class="toggle-item">
-            <label class="toggle-switch">
-              <input type="checkbox" id="ragToggle" checked>
-              <span class="toggle-slider"></span>
-            </label>
-            <span class="toggle-label">Golden FAQs</span>
+      <div class="header-center">
+        <div class="database-toggles" id="databaseToggles">
+          <div class="toggles-header">
+            <i class="fas fa-database"></i>
+            <span>Database Sources</span>
           </div>
-          <div class="toggle-item">
-            <label class="toggle-switch">
-              <input type="checkbox" id="popsToggle" checked>
-              <span class="toggle-slider"></span>
-            </label>
-            <span class="toggle-label">Package of Practices</span>
-          </div>
-          <div class="toggle-item">
-            <label class="toggle-switch">
-              <input type="checkbox" id="llmToggle" checked>
-              <span class="toggle-slider"></span>
-            </label>
-            <span class="toggle-label">LLM Fallback</span>
-          </div>
-          <div class="toggle-item">
-            <label class="toggle-switch">
-              <input type="checkbox" id="llmToggle" checked>
-              <span class="toggle-slider"></span>
-            </label>
-            <span class="toggle-label">Premium</span>
+          <div class="toggles-container">
+            <div class="toggle-item">
+              <label class="toggle-switch">
+                <input type="checkbox" id="ragToggle" checked>
+                <span class="toggle-slider"></span>
+              </label>
+              <span class="toggle-label">Golden Database</span>
+            </div>
+            <div class="toggle-item">
+              <label class="toggle-switch">
+                <input type="checkbox" id="popsToggle" checked>
+                <span class="toggle-slider"></span>
+              </label>
+              <span class="toggle-label">PoP Database</span>
+            </div>
+            <div class="toggle-item">
+              <label class="toggle-switch">
+                <input type="checkbox" id="llmToggle" checked>
+                <span class="toggle-slider"></span>
+              </label>
+              <span class="toggle-label">AI Reasoning Engine</span>
+            </div>
           </div>
         </div>
-      </div> -->
+      </div>
 
-      <div class="location-info-bar">
-        <div class="location-info" id="locationInfo">
-          <i class="fas fa-map-marker-alt"></i>
-          <span id="locationState">Detecting...</span>
-          <!-- <span id="locationLanguage">Detecting...</span> -->
-          <button id="editLocationBtn" class="edit-icon-btn" title="Edit">
-            <i class="fas fa-pencil-alt"></i>
-          </button>
-        </div>
-
-        <div class="location-dropdown" id="locationEdit"
-          style="display: none; justify-content: center; align-items: center;">
-          <div class="dropdown-group">
-            <label for="manualStateSelect">State</label>
-            <select id="manualStateSelect"></select>
+      <div class="header-right">
+        <div class="location-info-bar">
+          <div class="location-info" id="locationInfo">
+            <i class="fas fa-map-marker-alt"></i>
+            <span id="locationState">Detecting...</span>
+            <!-- <span id="locationLanguage">Detecting...</span> -->
+            <button id="editLocationBtn" class="edit-icon-btn" title="Edit">
+              <i class="fas fa-pencil-alt"></i>
+            </button>
           </div>
-          <!-- <div class="dropdown-group">
+
+          <div class="location-dropdown" id="locationEdit"
+            style="display: none; justify-content: center; align-items: center;">
+            <div class="dropdown-group">
+              <label for="manualStateSelect">State</label>
+              <select id="manualStateSelect"></select>
+            </div>
+            <!-- <div class="dropdown-group">
             <label for="manualLanguageSelect">Language</label>
             <select id="manualLanguageSelect"></select>
           </div> -->
 
-          <!-- <select id="stateSelect" required style="margin-bottom: 10px; padding: 10px; border-radius: 8px; border: 1px solid #ccc;">
+            <!-- <select id="stateSelect" required style="margin-bottom: 10px; padding: 10px; border-radius: 8px; border: 1px solid #ccc;">
     <option value="">-- Select your State / UT --</option>
     <option value="Andhra Pradesh">Andhra Pradesh</option>
     <option value="Arunachal Pradesh">Arunachal Pradesh</option>
@@ -195,7 +191,8 @@
     <option value="Lakshadweep">Lakshadweep</option>
     <option value="Puducherry">Puducherry</option>
   </select> -->
-          <button id="resetLocationBtn" class="reset-location-btn"><i class="fas fa-sync-alt"></i> Reset</button>
+            <button id="resetLocationBtn" class="reset-location-btn"><i class="fas fa-sync-alt"></i> Reset</button>
+          </div>
         </div>
       </div>
 

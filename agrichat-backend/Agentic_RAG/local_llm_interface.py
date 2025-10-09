@@ -77,7 +77,7 @@ class OllamaLLMInterface:
         except Exception as e:
             yield {'type': 'error', 'message': f'Unexpected error: {e}'}
 
-    def generate_content(self, prompt: str, temperature: float = 0.3, max_tokens: int = 2048) -> str:
+    def generate_content(self, prompt: str, temperature: float = 0.3, max_tokens: int = 2048, use_fallback: bool = False) -> str:
         """
         Generate content using optimized single model approach
         """

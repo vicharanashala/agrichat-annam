@@ -37,8 +37,7 @@ body {
   font-family: 'Nunito', sans-serif;
   /* font-family: 'Rufina', serif; */
   /* font-family: 'Palatino Linotype', Palatino, serif; */
-  background-color: #2e564d;
-  /* #e0fde0; */
+  background-color: #2e564d; /* #e0fde0; */
   display: grid;
   grid-template-columns: var(--sidebar-width) 1fr;
   height: 100vh;
@@ -312,9 +311,10 @@ body.sidebar-collapsed {
   background: #8da961;
   border-bottom: 2px solid var(--border-dark);
   padding: 20px;
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
+  gap: 20px;
   box-shadow: 0 2px 10px var(--shadow);
 }
 
@@ -329,6 +329,19 @@ body.sidebar-collapsed {
   display: flex;
   align-items: center;
   gap: 15px;
+  justify-self: start;
+}
+
+.header-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.header-right {
+  display: flex;
+  justify-content: end;
+  align-items: center;
 }
 
 .sidebar-toggle {
@@ -366,7 +379,6 @@ body.sidebar-collapsed {
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  margin: 0 20px;
   padding: 10px;
   background: #e0ebd8;
   border-radius: 12px;
@@ -1119,10 +1131,7 @@ input:checked+.toggle-slider:before {
 }
 
 .location-info-bar {
-  /* position: relative; */
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
+  position: relative;
 }
 
 .account-icon {
@@ -1674,9 +1683,21 @@ select option:checked {
 
 /* Database Toggle Responsive Styles */
 @media (max-width: 768px) {
+  .main-header {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    gap: 10px;
+    padding: 15px;
+  }
+
+  .header-left,
+  .header-center,
+  .header-right {
+    justify-self: center;
+  }
+
   .database-toggles {
     flex-direction: row;
-    margin: 0 10px;
     padding: 8px;
   }
 
@@ -2708,7 +2729,7 @@ select option:checked {
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
 }
 
 /* Visual distinction between thinking and answer */
@@ -2723,7 +2744,7 @@ select option:checked {
   left: 50%;
   width: 60px;
   height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
   transform: translateX(-50%);
 }
 
