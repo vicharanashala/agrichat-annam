@@ -298,7 +298,7 @@ function formatSourceDisplay(source) {
     return 'Golden Database';
   } else if (source === 'RAG Database') {
     return 'RAG Database';
-  } else if (source === 'PoPs Database') {
+  } else if (source === 'PoPs Database' || source === 'pops') {
     return 'PoPs Database (Package of Practices)';
   } else if (source === 'Fallback LLM') {
     return 'AI Reasoning Engine (gpt-oss pipeline)';
@@ -1103,6 +1103,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     let thinkingContainer = null;
     let answerContainer = null;
     let currentThinkingText = '';
+    let sessionComplete = false;
 
     try {
       console.log('[THINKING] Starting thinking stream query:', requestData);
@@ -1200,13 +1201,23 @@ window.addEventListener("DOMContentLoaded", async () => {
 
                 case 'session_complete':
                   // Update session info
+                  sessionComplete = true;
                   currentSession = data.session;
                   if (currentSession.recommendations && currentSession.recommendations.length > 0) {
                     displayRecommendations(currentSession.recommendations);
                   }
                   break;
 
+                case 'stream_end':
+                  console.log('[THINKING] Stream ended');
+                  return; // Exit the stream processing loop
+
                 case 'error':
+                  // Ignore errors that come after successful session completion
+                  if (sessionComplete) {
+                    console.warn('[THINKING] Ignoring error after session completion:', data.message);
+                    break;
+                  }
                   console.error('Stream error:', data.message);
                   hideLoader();
                   appendMessage("bot", "Sorry, I encountered an error processing your question.", null, null, null, null, null);
@@ -1579,12 +1590,15 @@ window.addEventListener("DOMContentLoaded", async () => {
     // Enhanced source display mapping
     const sourceMap = {
       'Fallback LLM': 'AI Reasoning Engine (gpt-oss pipeline)',
-      'RAG': 'Knowledge Base (RAG)',
+      'RAG': 'Golden Database',
       'PoPs': 'Package of Practices (PoPs)',
-      'rag': 'Knowledge Base (RAG)',
+      'rag': 'Golden Database',
       'pops': 'Package of Practices (PoPs)',
-      'llm': 'AI Reasoning Engine (gpt-oss)',
-      'fallback': 'AI Reasoning Engine (gpt-oss pipeline)'
+      'llm': 'AI Reasoning Engine (gpt-oss pipeline)',
+      'fallback': 'AI Reasoning Engine (gpt-oss pipeline)',
+      'RAG Database (Golden)': 'Golden Database',
+      'RAG Database': 'RAG Database',
+      'Golden Database': 'Golden Database'
     };
 
     const lowerSource = source.toLowerCase();

@@ -2689,6 +2689,48 @@ select option:checked {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
+/* Better separation between thinking and answer sections */
+.thinking-message {
+  margin-bottom: 30px !important;
+  position: relative;
+}
+
+.answer-message {
+  margin-top: 25px !important;
+  margin-bottom: 25px !important;
+  position: relative;
+}
+
+.answer-message::before {
+  content: '';
+  position: absolute;
+  top: -15px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+}
+
+/* Visual distinction between thinking and answer */
+.thinking-section {
+  position: relative;
+}
+
+.thinking-section::after {
+  content: '';
+  position: absolute;
+  bottom: -15px;
+  left: 50%;
+  width: 60px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  transform: translateX(-50%);
+}
+
+.answer-section {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 /* Mobile responsiveness for thinking sections */
 @media (max-width: 768px) {
   .thinking-section {

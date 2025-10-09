@@ -68,7 +68,6 @@ class OllamaLLMInterface:
                             buffer = ''
                             yield {'type': 'token', 'text': out, 'model': selected_model, 'source': source}
 
-                # flush remaining buffer
                 if buffer:
                     yield {'type': 'token', 'text': buffer, 'model': selected_model, 'source': source}
                 yield {'type': 'done'}
@@ -176,12 +175,10 @@ class OllamaEmbeddings:
             return [0.0] * 768
 
 
-# Create pipeline: qwen3 reasoning → structured flow → gpt-oss numerical fallback
 reasoner_llm = OllamaLLMInterface(model_name=os.getenv('OLLAMA_MODEL_REASONER', 'qwen3:1.7b'))
 structurer_llm = OllamaLLMInterface(model_name=os.getenv('OLLAMA_MODEL_STRUCTURER', 'llama3.1:8b'))
 fallback_llm = OllamaLLMInterface(model_name=os.getenv('OLLAMA_MODEL_FALLBACK', 'gpt-oss:latest'))
 
-# Keep embedding interface (used by similarity checks)
 local_embeddings = OllamaEmbeddings(embedding_model=os.getenv('OLLAMA_EMBEDDING_MODEL', 'nomic-embed-text'))
 
 
@@ -206,11 +203,9 @@ def run_local_llm(prompt: str, temperature: float = 0.1, max_tokens: int = 1024,
     print(f"[RUN_LLM_DEBUG] ==========================================")
 
     try:
-        # explicit fallback flag takes precedence
         if use_fallback:
             return fallback_llm.generate_content(prompt, temperature, max_tokens, use_fallback=True)
 
-        # normalize model token if provided
         if model:
             m = str(model).strip().lower()
             short = m.split(':')[0]
@@ -224,11 +219,9 @@ def run_local_llm(prompt: str, temperature: float = 0.1, max_tokens: int = 1024,
             if short in ('fallback',) or short == str(fallback_llm.model_name).split(':')[0]:
                 return fallback_llm.generate_content(prompt, temperature, max_tokens, use_fallback=True)
 
-            # If an explicit model name that doesn't match our roles is supplied, prefer reasoner to avoid multi-model loops
             print(f"[RUN_LLM_DEBUG] Requested model '{model}' not recognized as a role; defaulting to reasoner")
             return reasoner_llm.generate_content(prompt, temperature, max_tokens, use_fallback=False)
 
-        # default behavior: use reasoner
         return reasoner_llm.generate_content(prompt, temperature, max_tokens, use_fallback=False)
 
     except Exception as e:
@@ -244,7 +237,6 @@ class LocalLLMCompatibility:
     the reasoner model when unspecified.
     """
     def stream_generate(self, prompt: str, model: str = None, temperature: float = 0.3):
-        # prefer explicit model routing
         if model:
             short = str(model).split(':')[0].lower()
             if short == str(reasoner_llm.model_name).split(':')[0] or short == 'reasoner':

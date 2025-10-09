@@ -7,31 +7,24 @@ from uuid import uuid4
 from datetime import datetime
 import sys
 import os
-import csv
-from io import StringIO
-import certifi
 import pytz
-from contextlib import asynccontextmanager
 import logging
-from typing import Optional, List, Dict
+import csv
 import time
+from typing import Optional, List, Dict
 import asyncio
-import hashlib
-from functools import lru_cache
+from contextlib import asynccontextmanager
+from io import StringIO
 from local_whisper_interface import get_whisper_instance
 import re
 from Agentic_RAG.fast_response_handler import FastResponseHandler
-from Agentic_RAG.database_config import DatabaseConfig
 from Agentic_RAG import main as rag_main
+from Agentic_RAG.database_config import DatabaseConfig
 import json
 import markdown
-import numpy as np
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-from langchain.memory import ConversationBufferWindowMemory
 from fastapi.responses import StreamingResponse
-from bs4 import BeautifulSoup
-from dateutil import parser
+from langchain.memory import ConversationBufferWindowMemory
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -40,12 +33,8 @@ IST = pytz.timezone("Asia/Kolkata")
 current_dir = os.path.dirname(os.path.abspath(__file__))
 agentic_rag_path = os.path.join(current_dir, "Agentic_RAG")
 sys.path.insert(0, agentic_rag_path)
-project_root = os.path.dirname(current_dir)
-sys.path.insert(0, project_root)
 
 USE_FAST_MODE = os.getenv("USE_FAST_MODE", "true").lower() == "true"
-DISABLE_RECOMMENDATIONS = os.getenv("DISABLE_RECOMMENDATIONS", "false").lower() == "true"
-PARALLEL_RECOMMENDATIONS = os.getenv("PARALLEL_RECOMMENDATIONS", "true").lower() == "true"
 
 class QueryRequest(BaseModel):
     question: str
@@ -78,55 +67,18 @@ if USE_FAST_MODE:
     except Exception as e:
         logger.warning(f"[CONFIG] Fast response handler initialization failed: {e}")
         USE_FAST_MODE = False
-from Agentic_RAG.chroma_query_handler import ChromaQueryHandler
+
 from Agentic_RAG.tools import is_agricultural_query
 
-chroma_db_path = os.getenv('CHROMA_DB_PATH')
-if not chroma_db_path:
-    if os.path.exists('/app') and os.path.exists('/app/chromaDb'):
-        chroma_db_path = '/app/chromaDb'
-        environment = 'Docker'
-    else:
-        chroma_db_path = '/home/ubuntu/agrichat-annam/agrichat-backend/chromaDb'
-        environment = 'Local'
-
-logger.info(f"[CONFIG] Environment: {environment}")
-logger.info(f"[CONFIG] ChromaDB path: {chroma_db_path}")
-logger.info(f"[CONFIG] ChromaDB exists: {os.path.exists(chroma_db_path)}")
-
-query_handler = ChromaQueryHandler(chroma_path=chroma_db_path)
-
-pipeline = None
-
-local_llm = None
-local_embeddings = None
-response_formatter = None
-try:
-    from Agentic_RAG.local_llm_interface import LocalLLMInterface
-    from Agentic_RAG.local_llm_interface import LocalEmbeddings
-    local_llm = LocalLLMInterface()
-    local_embeddings = LocalEmbeddings()
-except Exception as e:
-    logger.warning(f"[CONFIG] Local LLM/embeddings initialization failed: {e}")
-
-try:
-    from response_formatter import AgriculturalResponseFormatter
-    response_formatter = AgriculturalResponseFormatter()
-except Exception as e:
-    logger.warning(f"[CONFIG] Response formatter initialization failed: {e}")
-
 MONGO_URI = os.getenv("MONGO_URI")
-ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 try:
-    client = MongoClient(MONGO_URI) if ENVIRONMENT == "development" else MongoClient(MONGO_URI, tlsCAFile=certifi.where())
+    client = MongoClient(MONGO_URI)
     db = client.get_database("agrichat")
     sessions_collection = db["sessions"]
     logger.info("[DB] MongoDB client initialized and 'sessions' collection ready")
 except Exception as e:
     logger.error(f"[DB] Failed to initialize MongoDB client: {e}")
     sessions_collection = None
-
-session_memories = {}
 
 def load_users_from_csv():
     """Load users from CSV file"""
@@ -166,6 +118,7 @@ def authenticate_user(username: str, password: str) -> dict:
 
 recommendations_cache = {}
 CACHE_EXPIRY_SECONDS = 3600
+session_memories = {}
 
 def get_session_memory(session_id: str):
     """Get or create conversation memory for a session"""
@@ -246,11 +199,13 @@ app = FastAPI(lifespan=lifespan)
 origins = [
     "https://agri-annam.vercel.app",
     "https://agrichat.annam.ai",
-    "https://739ae417d6b1.ngrok-free.app", 
+    "https://be1f1f2ed9db.ngrok-free.app",
+    "https://*.ngrok-free.app",
     "https://localhost:3000",
     "https://127.0.0.1:3000",
     "http://localhost:3000",
-    "http://127.0.0.1:3000"
+    "http://127.0.0.1:3000",
+    "*"
 ]
 
 app.add_middleware(
@@ -996,8 +951,8 @@ async def new_session(request: QueryRequest):
     
     tasks = [process_answer()]
     
-    if not DISABLE_RECOMMENDATIONS and PARALLEL_RECOMMENDATIONS:
-        tasks.append(get_question_recommendations_async(request.question, request.state, 4))
+    # if not DISABLE_RECOMMENDATIONS and PARALLEL_RECOMMENDATIONS:
+    #     tasks.append(get_question_recommendations_async(request.question, request.state, 4))
     
     try:
         if len(tasks) > 1:
@@ -1074,27 +1029,27 @@ async def new_session(request: QueryRequest):
     logger.info(f"[TIMING] Session creation took: {session_creation_time:.3f}s")
     
     recommendations_start = time.time()
-    if not DISABLE_RECOMMENDATIONS:
-        if not PARALLEL_RECOMMENDATIONS:
-            try:
-                recommendations = get_question_recommendations(
-                    user_question=request.question,
-                    user_state=request.state,
-                    limit=4
-                )
-                logger.info(f"Added {len(recommendations)} recommendations to session response (sequential)")
-            except Exception as e:
-                logger.error(f"Failed to get sequential recommendations: {e}")
-                recommendations = []
-        else:
-            logger.info(f"Added {len(recommendations)} recommendations to session response (parallel)")
-        
-        session["recommendations"] = recommendations
-    else:
-        session["recommendations"] = []
-        logger.info(f"[PERFORMANCE] Recommendations disabled for speed optimization")
-    recommendations_time = time.time() - recommendations_start
-    logger.info(f"[TIMING] Recommendations handling took: {recommendations_time:.3f}s")
+    # if not DISABLE_RECOMMENDATIONS:
+    #     if not PARALLEL_RECOMMENDATIONS:
+    #         try:
+    #             recommendations = get_question_recommendations(
+    #                 user_question=request.question,
+    #                 user_state=request.state,
+    #                 limit=4
+    #             )
+    #             logger.info(f"Added {len(recommendations)} recommendations to session response (sequential)")
+    #         except Exception as e:
+    #             logger.error(f"Failed to get sequential recommendations: {e}")
+    #             recommendations = []
+    #     else:
+    #         logger.info(f"Added {len(recommendations)} recommendations to session response (parallel)")
+    #     
+    #     session["recommendations"] = recommendations
+    # else:
+    session["recommendations"] = []
+    #     logger.info(f"[PERFORMANCE] Recommendations disabled for speed optimization")
+    # recommendations_time = time.time() - recommendations_start
+    # logger.info(f"[TIMING] Recommendations handling took: {recommendations_time:.3f}s")
     
     total_api_time = time.time() - api_start_time
     logger.info(f"[TIMING] TOTAL API processing took: {total_api_time:.3f}s")
@@ -1155,9 +1110,9 @@ async def continue_session(session_id: str, request: SessionQueryRequest):
     tasks = [process_session_answer()]
     
     current_state = request.state or session.get("state", "unknown")
-    if not DISABLE_RECOMMENDATIONS and PARALLEL_RECOMMENDATIONS:
-        logger.info("[PARALLEL] Starting session recommendations in parallel with answer processing")
-    tasks.append(get_question_recommendations_async(request.question, current_state, 4))
+    # if not DISABLE_RECOMMENDATIONS and PARALLEL_RECOMMENDATIONS:
+    #     logger.info("[PARALLEL] Starting session recommendations in parallel with answer processing")
+    # tasks.append(get_question_recommendations_async(request.question, current_state, 4))
     
     try:
         if len(tasks) > 1:
@@ -1228,25 +1183,26 @@ async def continue_session(session_id: str, request: SessionQueryRequest):
     if updated:
         updated.pop("_id", None)
         
-        if not DISABLE_RECOMMENDATIONS:
-            if not PARALLEL_RECOMMENDATIONS:
-                try:
-                    recommendations = get_question_recommendations(
-                        user_question=request.question,
-                        user_state=current_state,
-                        limit=4
-                    )
-                    updated["recommendations"] = recommendations
-                    logger.info(f"Added {len(recommendations)} session recommendations (sequential)")
-                except Exception as e:
-                    logger.error(f"Failed to get sequential session recommendations: {e}")
-                    updated["recommendations"] = []
-            else:
-                updated["recommendations"] = recommendations
-                logger.info(f"Added {len(recommendations)} session recommendations (parallel)")
-        else:
-            updated["recommendations"] = []
-            logger.info(f"[PERFORMANCE] Session recommendations disabled for speed optimization")
+        # if not DISABLE_RECOMMENDATIONS:
+        #     if not PARALLEL_RECOMMENDATIONS:
+        #         try:
+        #             recommendations = get_question_recommendations(
+        #                 user_question=request.question,
+        #                 user_state=current_state,
+        #                 limit=4
+        #             )
+        #             updated["recommendations"] = recommendations
+        #             logger.info(f"Added {len(recommendations)} session recommendations (sequential)")
+        #         except Exception as e:
+        #             logger.error(f"Failed to get sequential session recommendations: {e}")
+        #             updated["recommendations"] = []
+        #     else:
+        #         updated["recommendations"] = recommendations
+        #         logger.info(f"Added {len(recommendations)} session recommendations (parallel)")
+        updated["recommendations"] = []
+        # else:
+        #     updated["recommendations"] = []
+        #     logger.info(f"[PERFORMANCE] Session recommendations disabled for speed optimization")
     
     return {"session": updated}
 
@@ -1254,14 +1210,12 @@ async def enhance_answer_with_context_questions(question: str, answer: str, user
     """
     Enhance answer with contextual questions when more context is needed
     """
-    # Check if the answer is generic or indicates missing information
     generic_indicators = [
         "depends on", "varies", "generally", "typically", "usually", 
         "can vary", "it depends", "specific to", "without knowing",
         "need more information", "requires specific", "can range"
     ]
     
-    # Check if thinking process indicates missing context
     context_indicators = [
         "need to know", "depends on the", "varies by", "specific variety",
         "location matters", "soil type", "climate", "season", "region"
@@ -1277,7 +1231,6 @@ async def enhance_answer_with_context_questions(question: str, answer: str, user
     )
     
     if needs_context:
-        # Generate contextual questions based on the topic
         context_questions = generate_context_questions(question, user_state)
         
         if context_questions:
@@ -1296,33 +1249,27 @@ def generate_context_questions(question: str, user_state: str) -> List[str]:
     question_lower = question.lower()
     questions = []
     
-    # Crop-specific questions
     if any(crop in question_lower for crop in ['rice', 'wheat', 'maize', 'sugarcane', 'cotton', 'soybean']):
         questions.append("What variety of the crop are you planning to grow?")
         questions.append("What's your soil type (clay, sandy, loamy)?")
         
-    # Timing questions
     if any(word in question_lower for word in ['sowing', 'planting', 'harvest', 'when']):
         questions.append("Which season/month are you planning this activity?")
         if not user_state or user_state == "unknown":
             questions.append("Which state/region are you located in?")
             
-    # Fertilizer/nutrient questions
     if any(word in question_lower for word in ['fertilizer', 'nutrient', 'manure', 'compost']):
         questions.append("What's your current soil pH and nutrient status?")
         questions.append("What's the size of your field (in acres/hectares)?")
         
-    # Disease/pest questions
     if any(word in question_lower for word in ['disease', 'pest', 'insect', 'fungus', 'virus']):
         questions.append("Can you describe the symptoms you're seeing?")
         questions.append("What stage is your crop currently in?")
         
-    # Water/irrigation questions
     if any(word in question_lower for word in ['water', 'irrigation', 'drought', 'flood']):
         questions.append("What's your current irrigation method?")
         questions.append("What's the rainfall pattern in your area?")
         
-    # Limit to 3-4 most relevant questions
     return questions[:4]
 
 @app.post("/api/query/thinking-stream")
@@ -1342,10 +1289,8 @@ async def thinking_stream_query(request: QueryRequest):
             
             if USE_FAST_MODE and fast_handler:
                 logger.info("[THINKING_STREAM] Using fast mode with fast_handler")
-                # Start thinking phase
                 yield f"data: {json.dumps({'type': 'thinking_start'})}\n\n"
                 
-                # Stream thinking tokens in real-time
                 thinking_content = ''
                 if fast_handler.reasoner_llm:
                     logger.info("[THINKING_STREAM] Reasoner LLM available, starting thinking generation")
@@ -1361,19 +1306,16 @@ async def thinking_stream_query(request: QueryRequest):
                             f"Keep your thinking concise and focused on what information is needed."
                         )
                         
-                        # Stream thinking directly from LLM
                         current_text = ''
                         for ev in fast_handler.reasoner_llm.stream_generate(reasoner_prompt, model=fast_handler.reasoner_llm.model_name, temperature=0.1):
                             if ev.get('type') == 'token':
                                 token = ev.get('text', '')
                                 current_text += token
                                 try:
-                                    # Ensure JSON serialization works properly
                                     json_data = json.dumps({'type': 'thinking_token', 'token': token, 'text': current_text}, ensure_ascii=False)
                                     yield f"data: {json_data}\n\n"
                                 except (TypeError, ValueError) as json_error:
                                     logger.error(f"[THINKING_STREAM] JSON serialization error: {json_error}")
-                                    # Send a sanitized version
                                     sanitized_text = current_text.encode('utf-8', errors='ignore').decode('utf-8')
                                     json_data = json.dumps({'type': 'thinking_token', 'token': token, 'text': sanitized_text}, ensure_ascii=False)
                                     yield f"data: {json_data}\n\n"
@@ -1387,7 +1329,6 @@ async def thinking_stream_query(request: QueryRequest):
                     logger.warning("[THINKING_STREAM] No reasoner LLM available, skipping thinking generation")
                     thinking_content = ''
                 
-                # Mark thinking complete
                 logger.info(f"[THINKING_STREAM] Thinking complete, content length: {len(thinking_content)}")
                 try:
                     json_data = json.dumps({'type': 'thinking_complete', 'thinking': thinking_content}, ensure_ascii=False)
@@ -1398,18 +1339,19 @@ async def thinking_stream_query(request: QueryRequest):
                     json_data = json.dumps({'type': 'thinking_complete', 'thinking': sanitized_thinking}, ensure_ascii=False)
                     yield f"data: {json_data}\n\n"
                 
-                # Now get the actual answer using SAME pipeline as thinking
                 logger.info("[THINKING_STREAM] Starting answer generation with consistent pipeline")
                 yield f"data: {json.dumps({'type': 'answer_start'})}\n\n"
                 
                 try:
-                    # Use fast_handler directly to maintain consistency with thinking process
                     loop = asyncio.get_event_loop()
                     result = await loop.run_in_executor(
                         None,
                         lambda: fast_handler.get_answer(request.question, [], request.state)
                     )
                     logger.info(f"[THINKING_STREAM] Got consistent answer result type: {type(result)}")
+                    logger.info(f"[THINKING_STREAM] Result keys: {list(result.keys()) if isinstance(result, dict) else 'N/A'}")
+                    logger.info(f"[THINKING_STREAM] Answer content length: {len(result.get('answer', '')) if isinstance(result, dict) else 'N/A'}")
+                    logger.info(f"[THINKING_STREAM] Answer preview: {str(result.get('answer', ''))[:100] if isinstance(result, dict) else 'N/A'}...")
                 except Exception as e:
                     logger.error(f"[THINKING_STREAM] Answer generation failed: {e}")
                     yield f"data: {json.dumps({'type': 'error', 'message': 'Failed to generate answer'})}\n\n"
@@ -1417,24 +1359,27 @@ async def thinking_stream_query(request: QueryRequest):
                 
                 if isinstance(result, dict):
                     answer_text = result.get('answer', '')
+                    logger.info(f"[THINKING_STREAM] Extracted answer_text length: {len(answer_text)}")
+                    logger.info(f"[THINKING_STREAM] Extracted answer_text preview: {answer_text[:100]}...")
                     
-                    # Check if answer indicates missing context and enhance it
-                    enhanced_answer = await enhance_answer_with_context_questions(
-                        request.question, answer_text, request.state, thinking_content
-                    )
+                    if result.get('source') == 'Golden Database':
+                        logger.info("[THINKING_STREAM] Golden Database answer - skipping enhancement to preserve exact content")
+                        enhanced_answer = answer_text  # Use exact Golden Database content
+                    else:
+                        enhanced_answer = await enhance_answer_with_context_questions(
+                            request.question, answer_text, request.state, thinking_content
+                        )
                     
-                    # Send final answer
                     try:
                         json_data = json.dumps({'type': 'answer', 'answer': enhanced_answer, 'source': result.get('source', ''), 'confidence': result.get('confidence', 0.0)}, ensure_ascii=False)
                         yield f"data: {json_data}\n\n"
                     except (TypeError, ValueError) as json_error:
                         logger.error(f"[THINKING_STREAM] JSON serialization error for answer: {json_error}")
-                        sanitized_answer = clean_answer.encode('utf-8', errors='ignore').decode('utf-8')
+                        sanitized_answer = enhanced_answer.encode('utf-8', errors='ignore').decode('utf-8')
                         json_data = json.dumps({'type': 'answer', 'answer': sanitized_answer, 'source': result.get('source', ''), 'confidence': result.get('confidence', 0.0)}, ensure_ascii=False)
                         yield f"data: {json_data}\n\n"
                     
-                    # Create session record
-                    html_answer = markdown.markdown(clean_answer, extensions=["extra", "nl2br"])
+                    html_answer = markdown.markdown(enhanced_answer, extensions=["extra", "nl2br"])
                     
                     message = {
                         "question": request.question,
@@ -1464,7 +1409,6 @@ async def thinking_stream_query(request: QueryRequest):
                     sessions_collection.insert_one(session)
                     session.pop("_id", None)
                     
-                    # Send session info
                     yield f"data: {json.dumps({'type': 'session_complete', 'session': session})}\n\n"
                 else:
                     yield f"data: {json.dumps({'type': 'error', 'message': 'Failed to get response'})}\n\n"
@@ -1485,424 +1429,6 @@ async def thinking_stream_query(request: QueryRequest):
             "Connection": "keep-alive",
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Headers": "*",
-        }
-    )
-
-@app.post("/api/query/stream")
-async def stream_query(question: str = Form(...), device_id: str = Form(...), state: str = Form(...), language: str = Form(...)):
-    """
-    Streaming endpoint that shows thinking progress
-    """
-    async def generate_thinking_stream():
-        import json
-        import asyncio
-        
-        thinking_states = [
-            "Understanding your question...",
-            "Searching agricultural database...", 
-            "Processing with AI...",
-            "Generating response..."
-        ]
-        
-        for i, state in enumerate(thinking_states):
-            yield f"data: {json.dumps({'type': 'thinking', 'message': state, 'progress': (i + 1) * 25})}\n\n"
-            await asyncio.sleep(0.5)
-        
-        try:
-            session_id = str(uuid4())
-            memory = get_session_memory(session_id)
-            memory.chat_memory.add_user_message(question)
-            logger.info(f"[STREAM] Streaming session {session_id} started for question: {question[:80]}")
-
-
-            classifier_prompt = f"""You are an agricultural expert assistant. Analyze this farmer's question for completeness and classify it.
-
-Current Question: "{question}"
-
-CRITICAL GUIDELINES FOR COMPLETENESS:
-
-MARK AS COMPLETE if the question is:
-1. **Direct Facts**: "What is the seed rate of [crop]?", "How to control [pest/disease]?", "When to harvest [crop]?"
-2. **General Practices**: "How to grow [crop]?", "What fertilizer for [crop]?", "Best varieties of [crop]?"
-3. **Technical Questions**: "What causes [disease] in [crop]?", "How to prepare soil for [crop]?"
-
-MARK AS INCOMPLETE only if:
-1. **Vague Questions**: "What should I grow?", "Help with my crop problem" (no specific crop mentioned)
-2. **Personal Advice Needing Context**: "What's best for my farm?" (no location/conditions given)
-
-EXAMPLES:
-- "What is seed rate of bitter gourd?" → COMPLETE (direct fact)
-- "How to control aphids in cotton?" → COMPLETE (specific pest + crop)
-- "When to plant tomatoes?" → COMPLETE (can give general timing)
-- "What should I grow?" → INCOMPLETE (needs location/conditions)
-- "My crop is dying, help!" → INCOMPLETE (vague, no crop specified)
-
-Current Question: "{question}"
-
-Respond in this format:
-COMPLETENESS: [COMPLETE/INCOMPLETE]  
-QUERY_TYPE: [direct_fact/complex_reasoning/personalized_advice]
-CONFIDENCE: [0.0-1.0]
-MISSING_INFO: [only list if question is truly vague and needs critical context]
-AGRICULTURAL_RELEVANCE: [0.0-1.0]
-REASONING: [brief explanation]"""
-
-            classifier_output = []
-            for event in local_llm.stream_generate(classifier_prompt, model=os.getenv('OLLAMA_MODEL_CLASSIFIER', 'qwen3:1.7b'), temperature=0.0):
-                etype = event.get('type')
-                if etype == 'model':
-                    yield f"data: {json.dumps({'type': 'model', 'model': event.get('model'), 'source': event.get('source')})}\n\n"
-                    continue
-                if etype == 'token':
-                    text = event.get('text')
-                    classifier_output.append(text)
-                    yield f"data: {json.dumps({'type': 'research', 'source': event.get('source'), 'model': event.get('model'), 'chunk': text})}\n\n"
-                elif etype == 'raw':
-                    yield f"data: {json.dumps({'type': 'research_raw', 'source': event.get('source'), 'model': event.get('model'), 'data': event.get('data')})}\n\n"
-                elif etype == 'error':
-                    yield f"data: {json.dumps({'type': 'research_error', 'message': event.get('message')})}\n\n"
-
-            classifier_text = ''.join(classifier_output).strip()
-            logger.info(f"[STREAM] Classifier output length={len(classifier_text)}")
-
-
-            is_incomplete = False
-            completeness_status = "COMPLETE"  # Default to complete for lenient approach
-            
-
-            for line in classifier_text.split('\n'):
-                if 'COMPLETENESS:' in line.upper():
-                    if 'INCOMPLETE' in line.upper():
-                        completeness_status = "INCOMPLETE"
-                        is_incomplete = True
-                    break
-            
-
-            if 'MISSING_INFO' in classifier_text.upper() and completeness_status == "INCOMPLETE":
-                is_incomplete = True
-
-            try:
-                try_enhanced_query = question
-                try:
-                    recent = memory.chat_memory.messages[-4:]
-                    recent_text = ' '.join([m.content if hasattr(m, 'content') else str(m) for m in recent])
-                    if recent_text:
-                        try_enhanced_query = f"{question} {recent_text[:400]}"
-                except Exception:
-                    pass
-
-                early_docs = []
-                try:
-                    early_docs = query_handler.db.similarity_search_with_score(try_enhanced_query, k=6)
-                except Exception:
-                    early_docs = []
-
-                for d, dist in early_docs:
-                    try:
-                        def _norm_text(t: str) -> str:
-                            return re.sub(r"\s+", " ", (t or '').strip().lower())
-
-                        stored_q = None
-                        try:
-                            stored_q = query_handler._extract_stored_question(d)
-                        except Exception:
-                            stored_q = None
-
-                        stored_q_norm = _norm_text(stored_q) if stored_q else None
-                        question_norm = _norm_text(question)
-
-                        similarity = None
-                        try:
-                            if dist is not None:
-                                similarity = max(0.0, 1.0 - float(dist)) if float(dist) <= 1.0 else float(dist)
-                        except Exception:
-                            similarity = None
-
-                        is_stored_exact = False
-                        if stored_q_norm and question_norm:
-                            if stored_q_norm == question_norm or query_handler._is_exact_question_match(question, stored_q, threshold=0.95):
-                                is_stored_exact = True
-
-                        high_conf_similarity = (similarity is not None and similarity >= 0.85)
-
-                        if is_stored_exact or high_conf_similarity:
-                            doc_state = ''
-                            try:
-                                doc_state = (d.metadata.get('State') or d.metadata.get('state') or '').strip().lower()
-                            except Exception:
-                                doc_state = ''
-
-                            user_state_norm = (state or '').strip().lower() if state is not None else ''
-                            if (not user_state_norm) or (doc_state and user_state_norm and doc_state == user_state_norm) or (not doc_state and not user_state_norm):
-                                answer_text = ''
-                                try:
-                                    content_lines = d.page_content.split('\n') if hasattr(d, 'page_content') else []
-                                    capturing = False
-                                    for line in content_lines:
-                                        if line.strip().lower().startswith('answer:'):
-                                            answer_text = line.split(':', 1)[1].strip()
-                                            capturing = True
-                                        elif capturing and line.strip():
-                                            answer_text += ' ' + line.strip()
-                                        elif capturing and not line.strip():
-                                            break
-                                except Exception:
-                                    answer_text = getattr(d, 'page_content', '')[:2000]
-
-                                final_text = answer_text or getattr(d, 'page_content', '')
-
-                                source_name = 'Golden FAQ' if stored_q_norm else 'RAG Database'
-                                conf_val = None
-                                if similarity is not None:
-                                    conf_val = similarity
-                                else:
-                                    conf_val = 0.95 if is_stored_exact else (0.8 if high_conf_similarity else 0.7)
-
-                                confidence = 'High' if conf_val >= 0.8 else 'Medium' if conf_val >= 0.6 else 'Low'
-
-                                try:
-                                    formatted = response_formatter.format_simple_answer(final_text, source=source_name, similarity=conf_val)
-                                except Exception:
-                                    formatted = f"{final_text}\n\n---\n*Source: {source_name} (Confidence: {confidence})*"
-
-
-                                try:
-                                    formatted_clean = re.sub(r"(Direct Answer:|Answer:|Response:)\s*", "", formatted, flags=re.IGNORECASE).strip()
-                                except Exception:
-                                    formatted_clean = formatted.strip()
-
-                                yield f"data: {json.dumps({'type': 'answer', 'chunk': formatted_clean})}\n\n"
-
-                                html_answer = markdown.markdown(formatted, extensions=["extra", "nl2br"])
-                                memory.chat_memory.add_ai_message(formatted)
-                                session = {"session_id": session_id, "timestamp": datetime.now(IST).isoformat(), "messages": [{"question": question, "answer": html_answer, "rating": None}], "crop": "unknown", "state": state, "status": "active", "language": language, "has_unread": True, "device_id": device_id}
-                                try:
-                                    if sessions_collection:
-                                        sessions_collection.insert_one(session)
-                                        session.pop("_id", None)
-                                except Exception:
-                                    logger.warning("[STREAM] Failed to persist golden-match session to DB")
-
-                                yield f"data: {json.dumps({'type': 'complete', 'session': session})}\n\n"
-                                return
-                    except Exception:
-                        logger.debug("[STREAM] Early golden-match check failed for a doc, continuing")
-                        continue
-            except Exception:
-                pass
-
-            if is_incomplete:
-                query_lower = question.lower()
-                crop_mentioned = None
-                crops = ['rice', 'wheat', 'cotton', 'tomato', 'potato', 'maize', 'corn', 'sugarcane', 'onion', 'soybean']
-                for crop in crops:
-                    if crop in query_lower:
-                        crop_mentioned = crop
-                        break
-                
-                missing_info = []
-                if 'location' in classifier_text.lower() or 'state' in classifier_text.lower():
-                    missing_info.append('location')
-                if 'soil' in classifier_text.lower():
-                    missing_info.append('soil type')
-                if 'season' in classifier_text.lower():
-                    missing_info.append('season')  
-                if 'space' in classifier_text.lower() or 'size' in classifier_text.lower():
-                    missing_info.append('space')
-                
-                recommendations = []
-                if 'location' in missing_info:
-                    recommendations.append("• **Location**: Which state/region are you in?")
-                if 'soil type' in missing_info:
-                    recommendations.append("• **Soil Type**: What type of soil do you have?")
-                if 'season' in missing_info:
-                    recommendations.append("• **Season**: Which season are you planning to grow?")
-                if 'space' in missing_info:
-                    recommendations.append("• **Space**: How much area do you have available?")
-                
-                if not recommendations:
-                    recommendations = [
-                        "• **Location**: Which state/region are you in?",
-                        "• **Space**: How much area do you have available?"
-                    ]
-                
-                recommendations_text = "\n".join(recommendations)
-                
-                if crop_mentioned:
-                    intro = f"I need some additional information to give you the best advice about {crop_mentioned} cultivation."
-                else:
-                    intro = "I need some additional information to give you the best agricultural advice."
-                
-                clarification = f"""{intro}
-
-**To provide accurate recommendations, please tell me:**
-{recommendations_text}
-
-**Why this helps:**
-Agricultural recommendations vary based on your location, available space, and growing conditions. With these details, I can provide specific advice for your situation."""
-                
-                chunk_size = 100
-                for i in range(0, len(clarification), chunk_size):
-                    chunk = clarification[i:i+chunk_size]
-                    yield f"data: {json.dumps({'type': 'answer', 'chunk': chunk})}\n\n"
-                    await asyncio.sleep(0.1)  # Small delay for streaming effect
-
-                final_text = clarification
-                html_answer = markdown.markdown(final_text, extensions=["extra", "nl2br"])
-                memory.chat_memory.add_ai_message(final_text)
-                session = {"session_id": session_id, "timestamp": datetime.now(IST).isoformat(), "messages": [{"question": question, "answer": html_answer, "rating": None}], "crop": "unknown", "state": state, "status": "active", "language": language, "has_unread": True, "device_id": device_id}
-                try:
-                    sessions_collection.insert_one(session)
-                    session.pop("_id", None)
-                except Exception:
-                    logger.warning("[STREAM] Failed to persist clarification session to DB")
-
-                yield f"data: {json.dumps({'type': 'complete', 'session': session})}\n\n"
-                return
-
-            try:
-                enhanced_query = question
-                try:
-                    recent = memory.chat_memory.messages[-4:]
-                    recent_text = ' '.join([m.content if hasattr(m, 'content') else str(m) for m in recent])
-                    if recent_text:
-                        enhanced_query = f"{question} {recent_text[:400]}"
-                except Exception:
-                    pass
-
-                docs = []
-                try:
-                    docs = query_handler.db.similarity_search_with_score(enhanced_query, k=5)
-                except Exception as e:
-                    logger.warning(f"[STREAM] Direct Chroma query failed: {e}")
-
-                best_doc = None
-                best_score = 0.0
-                if docs:
-                    for d, dist in docs:
-                        score = 1.0 - dist if dist is not None else 0.0
-                        if score > best_score:
-                            best_score = score
-                            best_doc = (d, dist)
-
-                if best_doc and best_score > 0.6:
-                    doc, distance = best_doc
-                    meta = doc.metadata if hasattr(doc, 'metadata') else {}
-                    yield f"data: {json.dumps({'type': 'research', 'source': 'rag_direct', 'metadata': meta, 'similarity': best_score})}\n\n"
-                    raw_snippet = (doc.page_content[:1000] + '...') if hasattr(doc, 'page_content') else ''
-                    yield f"data: {json.dumps({'type': 'research_raw', 'source': 'rag_direct', 'data': raw_snippet})}\n\n"
-
-                    struct_prompt = query_handler.STRUCTURED_PROMPT.format(context=doc.page_content, question=question, region_instruction=query_handler.REGION_INSTRUCTION, current_month=datetime.now(IST).strftime('%B'))
-
-                    answer_chunks = []
-                    for event in local_llm.stream_generate(struct_prompt, model=os.getenv('OLLAMA_MODEL_STRUCTURER', 'gemma:latest'), temperature=0.2):
-                        etype = event.get('type')
-                        if etype == 'model':
-                            yield f"data: {json.dumps({'type': 'model', 'model': event.get('model'), 'source': event.get('source')})}\n\n"
-                            continue
-                        if etype == 'token':
-                            chunk = event.get('text')
-                            answer_chunks.append(chunk)
-                            yield f"data: {json.dumps({'type': 'answer', 'chunk': chunk, 'model': event.get('model'), 'source': event.get('source')})}\n\n"
-                        elif etype == 'raw':
-                            yield f"data: {json.dumps({'type': 'research_raw', 'source': event.get('source'), 'model': event.get('model'), 'data': event.get('data')})}\n\n"
-
-                    final_text = ''.join(answer_chunks)
-
-                    eval_prompt = f"Evaluate this response for the question: {question}\nResponse: {final_text}\nProvide QUALITY_SCORE: [1-10] and SATISFACTORY: [YES/NO]"
-                    eval_stream = []
-                    for e in local_llm.stream_generate(eval_prompt, model=os.getenv('OLLAMA_MODEL_CLASSIFIER', 'qwen3:1.7b'), temperature=0.1):
-                        etype = e.get('type')
-                        if etype == 'model':
-                            yield f"data: {json.dumps({'type': 'model', 'model': e.get('model'), 'source': e.get('source')})}\n\n"
-                            continue
-                        if etype == 'token':
-                            yield f"data: {json.dumps({'type': 'research', 'source': e.get('source'), 'model': e.get('model'), 'chunk': e.get('text')})}\n\n"
-                            eval_stream.append(e.get('text'))
-                        elif etype == 'raw':
-                            yield f"data: {json.dumps({'type': 'research_raw', 'source': e.get('source'), 'model': e.get('model'), 'data': e.get('data')})}\n\n"
-
-                    eval_text = ''.join(eval_stream)
-                    quality_score = 0.7
-                    satisfactory = True
-                    if 'QUALITY_SCORE' in eval_text.upper():
-                        try:
-                            score_line = [l for l in eval_text.splitlines() if 'QUALITY_SCORE' in l.upper()]
-                            if score_line:
-                                val = ''.join([c for c in score_line[0] if (c.isdigit() or c=='.') or c==' '])
-                                quality_score = float(val.strip()[:4]) / 10.0 if val.strip() else 0.7
-                        except Exception:
-                            quality_score = 0.7
-                    if 'SATISFACTORY' in eval_text.upper() and 'NO' in eval_text.upper():
-                        satisfactory = False
-
-                    if not satisfactory or quality_score < 0.6:
-                        fallback_prompt = f"The previous response didn't fully address: {question}\nPrevious response: {final_text}\nProvide a complete agricultural response."
-                        for ev in local_llm.stream_generate(fallback_prompt, model=os.getenv('OLLAMA_MODEL_FALLBACK', 'gpt-oss:20b'), temperature=0.3):
-                            etype = ev.get('type')
-                            if etype == 'model':
-                                yield f"data: {json.dumps({'type': 'model', 'model': ev.get('model'), 'source': ev.get('source')})}\n\n"
-                                continue
-                            if etype == 'token':
-                                yield f"data: {json.dumps({'type': 'answer', 'chunk': ev.get('text'), 'model': ev.get('model'), 'source': ev.get('source')})}\n\n"
-                            elif etype == 'raw':
-                                yield f"data: {json.dumps({'type': 'research_raw', 'source': ev.get('source'), 'model': ev.get('model'), 'data': ev.get('data')})}\n\n"
-
-                        persisted_text = final_text
-                    else:
-                        persisted_text = final_text
-
-                    html_answer = markdown.markdown(persisted_text, extensions=["extra", "nl2br"])
-                    memory.chat_memory.add_ai_message(persisted_text)
-                    session = {"session_id": session_id, "timestamp": datetime.now(IST).isoformat(), "messages": [{"question": question, "answer": html_answer, "rating": None}], "crop": "unknown", "state": state, "status": "active", "language": language, "has_unread": True, "device_id": device_id}
-                    try:
-                        sessions_collection.insert_one(session)
-                        session.pop("_id", None)
-                    except Exception:
-                        logger.warning("[STREAM] Failed to persist session to DB")
-
-                    yield f"data: {json.dumps({'type': 'complete', 'session': session})}\n\n"
-                    return
-
-                else:
-                    fallback_prompt = f"No direct database match was found. Answer this agricultural question comprehensively: {question}"
-                    for ev in local_llm.stream_generate(fallback_prompt, model=os.getenv('OLLAMA_MODEL_FALLBACK', 'gpt-oss:20b'), temperature=0.3):
-                        etype = ev.get('type')
-                        if etype == 'model':
-                            yield f"data: {json.dumps({'type': 'model', 'model': ev.get('model'), 'source': ev.get('source')})}\n\n"
-                            continue
-                        if etype == 'token':
-                            yield f"data: {json.dumps({'type': 'answer', 'chunk': ev.get('text'), 'model': ev.get('model'), 'source': ev.get('source')})}\n\n"
-                        elif etype == 'raw':
-                            yield f"data: {json.dumps({'type': 'research_raw', 'source': ev.get('source'), 'model': ev.get('model'), 'data': ev.get('data')})}\n\n"
-
-                    final_text = ''
-                    html_answer = markdown.markdown(final_text, extensions=["extra", "nl2br"])
-                    memory.chat_memory.add_ai_message(final_text)
-                    session = {"session_id": session_id, "timestamp": datetime.now(IST).isoformat(), "messages": [{"question": question, "answer": html_answer, "rating": None}], "crop": "unknown", "state": state, "status": "active", "language": language, "has_unread": True, "device_id": device_id}
-                    try:
-                        sessions_collection.insert_one(session)
-                        session.pop("_id", None)
-                    except Exception:
-                        logger.warning("[STREAM] Failed to persist fallback session to DB")
-
-                    yield f"data: {json.dumps({'type': 'complete', 'session': session})}\n\n"
-                    return
-
-            except Exception as e:
-                logger.error(f"[STREAM] Pipeline error: {e}")
-                yield f"data: {json.dumps({'type': 'error', 'message': 'Processing failed. Please try again.'})}\n\n"
-
-        except Exception as e:
-            yield f"data: {json.dumps({'type': 'error', 'message': 'Processing failed. Please try again.'})}\n\n"
-    
-    return StreamingResponse(
-        generate_thinking_stream(),
-        media_type="text/plain",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive", 
-            "Content-Type": "text/event-stream",
         }
     )
 
@@ -2030,11 +1556,12 @@ async def get_recommendations(data: dict = Body(...)):
                 content={"error": "Question is required"}
             )
         
-        recommendations = get_question_recommendations(
-            user_question=user_question,
-            user_state=user_state,
-            limit=min(limit, 5)
-        )
+        # recommendations = get_question_recommendations(
+        #     user_question=user_question,
+        #     user_state=user_state,
+        #     limit=min(limit, 5)
+        # )
+        recommendations = []
         
         return {
             "recommendations": recommendations,
