@@ -73,26 +73,16 @@ body.sidebar-collapsed {
 } */
 
 .sidebar-header {
-  position: relative;
-  /* fixed or sticky. was "relative" initially */
+  position: relative; /* fixed or sticky. was "relative" initially */
   top: 0;
   left: 0;
   right: 0;
   height: 135px;
   z-index: 1300;
-  /* width: 100%; */
+  width: 100%;
   background-color: var(--dark-green-bg);
   color: var(--white);
   padding: 30px;
-
-  left: -320px;
-  width: 320px;
-  transition: transform 0.3s ease;
-  will-change: transform;
-}
-
-sidebar-header.sidebar {
-  transform: translateX(250px); /* slide in */
 }
 
 .sidebar-title {
@@ -175,12 +165,10 @@ sidebar-header.sidebar {
 
 .sessions-container {
   background-color: #8da961;
-  height: calc(100vh - 135px);
-  /* subtract sidebar-header height - was subtracting 150px, or 75px*/
+  height: calc(100vh - 135px);  /* subtract sidebar-header height - was subtracting 150px, or 75px*/
   overflow-y: auto;
   padding: 20px;
-  padding-top: 10px;
-  /* no margin, no extra space */
+  padding-top: 10px; /* no margin, no extra space */
   position: relative;
   z-index: 1200 !important;
 }

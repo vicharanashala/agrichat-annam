@@ -31,7 +31,7 @@ if USE_FAST_MODE:
     else:
         print(f"[CONFIG] Fallback Tool Mode ENABLED - Using single-tool fallback pipeline")
 
-def get_answer(question: str, conversation_history_param: Optional[List[Dict]] = None, user_state: str = None) -> str:
+def get_answer(question: str, conversation_history_param: Optional[List[Dict]] = None, user_state: str = None, db_config=None) -> str:
     """
     Get answer using either Fast Mode or CrewAI Mode
     
@@ -39,6 +39,7 @@ def get_answer(question: str, conversation_history_param: Optional[List[Dict]] =
         question: User's agricultural question
         conversation_history_param: Previous conversation for context
         user_state: User's state/region (default: India)
+        db_config: Database configuration for toggles
     
     Returns:
         Generated response
@@ -49,7 +50,7 @@ def get_answer(question: str, conversation_history_param: Optional[List[Dict]] =
         conversation_history_param = conversation_history
     
     if USE_FAST_MODE and fast_handler:
-        result = fast_handler.get_answer(question, conversation_history_param, user_state or "India")
+        result = fast_handler.get_answer(question, conversation_history_param, user_state or "India", db_config)
     else:
         try:
             fallback_tool = FallbackAgriTool()

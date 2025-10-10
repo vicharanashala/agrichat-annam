@@ -1171,7 +1171,7 @@ window.addEventListener("DOMContentLoaded", async () => {
                   console.log('[THINKING] Displaying final answer');
                   // Display final answer
                   if (answerContainer) {
-                    displayFinalAnswer(answerContainer, data.answer, data.source, data.confidence);
+                    displayFinalAnswer(answerContainer, data.answer, data.source, data.confidence, data.metadata);
                   } else {
                     console.warn('[THINKING] No answer container, falling back to appendMessage');
                     appendMessage("bot", data.answer, null, null, currentThinkingText, data.source, data.confidence);
@@ -1478,25 +1478,37 @@ window.addEventListener("DOMContentLoaded", async () => {
     return answerDiv.querySelector('.answer-content');
   }
 
-  function displayFinalAnswer(container, answer, source, confidence) {
+  function displayFinalAnswer(container, answer, source, confidence, metadata = null) {
     if (container) {
       const answerSection = container.closest('.answer-section');
       const header = answerSection.querySelector('.answer-header');
 
-      // Update header to show completion (similar to thinking completion)
+      // Check if this is a clarification request
+      const isClarification = source === 'Clarification Request' || 
+                             (metadata && metadata.clarification_type) ||
+                             answer.includes('I need a bit more information');
+
+      // Update header to show completion or clarification
       const statusSpan = header.querySelector('.answer-status');
       const spinner = header.querySelector('.answer-spinner');
 
       if (statusSpan) {
-        statusSpan.innerHTML = 'Answer';
+        statusSpan.innerHTML = isClarification ? 'Clarification Needed' : 'Answer';
       }
 
       if (spinner) {
         spinner.style.animation = 'none';
-        spinner.innerHTML = '✓';
-        spinner.style.border = 'none';
-        spinner.style.background = '#28a745';
-        spinner.style.color = 'white';
+        if (isClarification) {
+          spinner.innerHTML = '?';
+          spinner.style.border = 'none';
+          spinner.style.background = '#ffc107';
+          spinner.style.color = '#000';
+        } else {
+          spinner.innerHTML = '✓';
+          spinner.style.border = 'none';
+          spinner.style.background = '#28a745';
+          spinner.style.color = 'white';
+        }
         spinner.style.display = 'flex';
         spinner.style.alignItems = 'center';
         spinner.style.justifyContent = 'center';
@@ -1504,8 +1516,10 @@ window.addEventListener("DOMContentLoaded", async () => {
         spinner.style.fontWeight = 'bold';
       }
 
-      // Update header background to indicate completion
-      header.style.background = 'linear-gradient(135deg, #28a745, #34ce57)';
+      // Update header background to indicate type
+      header.style.background = isClarification ? 
+        'linear-gradient(135deg, #ffc107, #ffca2c)' :
+        'linear-gradient(135deg, #28a745, #34ce57)';
 
       container.innerHTML = `
         <div class="bot-answer" style="
@@ -1514,7 +1528,7 @@ window.addEventListener("DOMContentLoaded", async () => {
           line-height: 1.6;
           margin-bottom: 12px;
         ">${processMarkdown(answer)}</div>
-        ${source ? `<div class="message-source" style="
+        ${source && !isClarification ? `<div class="message-source" style="
           margin-top: 12px; 
           padding: 8px 12px; 
           background: rgba(255,255,255,0.1); 

@@ -65,84 +65,44 @@ class FastResponseHandler:
                 logger.debug(f"[FAST] Reasoner streaming failed: {e}")
                 chain_of_thought = ''
         try:
-            rag_result = self.rag_tool._handler.get_answer_with_source(question, conversation_history, user_state)
-            logger.info(f"[FAST] RAG result keys: {list(rag_result.keys()) if isinstance(rag_result, dict) else 'non-dict'}")
+            # Convert db_config to database_selection for ChromaQueryHandler
+            database_selection = None
+            if db_config:
+                database_selection = db_config.get_enabled_databases()
+                logger.info(f"[FAST] Using database selection from toggles: {database_selection}")
+            else:
+                database_selection = ["rag", "pops", "llm"]  # Default full pipeline
+                logger.info(f"[FAST] Using default database selection: {database_selection}")
+            
+            # Use the full database selection - ChromaQueryHandler will handle the flow
+            result = self.rag_tool._handler.get_answer_with_source(
+                question, 
+                conversation_history, 
+                user_state, 
+                db_filter=None, 
+                database_selection=database_selection
+            )
+            logger.info(f"[FAST] Database result keys: {list(result.keys()) if isinstance(result, dict) else 'non-dict'}")
             try:
-                logger.info(f"[FAST] RAG result source={rag_result.get('source')} cosine={rag_result.get('cosine_similarity') or rag_result.get('similarity') or rag_result.get('similarity_score')}")
+                logger.info(f"[FAST] Database result source={result.get('source')} cosine={result.get('cosine_similarity') or result.get('similarity') or result.get('similarity_score')}")
             except Exception:
                 pass
-        except Exception as e:
-            logger.debug(f"[FAST] RAG lookup failed: {e}")
-            rag_result = None
-        def _is_no_info_answer(text: Optional[str]) -> bool:
-            if not text:
-                return True
-            t = text.strip().lower()
-            return t.startswith("i don't have enough information") or t.startswith("i don't have enough information to answer")
-        use_rag = False
-        if rag_result and rag_result.get('answer') and rag_result.get('answer') != "__FALLBACK__":
-            ans_text = rag_result.get('answer')
-            cosine = rag_result.get('cosine_similarity') or rag_result.get('similarity') or rag_result.get('similarity_score') or 0.0
-            if (not _is_no_info_answer(ans_text)) and cosine >= 0.6:
-                use_rag = True
-        if use_rag:
-            source = rag_result.get('source', 'rag')
-            structured_text = rag_result.get('answer')
             
-            # For Golden Database, return exact answer without any LLM refinement
-            if source == "RAG Database (Golden)":
-                logger.info(f"[FAST] Golden Database exact match - returning raw answer without LLM processing")
-                return {
-                    'answer': structured_text,
-                    'source': source,
-                    'similarity': rag_result.get('similarity_score') or rag_result.get('cosine_similarity') or 1.0,
-                    'metadata': rag_result.get('metadata') or rag_result.get('document_metadata') or {}
-                }
+            # Return the result directly from ChromaQueryHandler which handles the full toggle flow
+            return {
+                'answer': result.get('answer', 'Unable to generate response'),
+                'source': result.get('source', 'Unknown'),
+                'similarity': result.get('cosine_similarity') or result.get('similarity') or result.get('similarity_score') or 0.0,
+                'metadata': result.get('document_metadata') or result.get('metadata') or {}
+            }
             
-            # For other RAG sources, apply LLM structuring
-            if self.structurer_llm:
-                try:
-                    struct_prompt = (
-                        f"You are a content structurer. Given the following factual content from a database, "
-                        f"present a clear, concise, farmer-friendly answer.\n\nOriginal question: {question}\n\nDB Content:\n{rag_result.get('answer')}\n"
-                    )
-                    structured_text = self.structurer_llm.generate_content(struct_prompt, temperature=0.2)
-                except Exception:
-                    structured_text = rag_result.get('answer')
-            return {
-                'answer': structured_text,
-                'source': source,
-                'similarity': rag_result.get('similarity_score') or rag_result.get('cosine_similarity') or 1.0,
-                'metadata': rag_result.get('metadata') or rag_result.get('document_metadata') or {}
-            }
-        logger.info(f"[FAST] RAG not used (use_rag={use_rag}), attempting PoPs lookup next")
-        try:
-            pops_result = self.rag_tool._handler.get_answer_with_source(question, conversation_history, user_state, database_selection=['pops', 'llm'])
-            logger.info(f"[FAST] PoPs result keys: {list(pops_result.keys()) if isinstance(pops_result, dict) else 'non-dict'}")
-            try:
-                logger.info(f"[FAST] PoPs result source={pops_result.get('source')} cosine={pops_result.get('cosine_similarity') or pops_result.get('similarity')}")
-            except Exception:
-                pass
         except Exception as e:
-            logger.debug(f"[FAST] PoPs lookup failed: {e}")
-            pops_result = None
-        if pops_result and pops_result.get('answer') and not _is_no_info_answer(pops_result.get('answer')) and pops_result.get('answer') != "__FALLBACK__":
-            structured_text = pops_result.get('answer')
-            if self.structurer_llm:
-                try:
-                    struct_prompt = (
-                        f"You are a content structurer. Given the following factual content from a PoPs database, "
-                        f"present a clear, concise, farmer-friendly answer.\n\nOriginal question: {question}\n\nPoPs Content:\n{pops_result.get('answer')}\n"
-                    )
-                    structured_text = self.structurer_llm.generate_content(struct_prompt, temperature=0.2)
-                except Exception:
-                    structured_text = pops_result.get('answer')
-            return {
-                'answer': structured_text,
-                'source': pops_result.get('source', 'pops'),
-                'similarity': pops_result.get('cosine_similarity') or pops_result.get('similarity') or 0.0,
-                'metadata': pops_result.get('document_metadata') or pops_result.get('metadata') or {}
-            }
+            logger.error(f"[FAST] Database lookup failed: {e}")
+            # Fallback to LLM if all database options fail
+            return self._fallback_llm_response(question, user_state)
+
+    def _fallback_llm_response(self, question: str, user_state: Optional[str] = None) -> Dict:
+        """Generate fallback response using LLM when database queries fail"""
         try:
             if self.fallback_llm:
                 enhanced_prompt = f"""You are an agricultural expert specializing in numerical analysis and technical data. 

@@ -667,9 +667,11 @@
         sidebar.classList.add('show');
         backdrop.classList.add('show');
         body.classList.add('sidebar-open');
+        sidebar.style.zIndex = '1300';  // set high z-index immediately when open
       } else {
         sidebar.classList.remove('collapsed');
         body.classList.remove('sidebar-collapsed');
+        sidebar.style.zIndex = '';  // reset to default when not mobile/open
       }
     }
 
@@ -678,11 +680,35 @@
         sidebar.classList.remove('show');
         backdrop.classList.remove('show');
         body.classList.remove('sidebar-open');
+        sidebar.style.zIndex = '';  // reset z-index when closed
       } else {
         sidebar.classList.add('collapsed');
         body.classList.add('sidebar-collapsed');
+        sidebar.style.zIndex = '';  // reset to default when closed
       }
     }
+
+    // function openSidebar() {
+    //   if (isMobileView()) {
+    //     sidebar.classList.add('show');
+    //     backdrop.classList.add('show');
+    //     body.classList.add('sidebar-open');
+    //   } else {
+    //     sidebar.classList.remove('collapsed');
+    //     body.classList.remove('sidebar-collapsed');
+    //   }
+    // }
+
+    // function closeSidebar() {
+    //   if (isMobileView()) {
+    //     sidebar.classList.remove('show');
+    //     backdrop.classList.remove('show');
+    //     body.classList.remove('sidebar-open');
+    //   } else {
+    //     sidebar.classList.add('collapsed');
+    //     body.classList.add('sidebar-collapsed');
+    //   }
+    // }
 
     toggleBtn.addEventListener('click', () => {
       const isVisible = sidebar.classList.contains('show');

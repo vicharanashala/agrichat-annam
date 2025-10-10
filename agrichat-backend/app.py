@@ -925,7 +925,8 @@ async def new_session(request: QueryRequest):
                     rag_main.get_answer,
                     request.question,
                     [],
-                    request.state
+                    request.state,
+                    db_config
                 )
             except Exception as e:
                 logger.error(f"[PIPELINE] rag_main.get_answer failed: {e}")
