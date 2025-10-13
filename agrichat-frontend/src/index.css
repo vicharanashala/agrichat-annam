@@ -1,0 +1,14 @@
+:root {
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  color: #7dd87d;
+}
+
+a:hover {
+  text-decoration: underline;
+}

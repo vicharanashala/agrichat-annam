@@ -1,5 +1,6 @@
 fastapi
 uvicorn
+watchfiles
 pymongo
 python-dotenv
 requests
@@ -13,8 +14,8 @@ torchaudio
 numpy
 python-multipart
 gunicorn
-scikit-learn
 certifi
 pytz
 python-dateutil
 openai-whisper
+crewai

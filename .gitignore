@@ -1,42 +1,25 @@
-# Environment variables
-*.env
-.env
 agrichat-backend/Agentic_RAG/.env
-agrichat-backend/Agentic_RAG/data/
-agrichat-backend/Agentic_RAG/new_structure/
-
-# Excluded folders
-new_structure/
+agrichat-backend/Agentic_RAG/
+agrichat-backend/Agentic_RAG/
+agrichat-frontend/.vercel
+agrichat-frontend/node_modules/
+agrichat-frontend/dist
+Extracted digital POP data/
+Golden Data/
 Package_of_practice/
+Extracted digital POP data/
 chromaDb/
-
-agri_text_classification.ipynb
-bad_text_classifier.ipynb
-bad_words.txt 
-State_wise_data_cleaning_last_step.ipynb
-Final-agritext-classifier.ipynb
-
-
-# Python cache
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .Python
-
-# Virtual environments
 venv/
 env/
-ENV/
-
-# IDE files
 .vscode/
 .idea/
 
-# ChromaDB data
 chromaDb/
-
-# macOS
 .DS_Store
 
 # Logs
@@ -44,7 +27,6 @@ chromaDb/
 .vercel
 
 agrichat-backend/users.csv
-agrichat-backend/Agentic_RAG/Db - Sheet1.csv
-/home/ubuntu/agrichat-annam/agrichat-backend/Agentic_RAG/new_structure
-/home/ubuntu/agrichat-annam/agrichat-backend/Agentic_RAG/legacy_crewai_backup
-/home/ubuntu/agrichat-annam/Package_of_practices
+Extracted_digital_English_POP_data_md/
+agrichat-backend/__pycache__
+.env

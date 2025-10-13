@@ -1,9 +1,0 @@
-.vercel
-*.log
-.DS_Store
-node_modules/
-.env
-.env.local
-.env.production
-Thumbs.db
-
