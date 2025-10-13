@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Send, Settings, Plus, MessageSquare, Sun, Moon, Mic } from "lucide-react";
+import { Send, Settings, Plus, MessageSquare, Sun, Moon, Mic, Trash2 } from "lucide-react";
 import { Button } from "./components/ui/Button";
 import { Textarea } from "./components/ui/Textarea";
 import { ChatMessage } from "./components/ChatMessage";
@@ -7,7 +7,7 @@ import { StreamingMessage } from "./components/StreamingMessage";
 import { getCurrentLocation } from "./utils/geolocation";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { ensureDeviceId } from "./utils/device";
-import { continueSession, fetchSession, fetchSessions, streamThinking, transcribeAudio } from "./services/api";
+import { continueSession, deleteSession, fetchSession, fetchSessions, streamThinking, transcribeAudio } from "./services/api";
 import { cn } from "./utils/cn";
 import type {
   DatabaseToggleConfig,
@@ -263,6 +263,25 @@ function App() {
     }
   };
 
+  const handleDeleteSession = async (sessionId: string) => {
+    try {
+      await deleteSession(sessionId, deviceId);
+      setSessions((prev) => prev.filter((session) => session.session_id !== sessionId));
+      
+      // If the deleted session was currently selected, clear the selection
+      if (selectedSessionId === sessionId) {
+        setCurrentSession(null);
+        setSelectedSessionId(null);
+        setQuestion("");
+        setError(null);
+        setStreamDraft(null);
+      }
+    } catch (err) {
+      console.error(err);
+      setError((err as Error).message ?? "Failed to delete session");
+    }
+  };
+
 
 
   return (
@@ -318,29 +337,45 @@ function App() {
           {/* Sessions List */}
           <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
             {sessions.map((session) => (
-              <button
+              <div
                 key={session.session_id}
-                onClick={() => handleSelectSession(session.session_id)}
-                className={cn(
-                  "w-full text-left p-3 rounded-lg transition-colors group",
-                  "hover:bg-gray-700",
-                  selectedSessionId === session.session_id 
-                    ? "bg-gray-700 text-white" 
-                    : "text-gray-300 hover:text-white"
-                )}
+                className="relative group"
               >
-                <div className="flex items-start gap-2">
-                  <MessageSquare className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">
-                      {session.messages[0]?.question || "New Chat"}
-                    </p>
-                    <p className="text-xs text-gray-500 group-hover:text-gray-400">
-                      {new Date(session.timestamp).toLocaleDateString()}
-                    </p>
+                <button
+                  onClick={() => handleSelectSession(session.session_id)}
+                  className={cn(
+                    "w-full text-left p-3 rounded-lg transition-colors",
+                    "hover:bg-gray-700",
+                    selectedSessionId === session.session_id 
+                      ? "bg-gray-700 text-white" 
+                      : "text-gray-300 hover:text-white"
+                  )}
+                >
+                  <div className="flex items-start gap-2">
+                    <MessageSquare className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">
+                        {session.messages[0]?.question || "New Chat"}
+                      </p>
+                      <p className="text-xs text-gray-500 group-hover:text-gray-400">
+                        {new Date(session.timestamp).toLocaleDateString()}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </button>
+                </button>
+                
+                {/* Delete button - appears on hover */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteSession(session.session_id);
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-red-600 text-gray-400 hover:text-white"
+                  title="Delete chat"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
             ))}
           </div>
         </div>
