@@ -1,14 +1,62 @@
-:root {
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@tailwind base;
+@tailwind components;  
+@tailwind utilities;
+
+@layer base {
+  body {
+    margin: 0;
+    font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  /* Debug CSS to ensure styles are loading */
+  * {
+    box-sizing: border-box;
+  }
 }
 
-a {
-  color: #7dd87d;
-}
-
-a:hover {
-  text-decoration: underline;
+@layer components {
+  .message-bubble {
+    border-radius: 1rem;
+    padding: 0.75rem 1rem;
+    max-width: 85%;
+    word-break: break-words;
+  }
+  
+  .message-bubble.user {
+    background-color: rgb(59 130 246);
+    color: white;
+    margin-left: auto;
+  }
+  
+  .message-bubble.assistant {
+    background-color: rgb(243 244 246);
+    color: rgb(75 85 99);
+  }
+  
+  .dark .message-bubble.assistant {
+    background-color: rgb(55 65 81);
+    color: rgb(209 213 219);
+  }
+  
+  .typing-indicator {
+    display: flex;
+    gap: 0.25rem;
+  }
+  
+  .typing-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    background-color: rgb(107 114 128);
+    border-radius: 9999px;
+    animation: typing 1.5s ease-in-out infinite;
+  }
+  
+  @keyframes typing {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
 }

@@ -403,8 +403,10 @@ class PipelineRunner:
                 keywords,
             )
 
+        # Priority logic: If Golden Database has relevant content, skip PoPs search
         pops_dynamic = config.pops_dynamic_distance_multiplier
-        if config.enable_pops:
+        if config.enable_pops and not golden_hit:
+            # Only search PoPs if Golden Database didn't provide relevant content
             pops_hits = pops_retriever.search(question, states)
             diagnostics.pops_hits = pops_hits
             pops_hit, pops_context_filtered = self._evaluate_hits(
@@ -413,6 +415,10 @@ class PipelineRunner:
                 keywords,
                 dynamic_multiplier=pops_dynamic,
             )
+        elif golden_hit:
+            # Golden Database has relevant content, skip PoPs entirely
+            logger.info("Golden Database provided relevant content, skipping PoPs search")
+            diagnostics.pops_hits = []  # Empty list since we didn't search
 
         golden_context_hits: List[RetrieverHit] = [golden_hit] if golden_hit else []
         pops_context_hits: List[RetrieverHit] = [pops_hit] if pops_hit else []
@@ -513,6 +519,53 @@ class PipelineRunner:
                 ],
                 clarifying_questions=clarifying_questions,
                 metadata=fallback_metadata,
+            )
+
+        if golden_hit and golden_context_hits and not pops_hit:
+            # Extract only the answer portion from Golden Database content
+            raw_content = golden_context_hits[0].content
+            
+            # Parse the content to extract just the answer
+            if "Answer:" in raw_content:
+                # Split by "Answer:" and take everything after it
+                answer_part = raw_content.split("Answer:", 1)[1].strip()
+                direct_answer = answer_part
+            else:
+                # If no "Answer:" delimiter found, use the full content
+                direct_answer = raw_content
+            
+            direct_reasoning = ["Golden Database"]
+            
+            direct_metadata: Dict[str, Any] = {
+                "clarifications": clarifying_questions,
+                "intent_classification": intent_metadata,
+                "retrieval_keyword_overlap": keyword_meta,
+                "context_provided": True,
+                "direct_golden_match": True,
+            }
+            diag = _diag_payload()
+            if diag:
+                direct_metadata["diagnostics"] = diag
+            if raw_config_metadata:
+                direct_metadata["database_config"] = raw_config_metadata
+
+            direct_metadata["retrieved_sources"] = [
+                {
+                    "source": "Golden Database",
+                    "state": golden_hit.state_used if golden_hit else None,
+                    "cosine": golden_hit.cosine if golden_hit else None,
+                    "distance": golden_hit.distance if golden_hit else None,
+                }
+            ]
+            
+            return PipelineResult(
+                answer=direct_answer,
+                source="Golden Database",
+                similarity=golden_hit.cosine,
+                distance=golden_hit.distance,
+                metadata=direct_metadata,
+                reasoning=direct_reasoning,
+                clarifying_questions=clarifying_questions,
             )
 
         llm_context, context_meta = self._build_llm_context(

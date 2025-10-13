@@ -218,3 +218,19 @@ export async function streamThinking(
     }
   }
 }
+
+export async function transcribeAudio(audioFile: File, language?: string): Promise<{ transcript: string }> {
+  const formData = new FormData();
+  formData.append("file", audioFile);
+  if (language) {
+    formData.append("language", language);
+  }
+
+  const response = await fetch(`${import.meta.env.VITE_API_BASE || "http://localhost:8000"}/api/transcribe-audio`, {
+    method: "POST",
+    body: formData,
+    credentials: REQUEST_CREDENTIALS,
+  });
+
+  return handleResponse<{ transcript: string }>(response);
+}
