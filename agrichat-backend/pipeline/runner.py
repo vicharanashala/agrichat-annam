@@ -618,9 +618,19 @@ class PipelineRunner:
             reason=" ; ".join(reason_parts) if reason_parts else "LLM fallback invoked",
         )
 
+        actual_source = "AI Reasoning Engine (gpt-oss)" 
+        if golden_hit and pops_hit:
+            actual_source = "Package of Practices + Agricultural Database"
+        elif pops_hit:
+            actual_source = "Package of Practices (PoPs)"
+        elif golden_hit:
+            actual_source = "Agricultural Database (Golden)"
+        elif context_provided:
+            actual_source = "AI Reasoning Engine with Agricultural Context"
+        
         return PipelineResult(
             answer=answer,
-            source="AI Reasoning Engine (gpt-oss)",
+            source=actual_source,
             metadata=metadata,
             reasoning=reasoning,
             clarifying_questions=clarifying_questions,

@@ -75,3 +75,201 @@ timestamp,question,answer,fallback_reason
 Thus we need to output clarifying questions. Up to two. So we need to ask: 1) Which state/region in India? 2) What is the soil type or current soil fertility? Or maybe planting date. So we can ask: ""Which state or region in India are you planning to cultivate cotton?"" and ""What is the soil type or current soil fertility status (e.g., soil test results)?"" That should be enough.
 
 We should output each question on a new line. No other text. So final answer: two lines with questions.",Golden database returned no results; PoPs database supplied context for the LLM; Clarification suggested to user
+2025-10-13 08:19:28,What is the cultivation method for pineapple?,"**Start pineapple cultivation with a well‑prepared bed, proper spacing, and timely irrigation to ensure healthy growth and high yield.**
+
+1. **Site selection & bed preparation**
+- Choose a sunny site with well‑drained sandy loam or loamy soil (pH 5.5‑7.5).
+- Clear weeds, level the ground, and incorporate 2–3 kg m⁻² of well‑rotted farmyard manure or compost.
+- For better drainage, construct raised beds (30–40 cm high) if the area is prone to waterlogging.
+
+2. **Planting material**
+- Use 1–2 kg fresh, disease‑free pineapple crowns or slips.
+- Plant each crown 1.5–2 m apart in rows 2.5–3 m apart (spacing 1.5 m × 2.5 m gives ~1.5 ha / ha yield).
+- Dig a hole 30 cm deep, place the crown with the leaf crown slightly above soil level, backfill, and firm the soil.
+
+3. **Irrigation**
+- During the hot summer, provide 5–6 irrigations at 20–25 day intervals.
+- Use drip or furrow irrigation to conserve water; avoid waterlogging which promotes fungal diseases.
+
+4. **Fertilization**
+- **Initial**: 80 kg ha⁻¹ N, 40 kg ha⁻¹ P₂O₅, 40 kg ha⁻¹ K₂O (split into 50 % at planting, 30 % at 3 months, 20 % at 6 months).
+- **Later**: Apply 30 kg ha⁻¹ N, 20 kg ha⁻¹ P₂O₅, 20 kg ha⁻¹ K₂O at 9 months and 12 months.
+- Use organic amendments (farmyard manure, green manure) to improve soil structure.
+
+5. **Weed & pest management**
+- **Weeding**: Hand weeding 3–4 times a year; apply diuron 3 kg ha⁻¹ as an emergence spray in the first year to control broad‑spectrum weeds.
+- **Pests**: Monitor for mealybugs, scale insects, and pineapple weevil; use neem oil or insecticidal soap as needed.
+- **Diseases**: Keep foliage dry, rotate crops, and apply copper fungicide if early blight appears.
+
+6. **Mulching & protection**
+- Apply dry pineapple leaves or paddy straw as mulch to conserve moisture, suppress weeds, and reduce sunburn.
+- During fruit maturation, cover fruits with straw or pineapple leaves to protect from birds and heat damage.
+
+7. **Harvesting**
+- Pineapples are ready for harvest 18–24 months after planting, when the leaf crown turns brown and the fruit shows a sweet aroma.
+- Cut the whole plant at the base; store in cool, shaded conditions to maintain quality.
+
+**Need more detail?**
+- Which variety are you planning to grow (e.g., ‘Smooth Cayenne’, ‘Red Spanish’)?
+- What is the specific region or climate zone of your farm?
+
+**Tip:** In the monsoon season, avoid over‑watering; use mulch to reduce evaporation and keep the soil temperature moderate, which helps in faster fruit development.",Golden database returned no results; PoPs database supplied context for the LLM
+2025-10-13 08:20:11,What are the varieties of Khasi Mandarin mentioned in Assam?,"**Khasi Mandarin varieties grown in Assam are Kohima, Mizoram, Khasi, and Kohima (sub‑variety).**
+
+1. **Identify the varieties**
+- **Kohima** – medium‑sized fruit, sweet‑tangy flavour, ripens early (April‑May).
+- **Mizoram** – slightly larger fruit, very sweet, ripens mid‑season (May‑June).
+- **Khasi** – small, crisp fruit, balanced sweet‑acidic taste, ripens late (June‑July).
+- **Kohima (sub‑variety)** – similar to Kohima but with a higher juice content, ripens early (April‑May).
+
+2. **Choosing the right variety for your farm**
+- **Climate match** – All four varieties thrive in Assam’s humid subtropical climate; choose based on your specific micro‑climate (e.g., higher rainfall areas favour Kohima).
+- **Market demand** – If local markets prefer sweeter fruit, opt for Mizoram; for premium juice, choose Kohima (sub‑variety).
+- **Planting density** – Use 10‑12 m² spacing for Kohima and 12‑15 m² for Mizoram to maximise yield.
+
+3. **Planting & care tips**
+- **Planting time** – Sow seedlings in early February to give them a full pre‑monsoon growth period.
+- **Fertiliser** – Apply 50 kg ha⁻¹ N, 30 kg ha⁻¹ P₂O₅, 30 kg ha⁻¹ K₂O in early March; split the dose (half at planting, half after 60 days).
+- **Pruning** – Annual pruning in late December to remove deadwood and shape the canopy.
+- **Pest control** – Monitor for citrus leaf miner and aphids; use neem oil (1 L ha⁻¹) every 15 days during the growing season.
+
+**Need more detail?**
+- What is the age of your orchard and the specific sub‑region of Assam?
+- Which fruit quality traits (sweetness, juice content, shelf‑life) are most important to your market?
+
+**Tip:** Store harvested mandarins in a cool, ventilated area (10–12 °C) to extend shelf‑life and reduce post‑harvest losses.",Golden database returned no results; PoPs database supplied context for the LLM
+2025-10-13 08:20:53,What are the coconut varieties mentioned for Assam cultivation?,"**Assam’s coconut cultivation mainly uses the Dwarf Tall and Dwarf Tall varieties.**
+
+- **Dwarf Tall**
+- Hybrid of Dwarf and Tall types.
+- Reaches 12–15 m, suitable for the humid, low‑land areas of Assam.
+- Produces medium‑sized fruits (≈ 1.5–2 kg) with good oil content.
+
+- **Dwarf Tall**
+- Another hybrid variant, slightly shorter (≈ 10–12 m).
+- Performs well in the cooler, hilly pockets of Assam.
+- Yields slightly smaller fruits (≈ 1–1.5 kg) but with higher resilience to wind.
+
+**Need more detail?**
+- What is the altitude of your coconut plot?
+- Which irrigation method are you planning to use (drip, furrow, or sprinkler)?
+
+*Tip:* In Assam’s monsoon‑heavy climate, ensure proper drainage and avoid waterlogging to prevent root rot and fungal diseases.",Golden database returned no results; PoPs database supplied context for the LLM
+2025-10-13 08:21:25,What is Kamrupa variety in coconut cultivation?,"**Kamrupa is a high‑yield, disease‑resistant hybrid coconut variety developed by the Coconut Development Board, suitable for both coastal and inland plantations.**
+
+1. **Planting & Spacing**
+- Sow seedlings at 8 × 8 m (≈ 64 m² per tree) for optimal canopy spread.
+- Use well‑drained, sandy loam soils; avoid water‑logged sites.
+
+2. **Fertilization Schedule**
+- **Initial**: 200 kg ha⁻¹ N, 100 kg ha⁻¹ P₂O₅, 200 kg ha⁻¹ K₂O (split 50 % at planting, 50 % after 6 months).
+- **Subsequent**: 150 kg ha⁻¹ N, 75 kg ha⁻¹ P₂O₅, 150 kg ha⁻¹ K₂O per year, applied in 3–4 equal doses (every 3–4 months).
+- Add 10 kg ha⁻¹ micronutrients (Zn, Fe, B) if soil tests show deficiencies.
+
+3. **Irrigation**
+- Maintain soil moisture at 60–70 % field capacity during dry spells.
+- Use drip or furrow irrigation; avoid over‑watering to prevent root rot.
+
+4. **Pest & Disease Management**
+- **Coconut scale (Aspidiotus rigidus)**: Apply neem oil (5 % w/v) or systemic insecticide (e.g., imidacloprid) every 4–6 weeks during the first 3 years.
+- **Coconut wilt (Fusarium spp.)**: Ensure good drainage; apply fungicide (e.g., carbendazim 0.5 % w/v) at bud break.
+- **Coconut mealybug**: Use horticultural oil (10 % w/v) monthly during the rainy season.
+
+5. **Pruning & Thinning**
+- Thin to 2–3 healthy palms per plot after 3 years to reduce competition.
+- Remove dead or diseased fronds promptly to improve airflow.
+
+6. **Harvest Timing**
+- First commercial yield at 6–7 years; peak yield at 12–15 years.
+- Harvest when fruitlets are 30–35 cm in diameter and have a greenish‑brown husk.
+
+**Need more detail?**
+- Which region or climate zone are you planning to cultivate Kamrupa?
+- What is the current age or condition of your existing coconut stand?
+
+*Tip:* In coastal areas, protect young palms from salt spray by planting a windbreak of cashew or mango trees; this improves survival and early growth.",Golden database returned no results; PoPs database supplied context for the LLM
+2025-10-13 08:22:40,What is the flowering time for Khasi Mandarin in Assam?,"**Khasi Mandarin in Assam usually starts flowering from late March to early April, peaking in April.**
+
+1. **Monitor bud development**
+- Check for bud break around the end of February.
+- First visible buds usually appear in early March.
+
+2. **Record flowering dates**
+- Note the first day of bud opening and the day when 50 % of the tree’s flowers are open.
+- Use these dates to plan pollination and pest control.
+
+3. **Manage environmental factors**
+- Ensure adequate irrigation during the pre‑flowering period; avoid waterlogging.
+- Maintain a balanced fertilization regime (N ≈ 120 kg ha⁻¹, P₂O₅ ≈ 60 kg ha⁻¹, K₂O ≈ 80 kg ha⁻¹) to support bud formation.
+
+4. **Pruning and canopy management**
+- Light pruning in late winter (January–February) encourages vigorous bud growth.
+- Keep the canopy open to allow light penetration, which aids flowering.
+
+5. **Pest and disease vigilance**
+- Watch for aphids and citrus leaf miner during bud break; treat early if infestation is high.
+- Apply fungicide (e.g., mancozeb) if fungal infections are observed on buds.
+
+**Need more detail?**
+- What is the age of your orchard?
+- Which specific Khasi Mandarin variety are you cultivating?
+
+**Tip:** In Assam’s humid climate, a well‑timed pre‑flowering irrigation boost (about 10 mm) can significantly improve flower set and subsequent fruit yield.",Golden database returned no results; PoPs database supplied context for the LLM
+2025-10-13 08:28:14,What is the flowering time for Khasi Mandarin in Assam?,"**Khasi Mandarin in Assam usually starts flowering between late March and early April, depending on local climate and orchard age.**
+
+1. **Pre‑flowering check (late Feb–early Mar)**
+• Inspect buds for uniform size and color.
+• Apply a balanced NPK (10‑10‑10) at 50 kg ha⁻¹ if soil test shows deficiency.
+
+2. **Flowering period (late Mar–early Apr)**
+• Expect full bloom within 10–14 days after bud break.
+• Maintain 70–80 % field capacity irrigation; avoid waterlogging.
+
+3. **During flowering**
+• Protect trees from heavy rains by using temporary shade nets or mulching.
+• Apply 5 kg ha⁻¹ of micronutrient (Zn, Fe) if foliar tests indicate low levels.
+
+4. **Post‑flowering care**
+• Reduce nitrogen to 20 kg ha⁻¹ to promote fruit set.
+• Monitor for blossom‑end rot; apply 0.5 % copper sulfate spray if needed.
+
+**Need more detail?**
+- What is the age of your orchard?
+- Which specific sub‑region of Assam are you cultivating in?
+
+*Tip:* Record the exact dates of bud break and full bloom each year; this helps predict future flowering windows and plan pest control accordingly.",Golden database returned no results; PoPs database supplied context for the LLM
+2025-10-13 08:31:26,What are the pineapple varieties for cultivation?,"**Choose the right pineapple variety to match your climate, soil, and market demand.**
+
+1. **Popular Indian varieties**
+- **MD 2 (Madura 2)** – High yield, 15–18 kg fruit, good for fresh market, thrives in tropical climates.
+- **MD 3 (Madura 3)** – Similar to MD 2 but slightly larger fruit (18–20 kg), good for juice and processing.
+- **MD 4 (Madura 4)** – Medium‑sized fruit (12–14 kg), early maturing (≈ 12 months), suitable for small farms.
+- **MD 5 (Madura 5)** – Large fruit (20–22 kg), high sugar content, good for export.
+- **MD 6 (Madura 6)** – Medium‑sized, high disease resistance, suitable for rain‑fed areas.
+- **MD 7 (Madura 7)** – Early maturing (≈ 10 months), good for high‑yield intensive systems.
+- **MD 8 (Madura 8)** – Large fruit, high juice yield, good for processing.
+- **MD 9 (Madura 9)** – Medium‑sized, high fruit quality, suitable for mixed cropping.
+- **MD 10 (Madura 10)** – Small‑to‑medium fruit, good for home gardens and small plots.
+- **MD 11 (Madura 11)** – Large fruit, high sugar, good for export markets.
+- **MD 12 (Madura 12)** – Medium‑sized, high yield, suitable for high‑density planting.
+
+2. **How to select a variety**
+- **Climate fit** – Choose MD 2, 3, 4, 6 for humid coastal zones; MD 7, 8, 9 for semi‑arid interiors.
+- **Soil type** – All Madura varieties prefer well‑drained loamy soils; add organic matter if sandy.
+- **Market demand** – MD 5, 8, 11 for export; MD 2, 3, 4 for local fresh markets.
+- **Planting density** – MD 7 and MD 8 perform best at 3 m × 3 m spacing; others at 3.5 m × 3.5 m.
+- **Disease resistance** – MD 6 and MD 12 have better tolerance to fungal blight and root rot.
+
+3. **Planting and care (quick checklist)**
+- **Planting time** – Post‑monsoon (Oct–Nov) for most varieties; early planting (Aug–Sep) for MD 7.
+- **Spacing** – 3 m × 3 m for MD 2, 3, 4; 3 m × 3 m for MD 7, 8; 3.5 m × 3.5 m for others.
+- **Irrigation** – 5–6 irrigations during summer, 20–25 days apart; avoid waterlogging.
+- **Fertilizer** – 80 kg ha⁻¹ N, 40 kg ha⁻¹ P₂O₅, 40 kg ha⁻¹ K₂O in split doses (pre‑plant, 3 months, 6 months).
+- **Weed control** – Diuron 3 kg ha⁻¹ at emergence; hand weeding 3–4 times a year.
+- **Mulching** – Paddy straw or pineapple leaves to reduce sunburn and bird damage.
+
+**Need more detail?**
+- Which region or state are you planning to cultivate in?
+- Are you targeting fresh market, juice, or export?
+
+**Tip:** Use locally adapted Madura varieties and rotate crops with legumes to maintain soil fertility and reduce pest pressure.",Golden database returned no results; PoPs database supplied context for the LLM

@@ -11,14 +11,18 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from dataclasses import replace
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
 
-from . import configure_pipeline, run_pipeline
-from .config import DEFAULT_CONFIG, PipelineConfig
-from .types import PipelineResult
+import sys
+import os
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from pipeline import configure_pipeline, run_pipeline
+from pipeline.config import DEFAULT_CONFIG, PipelineConfig
+from pipeline.types import PipelineResult
 
 
 def _load_questions_from_file(path: Path) -> List[str]:
