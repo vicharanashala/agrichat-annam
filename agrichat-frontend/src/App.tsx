@@ -46,6 +46,7 @@ function App() {
   const [sessions, setSessions] = useState<SessionDocument[]>([]);
   const [currentSession, setCurrentSession] = useState<SessionDocument | null>(null);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [isNewChatMode, setIsNewChatMode] = useState(false);
   const [question, setQuestion] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
@@ -55,6 +56,10 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true); 
   const [showSettings, setShowSettings] = useState(false);
   const [isDarkMode, setIsDarkMode] = useLocalStorage<boolean>("agrichat_dark_mode", false);
+
+  // Audio recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
 
   // Settings
   const [storedState, setStoredState] = useLocalStorage<string>("agrichat_user_state", DEFAULT_STATE);
@@ -127,6 +132,7 @@ function App() {
 
   const handleSelectSession = useCallback(
     async (sessionId: string) => {
+      setIsNewChatMode(false); // Reset new chat mode when selecting a session
       setError(null);
       setStreamDraft(null);
       setIsSending(false);
@@ -199,6 +205,7 @@ function App() {
 
     if (!selectedSessionId || !currentSession) {
       // Start new session with streaming
+      setIsNewChatMode(false); // Reset new chat mode when starting a session
       setIsSending(true);
       setStreamDraft({ question: payload.question });
       try {
@@ -234,15 +241,16 @@ function App() {
   }, [buildPayload, currentSession, handleStreamEvent, isSending, question, selectedSessionId]);
 
   useEffect(() => {
-    if (!selectedSessionId && sessions.length > 0) {
+    if (!selectedSessionId && sessions.length > 0 && !isNewChatMode) {
       setSelectedSessionId(sessions[0].session_id);
       setCurrentSession(sessions[0]);
     }
-  }, [selectedSessionId, sessions]);
+  }, [selectedSessionId, sessions, isNewChatMode]);
 
   const messages: SessionMessage[] = currentSession?.messages ?? [];
 
   const startNewChat = () => {
+    setIsNewChatMode(true);
     setCurrentSession(null);
     setSelectedSessionId(null);
     setQuestion("");
@@ -260,6 +268,45 @@ function App() {
       setError((err as Error).message ?? "Failed to transcribe audio");
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      const chunks: Blob[] = [];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunks.push(event.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(chunks, { type: 'audio/wav' });
+        const audioFile = new File([audioBlob], 'recording.wav', { type: 'audio/wav' });
+
+        // Stop all tracks to release the microphone
+        stream.getTracks().forEach(track => track.stop());
+
+        // Transcribe the recorded audio
+        await handleFileUpload(audioFile);
+      };
+
+      setMediaRecorder(recorder);
+      recorder.start();
+      setIsRecording(true);
+    } catch (err) {
+      setError("Failed to access microphone: " + (err as Error).message);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorder && isRecording) {
+      mediaRecorder.stop();
+      setIsRecording(false);
+      setMediaRecorder(null);
     }
   };
 
@@ -453,7 +500,7 @@ function App() {
                   onChange={(e) => handleToggleChange({ llm_enabled: e.target.checked })}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                <div className="w-11 h-6 bg-blue-600 rounded-full peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
               </label>
             </div>
           </div>
@@ -542,7 +589,8 @@ function App() {
                       <label key={key} className="flex items-center gap-2">
                         <input
                           type="checkbox"
-                          checked={value}
+                          checked={key === 'llm_enabled' ? true : value}
+                          disabled={key === 'llm_enabled'}
                           onChange={(e) => handleToggleChange({ [key]: e.target.checked })}
                           className="rounded"
                         />
@@ -581,26 +629,16 @@ function App() {
                 )}
               </div>
               
-              <input
-                type="file"
-                accept="audio/*"
-                className="hidden"
-                id="audio-upload"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleFileUpload(file);
-                }}
-              />
-              
               <Button
                 type="button"
                 variant="outline"
                 size="icon"
-                onClick={() => document.getElementById('audio-upload')?.click()}
+                onClick={isRecording ? stopRecording : startRecording}
                 disabled={isSending}
-                className="flex-shrink-0"
+                className={`flex-shrink-0 ${isRecording ? 'bg-red-500 hover:bg-red-600 border-red-500 text-white' : ''}`}
+                title={isRecording ? "Stop recording" : "Start recording"}
               >
-                <Mic className="h-4 w-4" />
+                <Mic className={`h-4 w-4 ${isRecording ? 'animate-pulse text-white' : ''}`} />
               </Button>
               
               <Button 

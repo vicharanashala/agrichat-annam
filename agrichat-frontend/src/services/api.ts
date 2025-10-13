@@ -21,17 +21,23 @@ async function handleResponse<T>(response: Response): Promise<T> {
   const isJson = contentType.includes("application/json");
 
   if (!response.ok) {
-    if (isJson) {
-      try {
-        const errorJson = await response.json();
-        throw new Error(typeof errorJson === "string" ? errorJson : JSON.stringify(errorJson));
-      } catch (jsonError) {
-        const text = await response.text();
-        throw new Error(text || `Request failed with status ${response.status}`);
+    let errorMessage: string;
+    try {
+      const text = await response.text();
+      if (isJson) {
+        try {
+          const errorJson = JSON.parse(text);
+          errorMessage = typeof errorJson === "string" ? errorJson : JSON.stringify(errorJson);
+        } catch (jsonError) {
+          errorMessage = text || `Request failed with status ${response.status}`;
+        }
+      } else {
+        errorMessage = text || `Request failed with status ${response.status}`;
       }
+    } catch (readError) {
+      errorMessage = `Request failed with status ${response.status}`;
     }
-    const text = await response.text();
-    throw new Error(text || `Request failed with status ${response.status}`);
+    throw new Error(errorMessage);
   }
 
   if (!isJson) {
@@ -40,10 +46,10 @@ async function handleResponse<T>(response: Response): Promise<T> {
   }
 
   try {
-    return (await response.json()) as T;
-  } catch (error) {
     const text = await response.text();
-    throw new Error(text || "Failed to parse JSON response");
+    return JSON.parse(text) as T;
+  } catch (error) {
+    throw new Error("Failed to parse JSON response");
   }
 }
 

@@ -426,3 +426,119 @@ We should output each question on a new line. No other text. So final answer: tw
 - What is the soil pH and texture in your field?
 
 **Tip:** In Haryana’s hot climate, use shade nets or mulch to keep soil temperature below 25 °C during the first 30 days, ensuring better curd formation.",Golden database supplied context for the LLM; PoPs database supplied context for the LLM
+2025-10-13 12:56:50,what is the seed rate for paddy in Tamil Nadu,"**Seed rate for paddy in Tamil Nadu is about 20–25 kg / ha for direct‑seeding and 30–35 kg / ha for transplanting.**
+
+1. **Choose the right variety** – use a locally adapted, high‑yielding variety (e.g., IR-64, Swarna, or a hybrid suited to the region).
+2. **Seed preparation** –
+- Treat seeds with a fungicide (e.g., carbendazim 0.5 % v/v) 30 min before sowing.
+- Dry seeds to 12–14 % moisture to avoid rot.
+3. **Sowing** –
+- **Direct seeding**: sow at a depth of 2–3 cm, spacing 20 cm × 20 cm (≈ 30 kg / ha).
+- **Transplanting**: raise seedlings for 15–20 days, then transplant at 15 cm × 15 cm spacing (≈ 35 kg / ha).
+4. **Timing** – sow in the first week of the monsoon (late June–early July) for the Kharif season; for the Rabi season, sow in late November–early December.
+5. **Precautions** –
+- Avoid over‑sowing; excess seed can lead to overcrowding and poor stand establishment.
+- Monitor seed germination; if < 70 % germination, reduce seed rate by 10 % and re‑sow.
+
+**Need more detail?**
+- Which sowing method are you planning (direct or transplant)?
+- What specific variety or hybrid are you using?
+
+*Tip:* In Tamil Nadu, using a seed‑rate calculator that factors in local rainfall and soil fertility can fine‑tune your sowing plan and prevent wastage.",Golden database disabled; PoPs database supplied context for the LLM
+2025-10-13 12:57:14,what is the seed rate for paddy in Tamil Nadu,"**Seed rate for paddy in Tamil Nadu is generally 20–25 kg / ha for hybrid varieties and 30–35 kg / ha for conventional varieties.**
+
+1. **Choose the right variety**
+- Hybrid (e.g., IR-64, Swarna‑Hybrid) → 20–25 kg / ha.
+- Conventional (e.g., BPT‑5204, Kharif‑2015) → 30–35 kg / ha.
+
+2. **Prepare the seed bed**
+- Level the field and ensure good drainage.
+- Use a seed drill or hand‑sowing for small plots; adjust seed rate on the drill to match the above kg/ha figures.
+
+3. **Sowing timing**
+- **Kharif season**: sow between mid‑June and early‑July.
+- **Rabi season**: sow between late‑November and early‑December.
+
+4. **Planting depth & spacing**
+- Depth: 2–3 cm for hybrids, 3–4 cm for conventional.
+- Row spacing: 20–25 cm; seed spacing within row: 5–7 cm.
+
+5. **Post‑sowing care**
+- Maintain 5–7 cm water depth for the first 15 days.
+- Apply 50 kg / ha urea (or equivalent N) 15 days after emergence.
+- Use 30 kg / ha P₂O₅ and 30 kg / ha K₂O at sowing.
+
+6. **Monitor germination**
+- Aim for >80 % germination; if lower, consider pre‑treatment (e.g., soaking 12 h) or use a higher seed rate within the recommended range.
+
+---
+
+### Need more detail?
+1. Which specific variety (hybrid or conventional) are you planning to grow?
+2. Are you sowing for the Kharif or Rabi season?
+
+---
+
+**Tip:** In Tamil Nadu, using a seed drill calibrated to the local seed density reduces wastage and ensures uniform stand, which is crucial for maximizing yield under the region’s high rainfall and temperature conditions.",Golden database returned no results; PoPs database supplied context for the LLM
+2025-10-13 12:57:35,what are the varieties of paddy in Tamil Nadu,"**Here are the major paddy varieties cultivated in Tamil Nadu, grouped by their typical growing season and key traits.**
+
+1. **Kharif (Monsoon) varieties** – sown in June–July, harvested in December–January
+- *Swarna* – high yield, good grain quality, moderate drought tolerance
+- *IR-64* – widely grown, high yield, disease‑resistant
+- *N-22* – high yield, early maturing, good for short‑duration fields
+- *Kharif 1* – popular in the Cauvery basin, good grain quality
+
+2. **Rabi (Winter) varieties** – sown in November–December, harvested in March–April
+- *Bharathi* – high yield, good grain quality, suitable for cooler soils
+- *Kharif 2* – early maturing, good for short winter cropping
+- *IR-36* – high yield, good grain quality, tolerant to low temperatures
+
+3. **Specialty / niche varieties** – used for organic, heritage, or high‑value markets
+- *Basmati‑like varieties* (e.g., *Basmati 370*) – aromatic, long grains
+- *Red rice* (e.g., *Kharif 3*) – high in iron and zinc, good for nutrition
+- *Swarna 64* – a hybrid of *Swarna* and *IR‑64*, combines high yield with disease resistance
+
+4. **Drought‑tolerant / water‑saving varieties** – important for semi‑arid districts
+- *IR-64 Drought Tolerant* – reduced water requirement, stable yield
+- *N-22 Drought Tolerant* – early maturity, low water use
+
+5. **High‑yield hybrids** – developed by ICAR‑NDRI and local research stations
+- *IR-64 Hybrid* – higher yield potential, requires careful seed management
+- *Swarna Hybrid* – combines high yield with good grain quality
+
+**Need more detail?**
+- Which cropping season are you planning to target (Kharif or Rabi)?
+- What is the predominant soil type and water availability in your farm area?
+
+**Tip:** Use certified seeds from the Tamil Nadu Agricultural University or local seed banks to ensure purity and disease resistance, and rotate varieties each season to maintain soil health.",Golden database returned no results; PoPs database supplied context for the LLM
+2025-10-13 13:04:21,what is the seed rate for paddy in Tamil Nadu,,Golden database disabled; PoPs database disabled
+2025-10-13 13:04:32,what is the seed rate for paddy in Tamil Nadu,"**Use about 20–25 kg of seed per hectare for most Tamil Nadu paddy varieties.**
+
+1. **Choose the right variety** – For the Kharif season, 2–3 kg seed per 10 m² (≈20 kg/ha) works well for high‑yield varieties like IR-64 or Swarna; for the Rabi season, 2.5–3 kg per 10 m² (≈25 kg/ha) is common.
+2. **Prepare the seed bed** – Level the field, ensure 15–20 cm depth, and apply a thin layer of compost or farmyard manure.
+3. **Sowing** – Use a seed drill or hand‑sowing. For SRI/SCI method, sow 2–3 rows with 30 cm spacing, 15 cm between rows, and 15 cm between seeds within a row.
+4. **Water management** – Keep the bed moist but avoid waterlogging; irrigate 2–3 days after sowing and maintain 5–7 cm water depth during tillering.
+5. **Fertilizer** – Apply basal dose of 60 kg N, 40 kg P₂O₅, 40 kg K₂O per hectare; split the remaining N in 2–3 doses during tillering and panicle initiation.
+6. **Pest & disease control** – Treat seeds with 0.5 % carbendazim or 0.2 % mancozeb before sowing; apply foliar sprays as per local pest pressure.
+
+**Need more detail?**
+- Which season (Kharif or Rabi) and what variety are you planning to grow?
+- Are you following the SRI/SCI method or conventional planting?
+
+**Tip:** Use certified high‑quality seed and treat it with a fungicide before sowing to reduce seed rot and ensure uniform germination across the field.",Golden database disabled; PoPs database supplied context for the LLM
+2025-10-13 14:11:19,what is the seed rate for paddy in Tamil Nadu,"**Use 20–25 kg of high‑quality hybrid paddy seed per hectare in Tamil Nadu for optimum yield.**
+
+1. **Choose the right variety** – hybrids (e.g., IR-64, Swarna‑Hybrid) need 20–25 kg/ha; open‑pollinated varieties (e.g., BPT 5204) require 15–20 kg/ha.
+2. **Seed preparation** – soak seeds 12–16 h, treat with 0.5 % carbendazim or 0.2 % thiram 30 min before sowing to prevent seed rot.
+3. **Sowing time** – for Kharif (June–July), sow when soil temperature ≥ 25 °C; for Rabi (November–December), sow when soil temperature ≥ 20 °C.
+4. **Sowing depth & spacing** – plant at 2–3 cm depth, 15–20 cm apart in rows 30–35 cm apart.
+5. **Seed rate calculation** –
+- Hybrid: 20 kg/ha → 0.8 g/seed (≈ 400 seeds/m²).
+- Open‑pollinated: 15 kg/ha → 0.6 g/seed (≈ 300 seeds/m²).
+6. **Precautions** – avoid over‑sowing; excess seed can lead to poor stand establishment and higher disease risk.
+
+**Need more detail?**
+- Which paddy variety are you planning to grow?
+- Are you sowing in a flooded or aerobic system?
+
+**Tip:** Use a calibrated seed drill or a seed metering device to ensure uniform seed distribution and avoid wastage.",Golden database disabled; PoPs database disabled
