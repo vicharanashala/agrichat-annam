@@ -324,6 +324,13 @@ body {
   align-items: flex-start;
 }
 
+.composer__note {
+  flex-basis: 100%;
+  margin: -0.5rem 0 0.5rem;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
 .composer fieldset {
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;

@@ -101,11 +101,14 @@ export function Composer({
               name="llm_enabled"
               checked={toggles.llm_enabled}
               onChange={handleCheckbox}
-              disabled={disabled}
+              disabled={disabled || toggles.pops_enabled}
             />
-            LLM Fallback
+            LLM Fallback{toggles.pops_enabled ? " (required when PoPs is on)" : ""}
           </label>
         </fieldset>
+        {toggles.pops_enabled ? (
+          <p className="composer__note">PoPs answers are always refined by the LLM, so the LLM switch stays on.</p>
+        ) : null}
         <fieldset>
           <legend>Display</legend>
           <label>
