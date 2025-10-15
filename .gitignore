@@ -30,3 +30,4 @@ agrichat-backend/users.csv
 Extracted_digital_English_POP_data_md/
 agrichat-backend/__pycache__
 .env
+agrichat-backend/fallback_queries.csv

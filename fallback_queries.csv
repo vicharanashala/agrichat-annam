@@ -542,3 +542,147 @@ We should output each question on a new line. No other text. So final answer: tw
 - Are you sowing in a flooded or aerobic system?
 
 **Tip:** Use a calibrated seed drill or a seed metering device to ensure uniform seed distribution and avoid wastage.",Golden database disabled; PoPs database disabled
+2025-10-15 04:59:06,What is the best fertilizer schedule for paddy?,"**Use a balanced, split‑application NPK regime that matches the growth stages of your paddy variety.**
+
+1. **Pre‑plant (soil test & base dressing)**
+- **Timing:** 2–3 weeks before transplanting.
+- **Dosage:** 30 kg / ha of N, 15 kg / ha of P₂O₅, 15 kg / ha of K₂O (or equivalent in urea, DAP, MOP).
+- **Method:** Broadcast and incorporate into the top 15–20 cm of soil.
+- **Precaution:** Avoid over‑application of P₂O₅ in high‑phosphorus soils; use soil test to adjust.
+
+2. **Seedling stage (0–15 days after transplant)**
+- **Nitrogen:** 10 kg / ha (urea or 46 % N) as a foliar spray or split into 5 kg / ha at 7 days and 5 kg / ha at 14 days.
+- **Phosphorus & Potassium:** 5 kg / ha each (DAP and MOP) if soil test shows deficiency.
+
+3. **Tillering stage (15–30 days)**
+- **Nitrogen:** 15 kg / ha (urea) split into 7.5 kg / ha at 20 days and 7.5 kg / ha at 25 days.
+- **Potassium:** 10 kg / ha (MOP) at 20 days.
+- **Precaution:** Apply urea in a split dose to reduce volatilization; use a 1 % urea solution for foliar spray if water stress is expected.
+
+4. **Panicle initiation (30–45 days)**
+- **Nitrogen:** 10 kg / ha (urea) at 35 days.
+- **Phosphorus:** 5 kg / ha (DAP) at 35 days if soil P is low.
+- **Precaution:** Avoid excess N after panicle initiation to prevent lodging.
+
+5. **Milk to dough stage (45–75 days)**
+- **Nitrogen:** 5 kg / ha (urea) at 55 days.
+- **Potassium:** 5 kg / ha (MOP) at 55 days.
+- **Precaution:** Monitor soil moisture; apply fertilizers in light rain or after irrigation to improve uptake.
+
+6. **Harvest preparation (75–90 days)**
+- **Nitrogen:** 3 kg / ha (urea) at 80 days if yield potential is high.
+- **Precaution:** Do not apply more than 3 kg / ha N in the last 15 days to avoid post‑harvest residue.
+
+**Need more detail?**
+- Which agro‑climatic zone or district are you farming in?
+- What paddy variety (e.g., Basmati, IR-64, Swarna) are you cultivating?
+
+**Tip:** Use a calibrated spreader and apply fertilizers in a 2–3 m wide band around the plant rows to reduce drift and improve nutrient use efficiency.",Golden database returned no results; PoPs database supplied context for the LLM
+2025-10-15 04:59:18,Can I apply the same schedule for direct seeded rice?,"**Direct‑seeded rice needs a different management plan than transplanting; you should adjust timings, seed rates, and fertilizer applications accordingly.**
+
+1. **Sowing**
+- **Timing:** Sow in the first week of the monsoon (June–July) when soil moisture is adequate.
+- **Seed rate:** 25–30 kg ha⁻¹ (≈ 0.5 g m⁻²).
+- **Method:** Use a seed drill or broadcast followed by a light furrow (2–3 cm deep) to ensure good seed–soil contact.
+
+2. **Fertilizer**
+- **Base dose (per ha):**
+- N: 60 kg (split 30 kg at sowing, 30 kg at tillering).
+- P₂O₅: 30 kg (at sowing).
+- K₂O: 30 kg (at tillering).
+- **Application:** Use urea (46 % N) or DAP (18 % N, 46 % P₂O₅).
+- **Precautions:** Apply urea in split doses to avoid volatilization; use a nitrogen stabilizer if available.
+
+3. **Water Management**
+- **Flooding:** Maintain 2–3 cm of water after sowing; reduce to 1–2 cm during tillering.
+- **Irrigation:** If water is scarce, switch to a shallow water regime (1–2 cm) to conserve water and reduce weed pressure.
+
+4. **Weed Control**
+- **Pre‑emergence:** Apply pre‑emergence herbicide (e.g., pendimethalin) at 0.5 kg ha⁻¹ if weeds are expected.
+- **Post‑emergence:** Use post‑emergence herbicides (e.g., glyphosate) at 0.5–1 kg ha⁻¹ when weeds reach 5–10 cm.
+- **Mechanical:** Light hoeing or manual weeding during early growth stages.
+
+5. **Pest & Disease Management**
+- **Monitoring:** Check for blast, bacterial leaf blight, and pests (e.g., rice stem borer) every 7–10 days.
+- **Control:** Apply recommended fungicides (e.g., mancozeb) and insecticides (e.g., imidacloprid) as per local guidelines.
+
+6. **Harvest**
+- **Timing:** Harvest when grain moisture is 20–22 % (usually 90–120 days after sowing).
+- **Method:** Use a combine or manual threshing; dry grains to <13 % moisture before storage.
+
+**Need more detail?**
+- Which state/region are you farming in?
+- What rice variety (e.g., IR-64, Swarna) are you planning to grow?
+
+**Tip:** In direct‑seeded systems, maintaining a shallow water layer early on suppresses weeds and reduces labor, but be careful not to over‑water, as it can lead to lodging and lower yields.",Golden database returned no results; PoPs database supplied context for the LLM
+2025-10-15 05:04:38,What is the best fertilizer schedule for paddy?,"**Use a balanced, split‑application NPK regime that matches the growth stages of your paddy and local soil fertility.**
+
+1. **Pre‑planting (soil test & base fertiliser)**
+- Apply 30 kg ha⁻¹ of urea (N) 4–6 weeks before transplanting.
+- Add 20 kg ha⁻¹ of DAP (P₂O₅) and 20 kg ha⁻¹ of MOP (K₂O) 2–3 weeks before transplanting.
+- If soil test shows low micronutrients, add 10 kg ha⁻¹ of zinc sulphate (ZnSO₄) and 5 kg ha⁻¹ of iron chelate.
+
+2. **At transplanting (T₀)**
+- Broadcast 20 kg ha⁻¹ urea (N) and 10 kg ha⁻¹ MOP (K₂O) around the seedling beds.
+- Incorporate lightly to avoid root damage.
+
+3. **Tillering stage (15–20 days after transplanting)**
+- Apply 30 kg ha⁻¹ urea (N) as a split dose.
+- If using a slow‑release N source (e.g., 15 kg ha⁻¹ of 15‑20 % N slow‑release), split it into two equal parts at 10 days and 20 days.
+
+4. **Jointing–Heading stage (35–45 days after transplanting)**
+- Apply 20 kg ha⁻¹ urea (N) and 10 kg ha⁻¹ MOP (K₂O) in two equal splits (at 35 days and 45 days).
+- If soil test indicates low P, add 10 kg ha⁻¹ DAP.
+
+5. **Milk–Ripe stage (60–70 days after transplanting)**
+- Final top‑dressing: 10 kg ha⁻¹ urea (N) and 5 kg ha⁻¹ MOP (K₂O) to support grain filling.
+- Avoid excessive N to prevent lodging and post‑harvest quality loss.
+
+6. **General precautions**
+- Use urea‑based N to reduce volatilisation; apply in split doses.
+- Ensure proper irrigation (paddy needs 2–3 mm/day during vegetative growth).
+- Monitor soil pH; maintain 5.5–6.5 for optimal nutrient uptake.
+- Apply micronutrients (Zn, Fe) if soil test shows deficiency.
+
+**Need more detail?**
+- Which agro‑climatic zone or district are you farming in?
+- What paddy variety (e.g., Basmati, IR-64) are you cultivating?
+
+**Tip:** In the monsoon season, apply the first split of urea at the start of the rains to minimise leaching and maximise nitrogen use efficiency.",Golden database returned no results; PoPs database supplied context for the LLM
+2025-10-15 05:04:51,Can I apply the same schedule for direct seeded rice?,"**Use a modified schedule for direct‑seeded rice – the timings and doses differ from transplanting.**
+
+1. **Sowing**
+- **Seed rate:** 20–25 kg ha⁻¹ (≈ 0.5 kg ha⁻¹ for 1 m²).
+- **Seed depth:** 2–3 cm in a shallow furrow or seedbed.
+- **Timing:** Sow in the first week of the monsoon (June–July) when soil moisture is adequate.
+
+2. **Fertilizer**
+- **Basal (pre‑sowing):** 30 kg N ha⁻¹, 60 kg P₂O₅ ha⁻¹, 60 kg K₂O ha⁻¹.
+- **Top‑dressing:**
+- 20 kg N ha⁻¹ at 15–20 days after sowing (when seedlings are 4–5 cm tall).
+- 20 kg P₂O₅ ha⁻¹ and 20 kg K₂O ha⁻¹ at 30–35 days (till 3–4 leaf stage).
+- **Application method:** Use a seed‑fertilizer drill or sprinkle and lightly till.
+
+3. **Irrigation**
+- **Water requirement:** 5–6 mm every 5–7 days during tillering; maintain 5–10 cm water depth.
+- **Avoid waterlogging** after panicle initiation to reduce blast risk.
+
+4. **Weed control**
+- **Pre‑emergence herbicide:** 0.5–1 L ha⁻¹ of pretilachlor or pendimethalin (if available).
+- **Post‑emergence:** Hand weeding or 0.5 L ha⁻¹ of glyphosate at 20–25 days.
+- **Cultural:** Maintain a shallow water layer (5–10 cm) to suppress weeds.
+
+5. **Pest & disease management**
+- **Blast:** Apply 0.5 L ha⁻¹ of carbendazim at 30 days.
+- **Bacterial leaf blight:** Use 0.5 L ha⁻¹ of oxytetracycline at 45 days.
+- **Weed‑pest overlap:** Monitor weekly; adjust doses as per local pest pressure.
+
+6. **Harvest**
+- **Maturity:** 90–110 days from sowing, depending on variety.
+- **Method:** Use a combine or manual threshing; dry grains to <14 % moisture before storage.
+
+**Need more detail?**
+- Which variety of direct‑seeded rice are you planning to grow (e.g., IR-64, Swarna, or a local hybrid)?
+- In which agro‑climatic zone (e.g., Kharif in Punjab, monsoon in West Bengal) will the crop be sown?
+
+**Tip:** In direct seeding, early weed suppression is critical; a single pre‑emergence herbicide application often eliminates the need for later chemical control, saving cost and reducing residue.",Golden database returned no results; PoPs database supplied context for the LLM
