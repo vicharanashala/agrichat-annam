@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import csv
+import os
 import requests
 from io import StringIO, BytesIO
 from typing import Any, Dict
@@ -9,6 +10,7 @@ from typing import Any, Dict
 from fastapi import APIRouter, Body, Form, Request, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 from dateutil import parser
+import requests
 
 from bs4 import BeautifulSoup
 
@@ -226,21 +228,14 @@ async def update_language(data: Dict[str, Any] = Body(...)):
 @router.post("/transcribe-audio")
 async def transcribe_audio(file: UploadFile, language: str = Form("English")):
     try:
-        # Use the custom transcription API instead of Whisper
-        import requests
-        from io import BytesIO
-
-        # Read the uploaded file
         audio_data = await file.read()
 
-        # Create a BytesIO object for the requests library
         audio_buffer = BytesIO(audio_data)
         audio_buffer.seek(0)
 
-        # Call the custom transcription API
-        url = "https://hyperlogical-soppiest-krystin.ngrok-free.dev/api/transcribe"
+        url = os.getenv("TRANSCRIPTION_API_URL")
         files = {"audio": ("audio.wav", audio_buffer, "audio/wav")}
-        data = {"translate": "false"}  # Default to no translation
+        data = {"translate": "false"} 
 
         response = requests.post(url, files=files, data=data)
         response.raise_for_status()
@@ -248,7 +243,6 @@ async def transcribe_audio(file: UploadFile, language: str = Form("English")):
         result = response.json()
 
         if result.get("success"):
-            # Return the punctuated text if available, otherwise original text
             punctuated_text = result.get("punctuation", {}).get("punctuated_text")
             if punctuated_text:
                 transcript = punctuated_text

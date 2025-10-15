@@ -16,6 +16,7 @@ import type {
   ThinkingStreamEvent,
 } from "./types/chat";
 import { DEFAULT_LANGUAGE, DEFAULT_STATE } from "./config";
+import { INDIAN_STATES, INDIAN_UNION_TERRITORIES, isIndianRegion } from "./constants/indianStates";
 
 const DEFAULT_TOGGLES: DatabaseToggleConfig = {
   golden_enabled: true,
@@ -96,6 +97,14 @@ function App() {
     }),
     [storedToggles],
   );
+
+    const detectedStateOption = useMemo(() => {
+    const trimmed = (storedState ?? "").trim();
+    if (!trimmed) {
+      return null;
+    }
+    return isIndianRegion(trimmed) ? null : trimmed;
+  }, [storedState]);
 
   // Dark mode effect
   useEffect(() => {
@@ -584,15 +593,32 @@ function App() {
                   <div>
                     <label className="block text-sm font-medium mb-1">State</label>
                     <select 
-                      value={storedState} 
+                      value={storedState ?? ""}
                       onChange={(e) => setStoredState(e.target.value)}
                       className="w-full p-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900"
                     >
-                      <option value="Tamil Nadu">Tamil Nadu</option>
-                      <option value="Punjab">Punjab</option>
-                      <option value="Maharashtra">Maharashtra</option>
-                      <option value="Andhra Pradesh">Andhra Pradesh</option>
-                      <option value="Haryana">Haryana</option>
+                      <option value="" disabled>
+                        Select your state or union territory
+                      </option>
+                      {detectedStateOption ? (
+                        <option value={detectedStateOption}>
+                          {detectedStateOption} (detected)
+                        </option>
+                      ) : null}
+                      <optgroup label="States">
+                        {INDIAN_STATES.map((state) => (
+                          <option key={state} value={state}>
+                            {state}
+                          </option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Union Territories">
+                        {INDIAN_UNION_TERRITORIES.map((territory) => (
+                          <option key={territory} value={territory}>
+                            {territory}
+                          </option>
+                        ))}
+                      </optgroup>
                     </select>
                   </div>
                 </div>

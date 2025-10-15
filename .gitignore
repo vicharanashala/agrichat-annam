@@ -1,14 +1,14 @@
-agrichat-backend/Agentic_RAG/.env
-agrichat-backend/Agentic_RAG/
-agrichat-backend/Agentic_RAG/
-agrichat-frontend/.vercel
+# Environment files (contains API keys and credentials)
+.env
+.env.*
+!.env.example
+
+# Build and distribution
+agrichat-frontend/dist/
 agrichat-frontend/node_modules/
-agrichat-frontend/dist
-Extracted digital POP data/
-Golden Data/
-Package_of_practices/
-Extracted digital POP data/
-chromaDb/
+agrichat-frontend/.vercel/
+
+# Python
 __pycache__/
 *.pyc
 *.pyo
@@ -16,18 +16,27 @@ __pycache__/
 .Python
 venv/
 env/
+agrichat-backend/__pycache__/
+
+# Database and data files
+chromaDb/
+Extracted digital POP data/
+Golden Data/
+Package_of_practices/
+Extracted_digital_English_POP_data_md/
+Agri data/
+
+# Logs and sensitive data
+*.log
+fallback_queries.csv
+agrichat-backend/users.csv
+
+# IDE and OS
 .vscode/
 .idea/
-
-chromaDb/
 .DS_Store
+.vercel/
 
-# Logs
-*.log
-.vercel
-
-agrichat-backend/users.csv
-Extracted_digital_English_POP_data_md/
-agrichat-backend/__pycache__
-.env
-agrichat-backend/fallback_queries.csv
+# Legacy directories
+agrichat-backend/Agentic_RAG/Agri data/
+Package_of_practices/

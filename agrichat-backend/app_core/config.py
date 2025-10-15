@@ -27,16 +27,9 @@ else:
 MONGO_URI = os.getenv("MONGO_URI")
 
 
-CORS_ORIGINS = [
-    "https://agri-annam.vercel.app",
-    "https://agrichat.annam.ai",
-    "https://agrichat.serveo.net",
-    "https://localhost:3000",
-    "https://127.0.0.1:3000",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "*",
-]
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", 
+    "https://agri-annam.vercel.app,https://agrichat.annam.ai,https://agrichat.serveo.net,https://localhost:3000,https://127.0.0.1:3000,http://localhost:3000,http://127.0.0.1:3000,*"
+).split(",")
 
 
 def iso_now() -> str:

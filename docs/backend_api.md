@@ -8,13 +8,24 @@ This guide summarizes the HTTP and streaming endpoints exposed by the lightweigh
 
 The service does not version its routes yet; all paths below are current as of October 2025.
 
-Deployments typically expose FastAPI behind a reverse proxy. When tunneling through Serveo the public base is:
+Deployments typically expose FastAPI behind a reverse proxy. Configure the public base URL via environment variable (see below) rather than hard-coding it.
+
+### Environment variables
+
+| Variable | Purpose | Frontend usage |
+|----------|---------|----------------|
+| `BACKEND_API_BASE_URL` | Full base (including `/api`) used by backend integrations and published to clients. | Copy into `agrichat-frontend/.env` as `VITE_API_BASE`.
+| `BACKEND_STREAM_ENDPOINT` | SSE endpoint for thinking stream (`/api/query/thinking-stream`). | Optional – the frontend derives this automatically when `VITE_API_BASE` is set. |
+| `BACKEND_HEALTH_ENDPOINT` | Health probe (`/health`). | CI/monitoring only. |
+
+For local Vite development create `agrichat-frontend/.env` with:
 
 ```
-https://agrichat.serveo.net
+VITE_API_BASE=${BACKEND_API_BASE_URL}
+VITE_REQUEST_CREDENTIALS=include
 ```
 
-Set the frontend `API_BASE` to `<BASE_URL>/api`. System endpoints (`/`, `/health`) live at the root.
+System endpoints (`/`, `/health`) live at the root.
 
 ---
 
@@ -215,6 +226,11 @@ The backend honors the following env vars (helpful during integration/testing):
 | `OLLAMA_HOST` | `localhost:11434` | Host:port for the Ollama server. |
 | `BACKEND_RELOAD` | `true` (docker compose) | Run `uvicorn` with hot reload for dev when `true`; production uses Gunicorn. |
 | `USE_HTTPS` | `false` | Switches Gunicorn to `8443` with local self-signed certs when `true`. |
+| `TRANSCRIPTION_API_URL` | `https://your-transcription-service.com/api/transcribe` | URL for the custom audio transcription service. |
+| `CORS_ORIGINS` | `https://agrichat.annam.ai,http://localhost:3000` | Comma-separated list of allowed CORS origins. |
+| `FALLBACK_REVIEW_API_URL` | _(no default)_ | Optional webhook URL for logging fallback answers to review system. |
+| `FALLBACK_REVIEW_BEARER_TOKEN` | _empty_ | Bearer auth token added to the review request if supplied. |
+| `FALLBACK_REVIEW_STATE`, `FALLBACK_REVIEW_DISTRICT`, `FALLBACK_REVIEW_CROP`, `FALLBACK_REVIEW_QUERY_TYPE`, `FALLBACK_REVIEW_SEASON`, `FALLBACK_REVIEW_SECTOR` | _empty_ | Optional metadata fields sent along with fallback review payloads. |
 
 ---
 
@@ -224,7 +240,7 @@ Use the helper script in `agrichat-backend/scripts/send_sample_query.py` to insp
 
 ```
 python scripts/send_sample_query.py \
-  --base-url https://agrichat.serveo.net \
+  --base-url $BACKEND_API_BASE_URL \
   --question "What should I spray for cotton bollworms?" \
   --state "Tamil Nadu" \
   --language "English"

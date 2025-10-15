@@ -1,10 +1,13 @@
 import csv
 import logging
+import os
 import re
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
+
+import requests
 
 from .config import DEFAULT_CONFIG, PipelineConfig
 from .intent_dictionary import AGRICULTURE_KEYWORDS
@@ -46,7 +49,13 @@ class PipelineRunner:
         self.golden = GoldenRetriever(self.stores.golden, config)
         self.pops = PopsRetriever(self.stores.pops, config)
         self.llm = LLMResponder(config)
-        self._fallback_log_path = Path(__file__).resolve().parents[2] / "fallback_queries.csv"
+
+        fallback_path = os.environ.get("FALLBACK_LOG_PATH")
+        if fallback_path:
+            self._fallback_log_path = Path(fallback_path).expanduser()
+        else:
+            default_root = Path(__file__).resolve().parent.parent
+            self._fallback_log_path = (default_root / "fallback_queries.csv").resolve()
 
     @staticmethod
     def _clamp_threshold(value: float) -> float:
@@ -193,25 +202,79 @@ class PipelineRunner:
         context = "\n\n".join(sections).strip()
         return context, meta
 
-    def _log_fallback(self, question: str, answer: str, reason: str) -> None:
-        if not self.config.enable_logging:
-            return
+    def _log_fallback(self, question: str, answer: str, reason: str, state: Optional[str] = None) -> None:
+        now = datetime.now(timezone.utc)
+        timestamp = now.astimezone().strftime("%Y-%m-%d %H:%M:%S")
 
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        path = self._fallback_log_path
+        if self.config.enable_logging:
+            path = self._fallback_log_path
+            try:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                file_exists = path.exists()
+                with path.open("a", newline="", encoding="utf-8") as handle:
+                    writer = csv.writer(handle)
+                    if not file_exists:
+                        writer.writerow(["timestamp", "question", "answer", "fallback_reason", "state"])
+                    writer.writerow([timestamp, question, answer, reason, state or ""])
+                logger.info(
+                    "Fallback logging successful for question '%s' (state=%s)",
+                    question[:60],
+                    state or "unknown",
+                )
+            except PermissionError:
+                logger.warning("Disabling fallback logging because %s is not writable", path)
+                self.config.enable_logging = False
+            except Exception:  # pragma: no cover - logging failure should not break pipeline
+                logger.exception("Failed to log fallback query")
+
         try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            file_exists = path.exists()
-            with path.open("a", newline="", encoding="utf-8") as handle:
-                writer = csv.writer(handle)
-                if not file_exists:
-                    writer.writerow(["timestamp", "question", "answer", "fallback_reason"])
-                writer.writerow([timestamp, question, answer, reason])
-        except PermissionError:
-            logger.warning("Disabling fallback logging because %s is not writable", path)
-            self.config.enable_logging = False
-        except Exception:  # pragma: no cover - logging failure should not break pipeline
-            logger.exception("Failed to log fallback query")
+            review_api_url = os.environ.get("FALLBACK_REVIEW_API_URL")
+            if review_api_url:
+                payload: Dict[str, Any] = {
+                    "original_query_text": question,
+                    "KccAns": answer,
+                    "fallback_reason": reason,
+                    "created_at": now.isoformat(),
+                }
+                if state:
+                    payload["state"] = state
+                optional_fields = {
+                    "crop": os.environ.get("FALLBACK_REVIEW_CROP"),
+                    "district": os.environ.get("FALLBACK_REVIEW_DISTRICT"),
+                    "query_type": os.environ.get("FALLBACK_REVIEW_QUERY_TYPE"),
+                    "season": os.environ.get("FALLBACK_REVIEW_SEASON"),
+                    "sector": os.environ.get("FALLBACK_REVIEW_SECTOR"),
+                }
+                payload.update({k: v for k, v in optional_fields.items() if v})
+                if "state" not in payload:
+                    env_state = os.environ.get("FALLBACK_REVIEW_STATE")
+                    if env_state:
+                        payload["state"] = env_state
+
+                headers: Dict[str, str] = {}
+                auth_token = os.environ.get("FALLBACK_REVIEW_BEARER_TOKEN")
+                if auth_token:
+                    headers["Authorization"] = f"Bearer {auth_token}"
+
+                try:
+                    response = requests.post(
+                        review_api_url,
+                        json=payload,
+                        headers=headers or None,
+                        timeout=5,
+                    )
+                    if not response.ok:
+                        logger.warning(
+                            "Fallback review API responded with status %s: %s",
+                            response.status_code,
+                            (response.text[:200] if response.text else "<empty body>"),
+                        )
+                    else:
+                        logger.info("Fallback review API accepted entry for question '%s'", question[:60])
+                except Exception as exc:  # pragma: no cover - non-fatal
+                    logger.warning("Failed to POST fallback entry to review API: %s", exc)
+        except Exception:
+            logger.debug("Skipping fallback review API push due to configuration or runtime error")
 
     def _evaluate_hits(self, hits, thresholds, dynamic_multiplier=1.0):
         for hit in hits:
@@ -652,6 +715,11 @@ class PipelineRunner:
         ]
         metadata["retrieved_sources"] = [item for item in metadata["retrieved_sources"] if item]
 
+        if user_state:
+            metadata["request_state"] = user_state
+        if states:
+            metadata["state_candidates"] = states
+
         if not context_provided:
             metadata["context_note"] = "LLM invoked without retrieval context"
 
@@ -664,6 +732,7 @@ class PipelineRunner:
             question,
             answer,
             reason=" ; ".join(reason_parts) if reason_parts else "LLM fallback invoked",
+            state=user_state or (states[0] if states else None),
         )
 
         actual_source = "AI Reasoning Engine (gpt-oss)" 

@@ -233,6 +233,14 @@ def pipeline_result_to_answer_dict(result: PipelineResult) -> Dict[str, Any]:
     if metadata.get("context_note"):
         payload["context_note"] = metadata["context_note"]
 
+    request_state = metadata.get("request_state")
+    if isinstance(request_state, str) and request_state:
+        payload["request_state"] = request_state
+
+    state_candidates = metadata.get("state_candidates")
+    if isinstance(state_candidates, list) and state_candidates:
+        payload["state_candidates"] = state_candidates
+
     return payload
 
 
