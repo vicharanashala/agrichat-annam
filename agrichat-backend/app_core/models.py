@@ -13,7 +13,7 @@ class DatabaseToggleConfig(BaseModel):
     llm_enabled: bool = True
 
     similarity_threshold: float = 0.7
-    pops_similarity_threshold: float = 0.35
+    pops_similarity_threshold: float = 0.65
     enable_adaptive_thresholds: bool = True
     strict_validation: bool = False
     show_database_path: bool = True

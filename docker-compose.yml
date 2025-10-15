@@ -1,7 +1,7 @@
 services:
   mongodb:
     image: mongo:latest
-    container_name: agrich
+    container_name: agrichat-mongodb
     ports:
       - "27017:27017"
     volumes:
@@ -9,47 +9,25 @@ services:
     networks:
       - agrichat-net
     restart: unless-stopped
-    healthcheck:
-      test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping')" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
 
   backend:
     build:
       context: ./agrichat-backend
-      dockerfile: Dockerfile
     container_name: agrichat-backend
     network_mode: host
     env_file:
       - .env
     depends_on:
-      mongodb:
-        condition: service_healthy
+      - mongodb
     environment:
       - MONGO_URI=mongodb://localhost:27017/agrichat
       - USE_HTTPS=${USE_HTTPS:-false}
-      - USE_FAST_MODE=${USE_FAST_MODE:-true}
-      - DISABLE_RECOMMENDATIONS=${DISABLE_RECOMMENDATIONS:-false}
-      - PARALLEL_RECOMMENDATIONS=${PARALLEL_RECOMMENDATIONS:-true}
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - OLLAMA_HOST=localhost:11434
       - CUDA_VISIBLE_DEVICES=0,1
-      - BACKEND_RELOAD=${BACKEND_RELOAD:-true}
-      - CONTEXT_MEMORY_STRATEGY=${CONTEXT_MEMORY_STRATEGY:-auto}
-      - CONTEXT_MAX_PAIRS=${CONTEXT_MAX_PAIRS:-5}
-      - CONTEXT_MAX_TOKENS=${CONTEXT_MAX_TOKENS:-800}
-      - CONTEXT_HYBRID_BUFFER_PAIRS=${CONTEXT_HYBRID_BUFFER_PAIRS:-3}
-      - CONTEXT_SUMMARY_THRESHOLD=${CONTEXT_SUMMARY_THRESHOLD:-8}
-      - ENABLE_CHAIN_OF_THOUGHT=${ENABLE_CHAIN_OF_THOUGHT:-true}
-      - ENABLE_ENTITY_TRACKING=${ENABLE_ENTITY_TRACKING:-true}
-      - LOG_LEVEL=${LOG_LEVEL:-info}
-    volumes:
-      - ./agrichat-backend:/app:delegated
-      - ./fallback_queries.csv:/app/fallback_queries.csv
-      - whisper_cache:/app/.cache/whisper
+      - OLLAMA_NUM_PARALLEL=4
+      - OLLAMA_MAX_LOADED_MODELS=2
     restart: unless-stopped
     runtime: nvidia
     deploy:
@@ -57,41 +35,19 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              count: 1
-              capabilities: [ gpu ]
-        limits:
-          memory: 12G
-    # Health check for backend (simplified)
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8000/" ]
-      interval: 60s
-      timeout: 30s
-      retries: 5
-      start_period: 180s
-    # Command supports development reload and production deployments
+              count: 2
+              capabilities: [gpu]
     command: >
       sh -c "
-        echo 'Starting AgriChat Backend...' &&
-        echo 'Context Manager: auto memory, entity tracking, chain of thought' &&
-        if [ \"$$BACKEND_RELOAD\" = \"true\" ]; then
-          echo 'Hot reload enabled (development mode).' &&
-          if [ \"$$USE_HTTPS\" = \"true\" ]; then
-            echo 'HTTPS is not supported with reload; defaulting to HTTP on port 8000.';
-          fi &&
-          uvicorn app:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app
-        elif [ \"$$USE_HTTPS\" = \"true\" ]; then
-          echo 'Starting with HTTPS support...' &&
-          gunicorn app:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8443 --workers 1 --timeout 600 --worker-connections 500 --max-requests 500 --max-requests-jitter 50 --keyfile=ssl/private.key --certfile=ssl/certificate.crt --log-level info --worker-tmp-dir /dev/shm
+        if [ \"$$USE_HTTPS\" = \"true\" ]; then
+          gunicorn app:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8443 --workers 4 --keyfile=ssl/private.key --certfile=ssl/certificate.crt
         else
-          echo 'Starting with HTTP (production mode)...' &&
-          gunicorn app:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --workers 1 --timeout 600 --worker-connections 500 --max-requests 500 --max-requests-jitter 50 --log-level info --worker-tmp-dir /dev/shm
+          gunicorn app:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --workers 4 --worker-connections 1000 --max-requests 1000 --max-requests-jitter 100
         fi
       "
 
 networks:
   agrichat-net:
 
-
 volumes:
   mongodb_data:
-  whisper_cache:

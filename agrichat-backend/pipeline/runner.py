@@ -76,7 +76,7 @@ class PipelineRunner:
 
         if overrides.get("strict_validation"):
             config.golden_thresholds.min_cosine = max(config.golden_thresholds.min_cosine, 0.6)
-            config.pops_thresholds.min_cosine = max(config.pops_thresholds.min_cosine, 0.45)
+            config.pops_thresholds.min_cosine = max(config.pops_thresholds.min_cosine, 0.65)
             if config.golden_thresholds.max_distance is not None:
                 config.golden_thresholds.max_distance = min(config.golden_thresholds.max_distance, 0.35)
 
@@ -522,16 +522,11 @@ class PipelineRunner:
             )
 
         if golden_hit and golden_context_hits and not pops_hit:
-            # Extract only the answer portion from Golden Database content
             raw_content = golden_context_hits[0].content
-            
-            # Parse the content to extract just the answer
             if "Answer:" in raw_content:
-                # Split by "Answer:" and take everything after it
                 answer_part = raw_content.split("Answer:", 1)[1].strip()
                 direct_answer = answer_part
             else:
-                # If no "Answer:" delimiter found, use the full content
                 direct_answer = raw_content
             
             direct_reasoning = ["Golden Database"]

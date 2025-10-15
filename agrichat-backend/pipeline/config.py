@@ -30,7 +30,7 @@ class PipelineConfig:
         default_factory=lambda: SourceThresholds(max_distance=0.45, min_cosine=0.5)
     )
     pops_thresholds: SourceThresholds = field(
-        default_factory=lambda: SourceThresholds(max_distance=None, min_cosine=0.35)
+        default_factory=lambda: SourceThresholds(max_distance=None, min_cosine=0.65)
     )
     pops_dynamic_distance_multiplier: float = 5.0
     golden_k: int = 5
