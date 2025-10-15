@@ -151,8 +151,20 @@ async def run_pipeline_answer(
     if greeting_payload:
         return greeting_payload
 
+    classification_text = question
+    if conversation_history:
+        recent_user_messages = [
+            (entry.get("content") or "")
+            for entry in conversation_history
+            if entry.get("role") == "user"
+        ]
+        if recent_user_messages:
+            recent_context = " \n".join(message.strip() for message in recent_user_messages[-3:] if message)
+            if recent_context:
+                classification_text = f"{recent_context}\nFollow-up: {question}"
+
     try:
-        intent_metadata = classify_question_intent(question)
+        intent_metadata = classify_question_intent(classification_text)
     except Exception as exc:  # pragma: no cover
         logger.warning("[Intent] classification failed: %s", exc)
         intent_metadata = None
