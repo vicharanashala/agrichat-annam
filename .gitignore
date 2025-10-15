@@ -38,5 +38,5 @@ agrichat-backend/users.csv
 .vercel/
 
 # Legacy directories
-agrichat-backend/Agentic_RAG/Agri data/
+Agri data/
 Package_of_practices/
